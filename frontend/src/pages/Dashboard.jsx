@@ -6,6 +6,7 @@ import {
   Activity,
   AlertTriangle,
   RefreshCw,
+  Search,
 } from "lucide-react";
 import api from "../services/api";
 import ContainerCard from "../components/ContainerCard";
@@ -15,6 +16,7 @@ export default function Dashboard() {
   const [containers, setContainers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [discoverMsg, setDiscoverMsg] = useState("");
 
   const fetchContainers = useCallback(async () => {
     try {
@@ -74,6 +76,23 @@ export default function Dashboard() {
         </div>
         <div className="flex gap-3">
           <button
+            onClick={async () => {
+              try {
+                const res = await api.post("/containers/discover");
+                setDiscoverMsg(res.data.message);
+                fetchContainers();
+                setTimeout(() => setDiscoverMsg(""), 5000);
+              } catch {
+                setDiscoverMsg("Failed to discover containers");
+                setTimeout(() => setDiscoverMsg(""), 5000);
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors"
+          >
+            <Search className="w-4 h-4" />
+            Discover
+          </button>
+          <button
             onClick={fetchContainers}
             className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors"
           >
@@ -89,6 +108,13 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {/* Discover Message */}
+      {discoverMsg && (
+        <div className="mb-4 p-3 bg-vpn-primary/10 border border-vpn-primary/30 rounded-lg text-vpn-primary text-sm">
+          {discoverMsg}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

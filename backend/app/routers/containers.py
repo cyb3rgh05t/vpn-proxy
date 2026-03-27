@@ -18,6 +18,62 @@ from app.utils.security import get_current_user
 router = APIRouter(prefix="/api/containers", tags=["containers"])
 
 
+@router.post("/discover")
+def discover_and_import(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Discover existing Gluetun containers and import them into the database."""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    discovered = docker_service.discover_gluetun_containers()
+    imported = 0
+    skipped = 0
+    for info in discovered:
+        # Skip if container_id already tracked
+        existing = (
+            db.query(VPNContainer)
+            .filter(
+                (VPNContainer.container_id == info["container_id"])
+                | (VPNContainer.name == info["name"])
+            )
+            .first()
+        )
+        if existing:
+            # Update container_id if name matches but container_id is missing
+            if existing.container_id != info["container_id"]:
+                existing.container_id = info["container_id"]
+                existing.status = info["status"]
+                db.commit()
+            skipped += 1
+            continue
+
+        vpn_container = VPNContainer(
+            name=info["name"],
+            vpn_provider=info["vpn_provider"],
+            vpn_type=info["vpn_type"],
+            config=info["config"],
+            port_http_proxy=info["port_http_proxy"],
+            port_shadowsocks=info["port_shadowsocks"],
+            port_control=info["port_control"],
+            container_id=info["container_id"],
+            status=info["status"],
+            created_by=current_user.id,
+        )
+        db.add(vpn_container)
+        db.commit()
+        imported += 1
+    return {
+        "message": f"Discovered {len(discovered)} Gluetun containers. Imported {imported}, skipped {skipped} (already tracked).",
+        "discovered": len(discovered),
+        "imported": imported,
+        "skipped": skipped,
+    }
+
+
 @router.get("/providers")
 def list_providers():
     return get_provider_list()

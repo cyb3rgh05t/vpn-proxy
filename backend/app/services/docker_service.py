@@ -200,3 +200,93 @@ def generate_compose_yaml(
         }
     }
     return yaml.dump(compose, default_flow_style=False, sort_keys=False)
+
+
+def discover_gluetun_containers() -> list[dict]:
+    """Find all existing Gluetun containers in Docker, regardless of who created them."""
+    client = _get_client()
+    discovered = []
+    try:
+        all_containers = client.containers.list(all=True)
+        for container in all_containers:
+            image_tags = container.image.tags if container.image else []
+            image_name = ""
+            for tag in image_tags:
+                if "gluetun" in tag.lower():
+                    image_name = tag
+                    break
+            if not image_name:
+                image_id = container.attrs.get("Config", {}).get("Image", "")
+                if "gluetun" not in image_id.lower():
+                    continue
+                image_name = image_id
+
+            attrs = container.attrs or {}
+            config = attrs.get("Config", {})
+            host_config = attrs.get("HostConfig", {})
+            name = container.name or ""
+
+            # Strip "gluetun-" prefix for the display name if present
+            display_name = name
+            if display_name.startswith("gluetun-"):
+                display_name = display_name[8:]
+            if display_name.startswith("/"):
+                display_name = display_name[1:]
+
+            # Extract environment variables
+            env_vars = {}
+            for e in config.get("Env", []):
+                if "=" in e:
+                    k, v = e.split("=", 1)
+                    env_vars[k] = v
+
+            vpn_provider = env_vars.get("VPN_SERVICE_PROVIDER", "unknown")
+            vpn_type = env_vars.get("VPN_TYPE", "openvpn")
+
+            # Extract port mappings
+            port_bindings = host_config.get("PortBindings", {}) or {}
+            port_http_proxy = 8888
+            port_shadowsocks = 8388
+            port_control = 8001
+
+            for port_key, bindings in port_bindings.items():
+                if not bindings:
+                    continue
+                host_port = int(bindings[0].get("HostPort", 0))
+                if host_port == 0:
+                    continue
+                if port_key == "8888/tcp":
+                    port_http_proxy = host_port
+                elif port_key == "8388/tcp":
+                    port_shadowsocks = host_port
+                elif port_key == "8000/tcp":
+                    port_control = host_port
+
+            # Build config dict from VPN-related env vars (exclude standard ones)
+            skip_keys = {"VPN_SERVICE_PROVIDER", "VPN_TYPE", "PATH", "HOME", "HOSTNAME"}
+            vpn_config = {}
+            for k, v in env_vars.items():
+                if (
+                    k not in skip_keys
+                    and not k.startswith("GO")
+                    and not k.startswith("TZ")
+                ):
+                    vpn_config[k] = v
+
+            discovered.append(
+                {
+                    "name": display_name,
+                    "container_name": name,
+                    "container_id": container.id,
+                    "vpn_provider": vpn_provider,
+                    "vpn_type": vpn_type,
+                    "config": vpn_config,
+                    "port_http_proxy": port_http_proxy,
+                    "port_shadowsocks": port_shadowsocks,
+                    "port_control": port_control,
+                    "status": container.status,
+                }
+            )
+    except Exception as e:
+        logger.error("Failed to discover Gluetun containers: %s", e)
+    return discovered

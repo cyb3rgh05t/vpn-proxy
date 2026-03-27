@@ -15,7 +15,7 @@ class VPNContainer(Base):
     config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     port_http_proxy: Mapped[int] = mapped_column(default=8888)
     port_shadowsocks: Mapped[int] = mapped_column(default=8388)
-    port_control: Mapped[int] = mapped_column(default=8000)
+    port_control: Mapped[int] = mapped_column(default=8001)
     container_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="created")
     created_by: Mapped[Optional[int]] = mapped_column(

@@ -7,7 +7,7 @@ services:
       - "PGID=${ID}"
       - "PUID=${ID}"
       - "TZ=${TZ}"
-      - "SECRET_KEY=${SECRET_KEY:-change-me-in-production-use-a-strong-secret-key}"
+      - "SECRET_KEY=${SECRET_KEY}"
       - "DATABASE_URL=sqlite:///./data/vpnproxy.db"
       - "GLUETUN_IMAGE=qmcgaw/gluetun:latest"
     image: "ghcr.io/cyb3rgh05t/vpn-proxy:latest"

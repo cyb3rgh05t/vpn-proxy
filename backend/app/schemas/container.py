@@ -10,7 +10,7 @@ class ContainerCreate(BaseModel):
     config: dict = {}
     port_http_proxy: int = 8888
     port_shadowsocks: int = 8388
-    port_control: int = 8000
+    port_control: int = 8001
 
     @field_validator("name")
     @classmethod

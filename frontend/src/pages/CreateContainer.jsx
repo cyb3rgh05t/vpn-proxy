@@ -16,7 +16,7 @@ export default function CreateContainer() {
     vpn_type: "openvpn",
     port_http_proxy: 8888,
     port_shadowsocks: 8388,
-    port_control: 8000,
+    port_control: 8001,
   });
   const [configFields, setConfigFields] = useState({});
 

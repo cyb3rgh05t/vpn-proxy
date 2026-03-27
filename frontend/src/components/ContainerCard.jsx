@@ -101,7 +101,7 @@ export default function ContainerCard({ container, onRefresh }) {
         )}
         <button
           onClick={(e) => handleAction(e, "restart")}
-            className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-colors"
+          className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-colors"
           title="Restart"
         >
           <RotateCcw className="w-4 h-4" />

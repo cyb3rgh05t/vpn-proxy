@@ -158,6 +158,70 @@ def get_container_status(container_id: str) -> dict:
         return {"status": "error", "container_id": container_id}
 
 
+def find_container_by_name(name: str) -> dict | None:
+    """Try to find a Docker container by name (tries 'gluetun-{name}' and '{name}')."""
+    client = _get_client()
+    for candidate in [f"gluetun-{name}", name]:
+        try:
+            container = client.containers.get(candidate)
+            return {
+                "container_id": container.id,
+                "status": container.status,
+            }
+        except (NotFound, APIError):
+            continue
+    return None
+
+
+def restart_dependents(container_id: str) -> list[str]:
+    """Restart all containers using this container's network. Returns list of restarted names."""
+    dependents = get_dependent_containers(container_id)
+    restarted = []
+    client = _get_client()
+    for dep in dependents:
+        try:
+            c = client.containers.get(dep["name"])
+            c.restart(timeout=10)
+            restarted.append(dep["name"])
+        except Exception as e:
+            logger.warning("Failed to restart dependent %s: %s", dep["name"], e)
+    return restarted
+
+
+def stop_dependents(container_id: str) -> list[str]:
+    """Stop all containers using this container's network. Returns list of stopped names."""
+    dependents = get_dependent_containers(container_id)
+    stopped = []
+    client = _get_client()
+    for dep in dependents:
+        if dep["status"] != "running":
+            continue
+        try:
+            c = client.containers.get(dep["name"])
+            c.stop(timeout=10)
+            stopped.append(dep["name"])
+        except Exception as e:
+            logger.warning("Failed to stop dependent %s: %s", dep["name"], e)
+    return stopped
+
+
+def start_dependents(container_id: str) -> list[str]:
+    """Start all stopped containers using this container's network. Returns list of started names."""
+    dependents = get_dependent_containers(container_id)
+    started = []
+    client = _get_client()
+    for dep in dependents:
+        if dep["status"] == "running":
+            continue
+        try:
+            c = client.containers.get(dep["name"])
+            c.start()
+            started.append(dep["name"])
+        except Exception as e:
+            logger.warning("Failed to start dependent %s: %s", dep["name"], e)
+    return started
+
+
 def get_dependent_containers(container_id: str) -> list[dict]:
     """Find all containers using this container's network (network_mode: container:<id>)."""
     client = _get_client()

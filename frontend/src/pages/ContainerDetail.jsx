@@ -76,9 +76,10 @@ export default function ContainerDetail() {
   const handleAction = async (action) => {
     setActionLoading(action);
     try {
-      await api.post(`/containers/${id}/${action}`);
-      toast.success(`Container ${action}ed successfully`);
+      const res = await api.post(`/containers/${id}/${action}`);
+      toast.success(res.data?.message || `Container ${action}ed successfully`);
       fetchContainer();
+      fetchDependents();
     } catch (err) {
       toast.error(err.response?.data?.detail || `Failed to ${action}`);
     } finally {
@@ -148,7 +149,7 @@ export default function ContainerDetail() {
   }));
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       <button
         onClick={() => navigate("/")}
         className="flex items-center gap-2 text-vpn-muted hover:text-white mb-6 transition-colors"

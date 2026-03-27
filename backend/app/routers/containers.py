@@ -110,6 +110,22 @@ def list_containers(
             try:
                 status_info = docker_service.get_container_status(c.container_id)
                 data.status = status_info["status"]
+                # If container was removed/replaced, try to find it by name
+                if status_info["status"] in ("removed", "error"):
+                    found = docker_service.find_container_by_name(c.name)
+                    if found:
+                        old_id = c.container_id
+                        c.container_id = found["container_id"]
+                        c.status = found["status"]
+                        db.commit()
+                        data.status = found["status"]
+                        data.container_id = found["container_id"]
+                        # Restart dependents so they reconnect to new container
+                        if (
+                            found["status"] == "running"
+                            and old_id != found["container_id"]
+                        ):
+                            docker_service.restart_dependents(found["container_id"])
             except Exception:
                 data.status = "unknown"
         result.append(data)
@@ -185,6 +201,19 @@ def get_container(
         try:
             status_info = docker_service.get_container_status(c.container_id)
             data.status = status_info["status"]
+            # If container was removed/replaced, try to find it by name
+            if status_info["status"] in ("removed", "error"):
+                found = docker_service.find_container_by_name(c.name)
+                if found:
+                    old_id = c.container_id
+                    c.container_id = found["container_id"]
+                    c.status = found["status"]
+                    db.commit()
+                    data.status = found["status"]
+                    data.container_id = found["container_id"]
+                    # Restart dependents so they reconnect to new container
+                    if found["status"] == "running" and old_id != found["container_id"]:
+                        docker_service.restart_dependents(found["container_id"])
         except Exception:
             data.status = "unknown"
     return data
@@ -245,7 +274,12 @@ def start_container(
         docker_service.start_container(c.container_id)
         c.status = "running"
         db.commit()
-        return {"message": "Container started"}
+        # Start dependent containers after Gluetun is up
+        started = docker_service.start_dependents(c.container_id)
+        msg = "Container started"
+        if started:
+            msg += f" (also started: {', '.join(started)})"
+        return {"message": msg}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -260,10 +294,15 @@ def stop_container(
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
     try:
+        # Stop dependent containers first before stopping Gluetun
+        stopped = docker_service.stop_dependents(c.container_id)
         docker_service.stop_container(c.container_id)
         c.status = "exited"
         db.commit()
-        return {"message": "Container stopped"}
+        msg = "Container stopped"
+        if stopped:
+            msg += f" (also stopped: {', '.join(stopped)})"
+        return {"message": msg}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -281,7 +320,12 @@ def restart_container(
         docker_service.restart_container(c.container_id)
         c.status = "running"
         db.commit()
-        return {"message": "Container restarted"}
+        # Restart dependent containers so they reconnect
+        restarted = docker_service.restart_dependents(c.container_id)
+        msg = "Container restarted"
+        if restarted:
+            msg += f" (also restarted: {', '.join(restarted)})"
+        return {"message": msg}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

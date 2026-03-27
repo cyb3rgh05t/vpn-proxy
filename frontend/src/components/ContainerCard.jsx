@@ -30,8 +30,8 @@ export default function ContainerCard({ container, onRefresh }) {
     e.stopPropagation();
     setActionLoading(action);
     try {
-      await api.post(`/containers/${container.id}/${action}`);
-      toast.success(`Container ${action}ed successfully`);
+      const res = await api.post(`/containers/${container.id}/${action}`);
+      toast.success(res.data?.message || `Container ${action}ed successfully`);
       onRefresh();
     } catch (err) {
       toast.error(

@@ -158,6 +158,50 @@ def get_container_status(container_id: str) -> dict:
         return {"status": "error", "container_id": container_id}
 
 
+def get_dependent_containers(container_id: str) -> list[dict]:
+    """Find all containers using this container's network (network_mode: container:<id>)."""
+    client = _get_client()
+    dependents = []
+    try:
+        target = client.containers.get(container_id)
+        target_name = target.name
+        target_id = target.id
+
+        for c in client.containers.list(all=True):
+            try:
+                network_mode = c.attrs.get("HostConfig", {}).get("NetworkMode", "")
+                # network_mode can be "container:<name>" or "container:<id>"
+                if network_mode.startswith("container:"):
+                    ref = network_mode.split(":", 1)[1]
+                    if (
+                        ref == target_name
+                        or ref == target_id
+                        or target_id.startswith(ref)
+                    ):
+                        dependents.append(
+                            {
+                                "name": c.name,
+                                "id": c.short_id,
+                                "status": c.status,
+                                "image": (
+                                    c.image.tags[0]
+                                    if c.image.tags
+                                    else c.attrs.get("Config", {}).get(
+                                        "Image", "unknown"
+                                    )
+                                ),
+                            }
+                        )
+            except Exception:
+                continue
+    except NotFound:
+        return []
+    except APIError as e:
+        logger.error("Failed to get dependent containers for %s: %s", container_id, e)
+        return []
+    return dependents
+
+
 def get_container_logs(container_id: str, tail: int = 200) -> str:
     client = _get_client()
     try:

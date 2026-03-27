@@ -9,6 +9,7 @@ import {
   Download,
   RefreshCw,
   Terminal,
+  Network,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -20,6 +21,7 @@ export default function ContainerDetail() {
   const [logs, setLogs] = useState("");
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("info");
+  const [dependents, setDependents] = useState([]);
 
   const fetchContainer = useCallback(async () => {
     try {
@@ -32,6 +34,15 @@ export default function ContainerDetail() {
     }
   }, [id, navigate]);
 
+  const fetchDependents = useCallback(async () => {
+    try {
+      const res = await api.get(`/containers/${id}/dependents`);
+      setDependents(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setDependents([]);
+    }
+  }, [id]);
+
   const fetchLogs = useCallback(async () => {
     try {
       const res = await api.get(`/containers/${id}/logs`);
@@ -43,16 +54,20 @@ export default function ContainerDetail() {
 
   useEffect(() => {
     fetchContainer();
-  }, [fetchContainer]);
+    fetchDependents();
+  }, [fetchContainer, fetchDependents]);
 
   useEffect(() => {
     if (tab === "logs") fetchLogs();
   }, [tab, fetchLogs]);
 
   useEffect(() => {
-    const interval = setInterval(fetchContainer, 10000);
+    const interval = setInterval(() => {
+      fetchContainer();
+      fetchDependents();
+    }, 10000);
     return () => clearInterval(interval);
-  }, [fetchContainer]);
+  }, [fetchContainer, fetchDependents]);
 
   const handleAction = async (action) => {
     try {
@@ -252,6 +267,55 @@ export default function ContainerDetail() {
                 </div>
               )}
             </div>
+
+            {/* Dependent Containers */}
+            {dependents.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
+                  <Network className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                  Containers using this network
+                </h3>
+                <div className="space-y-2">
+                  {dependents.map((dep) => (
+                    <div
+                      key={dep.id}
+                      className="flex items-center justify-between bg-vpn-input rounded-lg px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-2.5 h-2.5 rounded-full ${
+                            dep.status === "running"
+                              ? "bg-emerald-500"
+                              : dep.status === "exited"
+                                ? "bg-red-500"
+                                : "bg-amber-500"
+                          }`}
+                        />
+                        <div>
+                          <p className="text-sm text-white font-medium">
+                            {dep.name}
+                          </p>
+                          <p className="text-xs text-vpn-muted font-mono">
+                            {dep.image}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          dep.status === "running"
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : dep.status === "exited"
+                              ? "bg-red-500/10 text-red-400"
+                              : "bg-amber-500/10 text-amber-400"
+                        }`}
+                      >
+                        {dep.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {maskedConfig.length > 0 && (
               <div>

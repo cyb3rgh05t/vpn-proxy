@@ -332,3 +332,15 @@ def export_compose(
         extra_ports=c.extra_ports if c.extra_ports else None,
     )
     return yaml_content
+
+
+@router.get("/{container_id}/dependents")
+def get_dependents(
+    container_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
+    if not c or not c.container_id:
+        raise HTTPException(status_code=404, detail="Container not found")
+    return docker_service.get_dependent_containers(c.container_id)

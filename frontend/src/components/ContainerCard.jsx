@@ -1,10 +1,27 @@
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Square, RotateCcw, Trash2, Eye } from "lucide-react";
+import { Play, Square, RotateCcw, Trash2, Eye, Network } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 import api from "../services/api";
 
 export default function ContainerCard({ container, onRefresh }) {
   const navigate = useNavigate();
+  const [dependents, setDependents] = useState([]);
+
+  const fetchDependents = useCallback(async () => {
+    try {
+      const res = await api.get(`/containers/${container.id}/dependents`);
+      setDependents(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setDependents([]);
+    }
+  }, [container.id]);
+
+  useEffect(() => {
+    fetchDependents();
+    const interval = setInterval(fetchDependents, 15000);
+    return () => clearInterval(interval);
+  }, [fetchDependents]);
 
   const handleAction = async (e, action) => {
     e.stopPropagation();
@@ -27,6 +44,18 @@ export default function ContainerCard({ container, onRefresh }) {
       onRefresh();
     } catch (err) {
       alert(err.response?.data?.detail || "Failed to delete container");
+    }
+  };
+
+  const handleDepAction = async (e, depName, action) => {
+    e.stopPropagation();
+    try {
+      await api.post(
+        `/containers/${container.id}/dependents/${depName}/${action}`,
+      );
+      fetchDependents();
+    } catch (err) {
+      alert(err.response?.data?.detail || `Failed to ${action} ${depName}`);
     }
   };
 
@@ -69,6 +98,66 @@ export default function ContainerCard({ container, onRefresh }) {
           <span className="text-vpn-text">:{container.port_control}</span>
         </div>
       </div>
+
+      {/* Dependent Containers */}
+      {dependents.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs text-vpn-muted mb-2 flex items-center gap-1">
+            <Network className="w-3.5 h-3.5" />
+            Network Clients ({dependents.length})
+          </p>
+          <div className="space-y-1.5">
+            {dependents.map((dep) => (
+              <div
+                key={dep.id}
+                className="flex items-center justify-between bg-vpn-input rounded-lg px-3 py-2"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      dep.status === "running"
+                        ? "bg-emerald-500"
+                        : dep.status === "exited"
+                          ? "bg-red-500"
+                          : "bg-amber-500"
+                    }`}
+                  />
+                  <span className="text-xs text-white truncate">
+                    {dep.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                  {["exited", "created", "dead"].includes(dep.status) && (
+                    <button
+                      onClick={(e) => handleDepAction(e, dep.name, "start")}
+                      className="p-1 rounded text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                      title="Start"
+                    >
+                      <Play className="w-3 h-3" />
+                    </button>
+                  )}
+                  {dep.status === "running" && (
+                    <button
+                      onClick={(e) => handleDepAction(e, dep.name, "stop")}
+                      className="p-1 rounded text-amber-400 hover:bg-amber-500/10 transition-colors"
+                      title="Stop"
+                    >
+                      <Square className="w-3 h-3" />
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => handleDepAction(e, dep.name, "restart")}
+                    className="p-1 rounded text-vpn-primary hover:bg-vpn-primary/10 transition-colors"
+                    title="Restart"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 pt-3 border-t border-vpn-border">
         <button

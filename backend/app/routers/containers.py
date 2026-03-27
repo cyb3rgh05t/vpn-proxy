@@ -344,3 +344,32 @@ def get_dependents(
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
     return docker_service.get_dependent_containers(c.container_id)
+
+
+@router.post("/{container_id}/dependents/{docker_name}/{action}")
+def control_dependent(
+    container_id: int,
+    docker_name: str,
+    action: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if action not in ("start", "stop", "restart"):
+        raise HTTPException(status_code=400, detail="Invalid action")
+    c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
+    if not c or not c.container_id:
+        raise HTTPException(status_code=404, detail="Container not found")
+    # Verify the target is actually a dependent of this container
+    dependents = docker_service.get_dependent_containers(c.container_id)
+    if not any(d["name"] == docker_name for d in dependents):
+        raise HTTPException(status_code=403, detail="Container is not a dependent of this VPN container")
+    try:
+        if action == "start":
+            docker_service.start_container(docker_name)
+        elif action == "stop":
+            docker_service.stop_container(docker_name)
+        elif action == "restart":
+            docker_service.restart_container(docker_name)
+        return {"message": f"Container {docker_name} {action}ed"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -78,6 +78,15 @@ export default function ContainerDetail() {
     }
   };
 
+  const handleDepAction = async (depName, action) => {
+    try {
+      await api.post(`/containers/${id}/dependents/${depName}/${action}`);
+      fetchDependents();
+    } catch (err) {
+      alert(err.response?.data?.detail || `Failed to ${action} ${depName}`);
+    }
+  };
+
   const handleDelete = async () => {
     if (!confirm(`Delete "${container.name}"? This cannot be undone.`)) return;
     try {
@@ -300,17 +309,54 @@ export default function ContainerDetail() {
                           </p>
                         </div>
                       </div>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${
-                          dep.status === "running"
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : dep.status === "exited"
-                              ? "bg-red-500/10 text-red-400"
-                              : "bg-amber-500/10 text-amber-400"
-                        }`}
-                      >
-                        {dep.status}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            dep.status === "running"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : dep.status === "exited"
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-amber-500/10 text-amber-400"
+                          }`}
+                        >
+                          {dep.status}
+                        </span>
+                        <div className="flex items-center gap-1 ml-2">
+                          {["exited", "created", "dead"].includes(
+                            dep.status
+                          ) && (
+                            <button
+                              onClick={() =>
+                                handleDepAction(dep.name, "start")
+                              }
+                              className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                              title="Start"
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {dep.status === "running" && (
+                            <button
+                              onClick={() =>
+                                handleDepAction(dep.name, "stop")
+                              }
+                              className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-colors"
+                              title="Stop"
+                            >
+                              <Square className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() =>
+                              handleDepAction(dep.name, "restart")
+                            }
+                            className="p-1.5 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-colors"
+                            title="Restart"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

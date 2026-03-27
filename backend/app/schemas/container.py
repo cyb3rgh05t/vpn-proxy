@@ -1,5 +1,6 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional
+from datetime import datetime
 import re
 
 
@@ -53,8 +54,8 @@ class ContainerResponse(BaseModel):
     container_id: Optional[str] = None
     status: str
     created_by: Optional[int] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

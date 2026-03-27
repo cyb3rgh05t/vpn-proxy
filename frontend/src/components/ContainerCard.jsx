@@ -3,10 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { Play, Square, RotateCcw, Trash2, Eye, Network } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 import api from "../services/api";
+import { useToast } from "../context/ToastContext";
 
 export default function ContainerCard({ container, onRefresh }) {
   const navigate = useNavigate();
+  const toast = useToast();
   const [dependents, setDependents] = useState([]);
+  const [actionLoading, setActionLoading] = useState("");
 
   const fetchDependents = useCallback(async () => {
     try {
@@ -25,11 +28,17 @@ export default function ContainerCard({ container, onRefresh }) {
 
   const handleAction = async (e, action) => {
     e.stopPropagation();
+    setActionLoading(action);
     try {
       await api.post(`/containers/${container.id}/${action}`);
+      toast.success(`Container ${action}ed successfully`);
       onRefresh();
     } catch (err) {
-      alert(err.response?.data?.detail || `Failed to ${action} container`);
+      toast.error(
+        err.response?.data?.detail || `Failed to ${action} container`,
+      );
+    } finally {
+      setActionLoading("");
     }
   };
 
@@ -41,9 +50,10 @@ export default function ContainerCard({ container, onRefresh }) {
       return;
     try {
       await api.delete(`/containers/${container.id}`);
+      toast.success(`Container "${container.name}" deleted`);
       onRefresh();
     } catch (err) {
-      alert(err.response?.data?.detail || "Failed to delete container");
+      toast.error(err.response?.data?.detail || "Failed to delete container");
     }
   };
 
@@ -53,9 +63,12 @@ export default function ContainerCard({ container, onRefresh }) {
       await api.post(
         `/containers/${container.id}/dependents/${depName}/${action}`,
       );
+      toast.success(`${depName} ${action}ed successfully`);
       fetchDependents();
     } catch (err) {
-      alert(err.response?.data?.detail || `Failed to ${action} ${depName}`);
+      toast.error(
+        err.response?.data?.detail || `Failed to ${action} ${depName}`,
+      );
     }
   };
 
@@ -130,7 +143,7 @@ export default function ContainerCard({ container, onRefresh }) {
                   {["exited", "created", "dead"].includes(dep.status) && (
                     <button
                       onClick={(e) => handleDepAction(e, dep.name, "start")}
-                      className="p-1 rounded text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                      className="p-1 rounded text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90"
                       title="Start"
                     >
                       <Play className="w-3 h-3" />
@@ -139,7 +152,7 @@ export default function ContainerCard({ container, onRefresh }) {
                   {dep.status === "running" && (
                     <button
                       onClick={(e) => handleDepAction(e, dep.name, "stop")}
-                      className="p-1 rounded text-amber-400 hover:bg-amber-500/10 transition-colors"
+                      className="p-1 rounded text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90"
                       title="Stop"
                     >
                       <Square className="w-3 h-3" />
@@ -147,7 +160,7 @@ export default function ContainerCard({ container, onRefresh }) {
                   )}
                   <button
                     onClick={(e) => handleDepAction(e, dep.name, "restart")}
-                    className="p-1 rounded text-vpn-primary hover:bg-vpn-primary/10 transition-colors"
+                    className="p-1 rounded text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90"
                     title="Restart"
                   >
                     <RotateCcw className="w-3 h-3" />
@@ -165,7 +178,7 @@ export default function ContainerCard({ container, onRefresh }) {
             e.stopPropagation();
             navigate(`/containers/${container.id}`);
           }}
-          className="p-2 rounded-lg text-vpn-muted hover:bg-vpn-input hover:text-white transition-colors"
+          className="p-2 rounded-lg text-vpn-muted hover:bg-vpn-input hover:text-white transition-all active:scale-90"
           title="View Details"
         >
           <Eye className="w-4 h-4" />
@@ -173,31 +186,41 @@ export default function ContainerCard({ container, onRefresh }) {
         {isStopped && (
           <button
             onClick={(e) => handleAction(e, "start")}
-            className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+            disabled={!!actionLoading}
+            className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90 disabled:opacity-50"
             title="Start"
           >
-            <Play className="w-4 h-4" />
+            <Play
+              className={`w-4 h-4 ${actionLoading === "start" ? "animate-pulse" : ""}`}
+            />
           </button>
         )}
         {isRunning && (
           <button
             onClick={(e) => handleAction(e, "stop")}
-            className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-colors"
+            disabled={!!actionLoading}
+            className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90 disabled:opacity-50"
             title="Stop"
           >
-            <Square className="w-4 h-4" />
+            <Square
+              className={`w-4 h-4 ${actionLoading === "stop" ? "animate-pulse" : ""}`}
+            />
           </button>
         )}
         <button
           onClick={(e) => handleAction(e, "restart")}
-          className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-colors"
+          disabled={!!actionLoading}
+          className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90 disabled:opacity-50"
           title="Restart"
         >
-          <RotateCcw className="w-4 h-4" />
+          <RotateCcw
+            className={`w-4 h-4 ${actionLoading === "restart" ? "animate-spin" : ""}`}
+          />
         </button>
         <button
           onClick={handleDelete}
-          className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors ml-auto"
+          disabled={!!actionLoading}
+          className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-all active:scale-90 ml-auto disabled:opacity-50"
           title="Delete"
         >
           <Trash2 className="w-4 h-4" />

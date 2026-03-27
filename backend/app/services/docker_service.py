@@ -164,8 +164,8 @@ def get_dependent_containers(container_id: str) -> list[dict]:
     dependents = []
     try:
         target = client.containers.get(container_id)
-        target_name = target.name
-        target_id = target.id
+        target_name = target.name or ""
+        target_id = target.id or ""
 
         for c in client.containers.list(all=True):
             try:
@@ -178,14 +178,15 @@ def get_dependent_containers(container_id: str) -> list[dict]:
                         or ref == target_id
                         or target_id.startswith(ref)
                     ):
+                        image_tags = c.image.tags if c.image else []
                         dependents.append(
                             {
                                 "name": c.name,
                                 "id": c.short_id,
                                 "status": c.status,
                                 "image": (
-                                    c.image.tags[0]
-                                    if c.image.tags
+                                    image_tags[0]
+                                    if image_tags
                                     else c.attrs.get("Config", {}).get(
                                         "Image", "unknown"
                                     )

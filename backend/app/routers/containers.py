@@ -362,7 +362,9 @@ def control_dependent(
     # Verify the target is actually a dependent of this container
     dependents = docker_service.get_dependent_containers(c.container_id)
     if not any(d["name"] == docker_name for d in dependents):
-        raise HTTPException(status_code=403, detail="Container is not a dependent of this VPN container")
+        raise HTTPException(
+            status_code=403, detail="Container is not a dependent of this VPN container"
+        )
     try:
         if action == "start":
             docker_service.start_container(docker_name)

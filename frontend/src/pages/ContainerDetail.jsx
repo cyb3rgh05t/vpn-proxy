@@ -13,15 +13,19 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
+import { useToast } from "../context/ToastContext";
 
 export default function ContainerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [container, setContainer] = useState(null);
   const [logs, setLogs] = useState("");
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("info");
   const [dependents, setDependents] = useState([]);
+  const [actionLoading, setActionLoading] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchContainer = useCallback(async () => {
     try {
@@ -70,20 +74,27 @@ export default function ContainerDetail() {
   }, [fetchContainer, fetchDependents]);
 
   const handleAction = async (action) => {
+    setActionLoading(action);
     try {
       await api.post(`/containers/${id}/${action}`);
+      toast.success(`Container ${action}ed successfully`);
       fetchContainer();
     } catch (err) {
-      alert(err.response?.data?.detail || `Failed to ${action}`);
+      toast.error(err.response?.data?.detail || `Failed to ${action}`);
+    } finally {
+      setActionLoading("");
     }
   };
 
   const handleDepAction = async (depName, action) => {
     try {
       await api.post(`/containers/${id}/dependents/${depName}/${action}`);
+      toast.success(`${depName} ${action}ed successfully`);
       fetchDependents();
     } catch (err) {
-      alert(err.response?.data?.detail || `Failed to ${action} ${depName}`);
+      toast.error(
+        err.response?.data?.detail || `Failed to ${action} ${depName}`,
+      );
     }
   };
 
@@ -91,9 +102,10 @@ export default function ContainerDetail() {
     if (!confirm(`Delete "${container.name}"? This cannot be undone.`)) return;
     try {
       await api.delete(`/containers/${id}`);
+      toast.success(`Container deleted`);
       navigate("/");
     } catch (err) {
-      alert(err.response?.data?.detail || "Failed to delete");
+      toast.error(err.response?.data?.detail || "Failed to delete");
     }
   };
 
@@ -108,7 +120,7 @@ export default function ContainerDetail() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert("Failed to export compose file");
+      toast.error("Failed to export compose file");
     }
   };
 
@@ -159,47 +171,63 @@ export default function ContainerDetail() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => fetchContainer()}
-            className="flex items-center gap-2 px-3 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg text-sm transition-colors"
+            onClick={async () => {
+              setRefreshing(true);
+              await fetchContainer();
+              setRefreshing(false);
+            }}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg text-sm transition-colors disabled:opacity-50"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw
+              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+            />
             Refresh
           </button>
           {isStopped && (
             <button
               onClick={() => handleAction("start")}
-              className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition-colors"
+              disabled={!!actionLoading}
+              className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
             >
-              <Play className="w-4 h-4" />
+              <Play
+                className={`w-4 h-4 ${actionLoading === "start" ? "animate-pulse" : ""}`}
+              />
               Start
             </button>
           )}
           {isRunning && (
             <button
               onClick={() => handleAction("stop")}
-              className="flex items-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm transition-colors"
+              disabled={!!actionLoading}
+              className="flex items-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
             >
-              <Square className="w-4 h-4" />
+              <Square
+                className={`w-4 h-4 ${actionLoading === "stop" ? "animate-pulse" : ""}`}
+              />
               Stop
             </button>
           )}
           <button
             onClick={() => handleAction("restart")}
-            className="flex items-center gap-2 px-3 py-2 bg-vpn-primary/20 hover:bg-vpn-primary text-vpn-primary hover:text-black rounded-lg text-sm transition-colors"
+            disabled={!!actionLoading}
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-primary/20 hover:bg-vpn-primary text-vpn-primary hover:text-black rounded-lg text-sm transition-colors disabled:opacity-50"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw
+              className={`w-4 h-4 ${actionLoading === "restart" ? "animate-spin" : ""}`}
+            />
             Restart
           </button>
           <button
             onClick={handleExportCompose}
-            className="flex items-center gap-2 px-3 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg text-sm transition-colors"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg text-sm transition-all active:scale-95"
           >
             <Download className="w-4 h-4" />
             Export Compose
           </button>
           <button
             onClick={handleDelete}
-            className="flex items-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg text-sm transition-colors ml-auto"
+            className="flex items-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg text-sm transition-all active:scale-95 ml-auto"
           >
             <Trash2 className="w-4 h-4" />
             Delete
@@ -323,13 +351,11 @@ export default function ContainerDetail() {
                         </span>
                         <div className="flex items-center gap-1 ml-2">
                           {["exited", "created", "dead"].includes(
-                            dep.status
+                            dep.status,
                           ) && (
                             <button
-                              onClick={() =>
-                                handleDepAction(dep.name, "start")
-                              }
-                              className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                              onClick={() => handleDepAction(dep.name, "start")}
+                              className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90"
                               title="Start"
                             >
                               <Play className="w-3.5 h-3.5" />
@@ -337,20 +363,16 @@ export default function ContainerDetail() {
                           )}
                           {dep.status === "running" && (
                             <button
-                              onClick={() =>
-                                handleDepAction(dep.name, "stop")
-                              }
-                              className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-colors"
+                              onClick={() => handleDepAction(dep.name, "stop")}
+                              className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90"
                               title="Stop"
                             >
                               <Square className="w-3.5 h-3.5" />
                             </button>
                           )}
                           <button
-                            onClick={() =>
-                              handleDepAction(dep.name, "restart")
-                            }
-                            className="p-1.5 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-colors"
+                            onClick={() => handleDepAction(dep.name, "restart")}
+                            className="p-1.5 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90"
                             title="Restart"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />

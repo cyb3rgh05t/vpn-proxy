@@ -10,13 +10,16 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import ContainerCard from "../components/ContainerCard";
+import { useToast } from "../context/ToastContext";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [containers, setContainers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [discoverMsg, setDiscoverMsg] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
 
   const fetchContainers = useCallback(async () => {
     try {
@@ -77,44 +80,48 @@ export default function Dashboard() {
         <div className="flex gap-3">
           <button
             onClick={async () => {
+              setDiscovering(true);
               try {
                 const res = await api.post("/containers/discover");
-                setDiscoverMsg(res.data.message);
+                toast.success(res.data.message);
                 fetchContainers();
-                setTimeout(() => setDiscoverMsg(""), 5000);
               } catch {
-                setDiscoverMsg("Failed to discover containers");
-                setTimeout(() => setDiscoverMsg(""), 5000);
+                toast.error("Failed to discover containers");
+              } finally {
+                setDiscovering(false);
               }
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors"
+            disabled={discovering}
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-all active:scale-95 disabled:opacity-50"
           >
-            <Search className="w-4 h-4" />
+            <Search
+              className={`w-4 h-4 ${discovering ? "animate-spin" : ""}`}
+            />
             Discover
           </button>
           <button
-            onClick={fetchContainers}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors"
+            onClick={async () => {
+              setRefreshing(true);
+              await fetchContainers();
+              setRefreshing(false);
+            }}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-all active:scale-95 disabled:opacity-50"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw
+              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+            />
             Refresh
           </button>
           <button
             onClick={() => navigate("/create")}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-primary hover:bg-vpn-primary-hover text-black rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-primary hover:bg-vpn-primary-hover text-black rounded-lg transition-all active:scale-95"
           >
             <PlusCircle className="w-4 h-4" />
             New Container
           </button>
         </div>
       </div>
-
-      {/* Discover Message */}
-      {discoverMsg && (
-        <div className="mb-4 p-3 bg-vpn-primary/10 border border-vpn-primary/30 rounded-lg text-vpn-primary text-sm">
-          {discoverMsg}
-        </div>
-      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

@@ -159,8 +159,12 @@ def get_container_status(container_id: str) -> dict:
 
 
 def find_container_by_name(name: str) -> dict | None:
-    """Try to find a Docker container by name (tries 'gluetun-{name}' and '{name}')."""
+    """Try to find a Docker container by name or label.
+    Tries 'gluetun-{name}', '{name}', then falls back to searching
+    all managed containers by vpn-proxy-name label.
+    """
     client = _get_client()
+    # Direct name lookup
     for candidate in [f"gluetun-{name}", name]:
         try:
             container = client.containers.get(candidate)
@@ -170,6 +174,20 @@ def find_container_by_name(name: str) -> dict | None:
             }
         except (NotFound, APIError):
             continue
+    # Fallback: search by label (handles renamed containers)
+    try:
+        managed = client.containers.list(
+            all=True, filters={"label": f"{CONTAINER_LABEL}={CONTAINER_LABEL_VALUE}"}
+        )
+        for container in managed:
+            labels = container.labels or {}
+            if labels.get("vpn-proxy-name") == name:
+                return {
+                    "container_id": container.id,
+                    "status": container.status,
+                }
+    except Exception:
+        pass
     return None
 
 

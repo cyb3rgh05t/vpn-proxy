@@ -44,6 +44,22 @@ class ContainerUpdate(BaseModel):
     extra_ports: Optional[list[dict]] = None
 
 
+class ContainerRename(BaseModel):
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not v or len(v) < 2 or len(v) > 50:
+            raise ValueError("Name must be 2-50 characters")
+        if not re.match(r"^[a-z0-9][a-z0-9_-]*$", v):
+            raise ValueError(
+                "Name must start with alphanumeric and contain only lowercase letters, numbers, hyphens, underscores"
+            )
+        return v
+
+
 class ContainerResponse(BaseModel):
     id: int
     name: str

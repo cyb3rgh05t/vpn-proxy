@@ -10,6 +10,9 @@ import {
   RefreshCw,
   Terminal,
   Network,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -26,6 +29,8 @@ export default function ContainerDetail() {
   const [dependents, setDependents] = useState([]);
   const [actionLoading, setActionLoading] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
 
   const fetchContainer = useCallback(async () => {
     try {
@@ -99,6 +104,24 @@ export default function ContainerDetail() {
     }
   };
 
+  const handleRename = async () => {
+    const trimmed = editName.trim().toLowerCase();
+    if (!trimmed || trimmed === container.name) {
+      setEditing(false);
+      return;
+    }
+    try {
+      const res = await api.patch(`/containers/${id}/rename`, {
+        name: trimmed,
+      });
+      setContainer(res.data);
+      setEditing(false);
+      toast.success(`Container renamed to "${trimmed}"`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to rename container");
+    }
+  };
+
   const handleDelete = async () => {
     if (!confirm(`Delete "${container.name}"? This cannot be undone.`)) return;
     try {
@@ -162,7 +185,50 @@ export default function ContainerDetail() {
       <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">{container.name}</h1>
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRename();
+                    if (e.key === "Escape") setEditing(false);
+                  }}
+                  className="text-2xl font-bold bg-vpn-input border border-vpn-border rounded-lg px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                  autoFocus
+                />
+                <button
+                  onClick={handleRename}
+                  className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90"
+                  title="Save"
+                >
+                  <Check className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-all active:scale-90"
+                  title="Cancel"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-white">
+                  {container.name}
+                </h1>
+                <button
+                  onClick={() => {
+                    setEditName(container.name);
+                    setEditing(true);
+                  }}
+                  className="p-1.5 rounded-lg text-vpn-muted hover:text-white hover:bg-vpn-input transition-all active:scale-90"
+                  title="Rename"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
+            )}
             <p className="text-vpn-muted mt-1">
               {container.vpn_provider} &middot; {container.vpn_type}
             </p>

@@ -38,14 +38,14 @@ export default function ContainerCard({ container, onRefresh }) {
   return (
     <div
       onClick={() => navigate(`/containers/${container.id}`)}
-      className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all cursor-pointer group"
+      className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all cursor-pointer group"
     >
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-white group-hover:text-blue-400 transition-colors">
+          <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors">
             {container.name}
           </h3>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-vpn-muted mt-0.5">
             {container.vpn_provider}
           </p>
         </div>
@@ -53,30 +53,30 @@ export default function ContainerCard({ container, onRefresh }) {
       </div>
 
       <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-        <div className="text-slate-500">
-          Type: <span className="text-slate-300">{container.vpn_type}</span>
+        <div className="text-vpn-muted">
+          Type: <span className="text-vpn-text">{container.vpn_type}</span>
         </div>
-        <div className="text-slate-500">
+        <div className="text-vpn-muted">
           HTTP:{" "}
-          <span className="text-slate-300">:{container.port_http_proxy}</span>
+          <span className="text-vpn-text">:{container.port_http_proxy}</span>
         </div>
-        <div className="text-slate-500">
+        <div className="text-vpn-muted">
           SOCKS:{" "}
-          <span className="text-slate-300">:{container.port_shadowsocks}</span>
+          <span className="text-vpn-text">:{container.port_shadowsocks}</span>
         </div>
-        <div className="text-slate-500">
+        <div className="text-vpn-muted">
           Control:{" "}
-          <span className="text-slate-300">:{container.port_control}</span>
+          <span className="text-vpn-text">:{container.port_control}</span>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 pt-3 border-t border-slate-800">
+      <div className="flex items-center gap-2 pt-3 border-t border-vpn-border">
         <button
           onClick={(e) => {
             e.stopPropagation();
             navigate(`/containers/${container.id}`);
           }}
-          className="p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          className="p-2 rounded-lg text-vpn-muted hover:bg-vpn-input hover:text-white transition-colors"
           title="View Details"
         >
           <Eye className="w-4 h-4" />
@@ -101,7 +101,7 @@ export default function ContainerCard({ container, onRefresh }) {
         )}
         <button
           onClick={(e) => handleAction(e, "restart")}
-          className="p-2 rounded-lg text-blue-400 hover:bg-blue-500/10 transition-colors"
+            className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-colors"
           title="Restart"
         >
           <RotateCcw className="w-4 h-4" />

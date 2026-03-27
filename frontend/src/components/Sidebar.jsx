@@ -30,17 +30,17 @@ export default function Sidebar() {
   const linkClass = ({ isActive }) =>
     `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
       isActive
-        ? "bg-blue-600/20 text-blue-400 border-r-2 border-blue-500"
-        : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+        ? "bg-vpn-primary/20 text-vpn-primary border-r-2 border-vpn-primary"
+        : "text-vpn-muted hover:bg-vpn-input hover:text-white"
     }`;
 
   const sidebarContent = (
     <>
-      <div className="flex items-center gap-3 px-4 py-6 border-b border-slate-800">
-        <Shield className="w-8 h-8 text-blue-500" />
+      <div className="flex items-center gap-3 px-4 py-6 border-b border-vpn-border">
+        <Shield className="w-8 h-8 text-vpn-primary" />
         <div>
           <h1 className="text-lg font-bold text-white">VPN Proxy</h1>
-          <p className="text-xs text-slate-500">Container Manager</p>
+          <p className="text-xs text-vpn-muted">Container Manager</p>
         </div>
       </div>
 
@@ -59,16 +59,16 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="px-3 py-4 border-t border-slate-800">
+      <div className="px-3 py-4 border-t border-vpn-border">
         <div className="px-4 py-2 mb-2">
-          <p className="text-sm text-slate-300">{user?.username}</p>
-          <p className="text-xs text-slate-500">
+          <p className="text-sm text-vpn-text">{user?.username}</p>
+          <p className="text-xs text-vpn-muted">
             {user?.is_admin ? "Admin" : "User"}
           </p>
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+          className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-vpn-muted hover:bg-red-500/10 hover:text-red-400 transition-colors"
         >
           <LogOut className="w-5 h-5" />
           <span>Logout</span>
@@ -82,7 +82,7 @@ export default function Sidebar() {
       {/* Mobile toggle */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-slate-800 text-slate-300"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-vpn-input text-vpn-text"
       >
         {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>
@@ -97,7 +97,7 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:relative z-40 h-full w-64 bg-slate-900 border-r border-slate-800 flex flex-col transition-transform duration-200 ${
+        className={`fixed lg:relative z-40 h-full w-64 bg-vpn-bg-dark border-r border-vpn-border flex flex-col transition-transform duration-200 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >

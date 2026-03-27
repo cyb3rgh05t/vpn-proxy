@@ -23,7 +23,7 @@ export default function CreateContainer() {
   useEffect(() => {
     api
       .get("/containers/providers")
-      .then((res) => setProviders(res.data))
+      .then((res) => setProviders(Array.isArray(res.data) ? res.data : []))
       .catch(() => setError("Failed to load providers"));
   }, []);
 
@@ -80,24 +80,24 @@ export default function CreateContainer() {
   };
 
   const inputClass =
-    "w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-slate-400 mb-1.5";
+    "w-full px-4 py-2.5 bg-vpn-input border border-vpn-border rounded-lg text-white placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent";
+  const labelClass = "block text-sm font-medium text-vpn-muted mb-1.5";
 
   return (
     <div className="max-w-2xl mx-auto">
       <button
         onClick={() => navigate("/")}
-        className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
+        className="flex items-center gap-2 text-vpn-muted hover:text-white mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Dashboard
       </button>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
+      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-8">
         <h1 className="text-2xl font-bold text-white mb-2">
           Create VPN Container
         </h1>
-        <p className="text-slate-500 mb-8">
+        <p className="text-vpn-muted mb-8">
           Configure and deploy a new Gluetun VPN container.
         </p>
 
@@ -119,7 +119,7 @@ export default function CreateContainer() {
               placeholder="e.g. my-vpn"
               required
             />
-            <p className="text-xs text-slate-600 mt-1">
+            <p className="text-xs text-vpn-muted mt-1">
               Lowercase letters, numbers, hyphens, underscores only
             </p>
           </div>
@@ -159,8 +159,8 @@ export default function CreateContainer() {
                     }}
                     className={`flex-1 py-2.5 rounded-lg border font-medium transition-colors ${
                       form.vpn_type === type
-                        ? "bg-blue-600/20 border-blue-500 text-blue-400"
-                        : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                        ? "bg-vpn-primary/20 border-vpn-primary text-vpn-primary"
+                        : "bg-vpn-input border-vpn-border text-vpn-muted hover:border-vpn-muted"
                     }`}
                   >
                     {type === "openvpn" ? "OpenVPN" : "WireGuard"}
@@ -172,8 +172,8 @@ export default function CreateContainer() {
 
           {/* Provider-specific fields */}
           {getFields().length > 0 && (
-            <div className="space-y-4 p-5 bg-slate-800/50 border border-slate-700 rounded-xl">
-              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+            <div className="space-y-4 p-5 bg-vpn-input/50 border border-vpn-border rounded-xl">
+              <h3 className="text-sm font-semibold text-vpn-text uppercase tracking-wider">
                 VPN Configuration
               </h3>
               {getFields().map((field) => (
@@ -204,8 +204,8 @@ export default function CreateContainer() {
           )}
 
           {/* Port Configuration */}
-          <div className="space-y-4 p-5 bg-slate-800/50 border border-slate-700 rounded-xl">
-            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+          <div className="space-y-4 p-5 bg-vpn-input/50 border border-vpn-border rounded-xl">
+            <h3 className="text-sm font-semibold text-vpn-text uppercase tracking-wider">
               Port Mapping
             </h3>
             <div className="grid grid-cols-3 gap-4">
@@ -264,7 +264,7 @@ export default function CreateContainer() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             {loading ? "Creating Container..." : "Create Container"}

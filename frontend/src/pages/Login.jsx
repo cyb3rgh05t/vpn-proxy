@@ -50,21 +50,21 @@ export default function Login() {
 
   if (checkingSetup) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen bg-vpn-bg">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-vpn-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-950 px-4">
+    <div className="flex items-center justify-center min-h-screen bg-vpn-bg px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600/20 mb-4">
-            <Shield className="w-8 h-8 text-blue-500" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-vpn-primary/20 mb-4">
+            <Shield className="w-8 h-8 text-vpn-primary" />
           </div>
           <h1 className="text-2xl font-bold text-white">VPN Proxy Manager</h1>
-          <p className="text-slate-500 mt-1">
+          <p className="text-vpn-muted mt-1">
             {setupRequired
               ? "Create your admin account to get started"
               : "Sign in to manage your VPN containers"}
@@ -73,7 +73,7 @@ export default function Login() {
 
         <form
           onSubmit={handleSubmit}
-          className="bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-5"
+          className="bg-vpn-card border border-vpn-border rounded-2xl p-8 space-y-5"
         >
           <h2 className="text-xl font-semibold text-white text-center">
             {setupRequired ? "Setup Admin Account" : "Sign In"}
@@ -87,14 +87,14 @@ export default function Login() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1.5">
+            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
               Username
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-vpn-input border border-vpn-border rounded-lg text-white placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
               placeholder="Enter your username"
               required
               autoComplete="username"
@@ -103,14 +103,14 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1.5">
+            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
               Password
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-vpn-input border border-vpn-border rounded-lg text-white placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
               placeholder="Enter your password"
               required
               autoComplete={setupRequired ? "new-password" : "current-password"}
@@ -120,7 +120,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+            className="w-full py-2.5 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-black font-medium rounded-lg transition-colors"
           >
             {loading
               ? "Please wait..."

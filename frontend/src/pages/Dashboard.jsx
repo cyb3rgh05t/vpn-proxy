@@ -19,7 +19,7 @@ export default function Dashboard() {
   const fetchContainers = useCallback(async () => {
     try {
       const res = await api.get("/containers");
-      setContainers(res.data);
+      setContainers(Array.isArray(res.data) ? res.data : []);
       setError("");
     } catch (err) {
       setError("Failed to load containers");
@@ -44,8 +44,8 @@ export default function Dashboard() {
       label: "Total Containers",
       value: containers.length,
       icon: Server,
-      color: "text-blue-400",
-      bg: "bg-blue-500/10",
+      color: "text-vpn-primary",
+      bg: "bg-vpn-primary/10",
     },
     {
       label: "Running",
@@ -68,21 +68,21 @@ export default function Dashboard() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-slate-500 mt-1">
+          <p className="text-vpn-muted mt-1">
             Manage your Gluetun VPN containers
           </p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={fetchContainers}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
           <button
             onClick={() => navigate("/create")}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-primary hover:bg-vpn-primary-hover text-black rounded-lg transition-colors"
           >
             <PlusCircle className="w-4 h-4" />
             New Container
@@ -95,14 +95,14 @@ export default function Dashboard() {
         {stats.map(({ label, value, icon: Icon, color, bg }) => (
           <div
             key={label}
-            className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex items-center gap-4"
+            className="bg-vpn-card border border-vpn-border rounded-xl p-5 flex items-center gap-4"
           >
             <div className={`p-3 rounded-lg ${bg}`}>
               <Icon className={`w-6 h-6 ${color}`} />
             </div>
             <div>
               <p className="text-2xl font-bold text-white">{value}</p>
-              <p className="text-sm text-slate-500">{label}</p>
+              <p className="text-sm text-vpn-muted">{label}</p>
             </div>
           </div>
         ))}
@@ -111,31 +111,31 @@ export default function Dashboard() {
       {/* Container Grid */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-vpn-primary"></div>
         </div>
       ) : error ? (
         <div className="text-center py-12">
           <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-3" />
-          <p className="text-slate-400">{error}</p>
+          <p className="text-vpn-muted">{error}</p>
           <button
             onClick={fetchContainers}
-            className="mt-3 text-blue-400 hover:text-blue-300"
+            className="mt-3 text-vpn-primary hover:text-vpn-accent"
           >
             Try again
           </button>
         </div>
       ) : containers.length === 0 ? (
-        <div className="text-center py-16 bg-slate-900 border border-slate-800 rounded-2xl">
-          <Server className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-slate-300 mb-2">
+        <div className="text-center py-16 bg-vpn-card border border-vpn-border rounded-2xl">
+          <Server className="w-16 h-16 text-vpn-border mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-vpn-text mb-2">
             No containers yet
           </h3>
-          <p className="text-slate-500 mb-6">
+          <p className="text-vpn-muted mb-6">
             Create your first Gluetun VPN container to get started.
           </p>
           <button
             onClick={() => navigate("/create")}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-vpn-primary hover:bg-vpn-primary-hover text-black rounded-lg transition-colors"
           >
             <PlusCircle className="w-5 h-5" />
             Create Container

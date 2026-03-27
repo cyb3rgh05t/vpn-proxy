@@ -69,14 +69,17 @@ def auto_discover_containers():
 def run_migrations():
     """Add missing columns to existing tables."""
     import sqlalchemy
+
     with engine.connect() as conn:
         inspector = sqlalchemy.inspect(engine)
         if "vpn_containers" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("vpn_containers")]
             if "extra_ports" not in columns:
-                conn.execute(sqlalchemy.text(
-                    "ALTER TABLE vpn_containers ADD COLUMN extra_ports JSON DEFAULT '[]'"
-                ))
+                conn.execute(
+                    sqlalchemy.text(
+                        "ALTER TABLE vpn_containers ADD COLUMN extra_ports JSON DEFAULT '[]'"
+                    )
+                )
                 conn.commit()
                 logger.info("Migrated: added 'extra_ports' column to vpn_containers.")
 

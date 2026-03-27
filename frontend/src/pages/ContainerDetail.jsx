@@ -1,0 +1,303 @@
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  Play,
+  Square,
+  RotateCcw,
+  Trash2,
+  Download,
+  RefreshCw,
+  Terminal,
+} from "lucide-react";
+import api from "../services/api";
+import StatusBadge from "../components/StatusBadge";
+
+export default function ContainerDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [container, setContainer] = useState(null);
+  const [logs, setLogs] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("info");
+
+  const fetchContainer = useCallback(async () => {
+    try {
+      const res = await api.get(`/containers/${id}`);
+      setContainer(res.data);
+    } catch {
+      navigate("/");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, navigate]);
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const res = await api.get(`/containers/${id}/logs`);
+      setLogs(res.data.logs);
+    } catch {
+      setLogs("Failed to fetch logs.");
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchContainer();
+  }, [fetchContainer]);
+
+  useEffect(() => {
+    if (tab === "logs") fetchLogs();
+  }, [tab, fetchLogs]);
+
+  useEffect(() => {
+    const interval = setInterval(fetchContainer, 10000);
+    return () => clearInterval(interval);
+  }, [fetchContainer]);
+
+  const handleAction = async (action) => {
+    try {
+      await api.post(`/containers/${id}/${action}`);
+      fetchContainer();
+    } catch (err) {
+      alert(err.response?.data?.detail || `Failed to ${action}`);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete "${container.name}"? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/containers/${id}`);
+      navigate("/");
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to delete");
+    }
+  };
+
+  const handleExportCompose = async () => {
+    try {
+      const res = await api.get(`/containers/${id}/compose`);
+      const blob = new Blob([res.data], { type: "text/yaml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `docker-compose-${container.name}.yml`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Failed to export compose file");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (!container) return null;
+
+  const isRunning = container.status === "running";
+  const isStopped = ["exited", "created", "removed", "dead"].includes(
+    container.status,
+  );
+
+  const maskedConfig = Object.entries(container.config || {}).map(([k, v]) => ({
+    key: k,
+    value:
+      k.toLowerCase().includes("password") || k.toLowerCase().includes("key")
+        ? "••••••••"
+        : v,
+  }));
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <button
+        onClick={() => navigate("/")}
+        className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Dashboard
+      </button>
+
+      {/* Header */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white">{container.name}</h1>
+            <p className="text-slate-500 mt-1">
+              {container.vpn_provider} &middot; {container.vpn_type}
+            </p>
+          </div>
+          <StatusBadge status={container.status} />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchContainer()}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+          {isStopped && (
+            <button
+              onClick={() => handleAction("start")}
+              className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition-colors"
+            >
+              <Play className="w-4 h-4" />
+              Start
+            </button>
+          )}
+          {isRunning && (
+            <button
+              onClick={() => handleAction("stop")}
+              className="flex items-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm transition-colors"
+            >
+              <Square className="w-4 h-4" />
+              Stop
+            </button>
+          )}
+          <button
+            onClick={() => handleAction("restart")}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Restart
+          </button>
+          <button
+            onClick={handleExportCompose}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Export Compose
+          </button>
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg text-sm transition-colors ml-auto"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-4 bg-slate-900 border border-slate-800 rounded-xl p-1">
+        {[
+          { key: "info", label: "Information" },
+          { key: "logs", label: "Logs" },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              tab === key
+                ? "bg-slate-800 text-white"
+                : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        {tab === "info" && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                Network
+              </h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-slate-800 rounded-lg p-4">
+                  <p className="text-xs text-slate-500 mb-1">HTTP Proxy</p>
+                  <p className="text-lg font-mono text-white">
+                    :{container.port_http_proxy}
+                  </p>
+                </div>
+                <div className="bg-slate-800 rounded-lg p-4">
+                  <p className="text-xs text-slate-500 mb-1">Shadowsocks</p>
+                  <p className="text-lg font-mono text-white">
+                    :{container.port_shadowsocks}
+                  </p>
+                </div>
+                <div className="bg-slate-800 rounded-lg p-4">
+                  <p className="text-xs text-slate-500 mb-1">Control API</p>
+                  <p className="text-lg font-mono text-white">
+                    :{container.port_control}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {maskedConfig.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                  Configuration
+                </h3>
+                <div className="bg-slate-800 rounded-lg divide-y divide-slate-700">
+                  {maskedConfig.map(({ key, value }) => (
+                    <div key={key} className="flex justify-between px-4 py-3">
+                      <span className="text-sm text-slate-400 font-mono">
+                        {key}
+                      </span>
+                      <span className="text-sm text-white font-mono">
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                Details
+              </h3>
+              <div className="bg-slate-800 rounded-lg divide-y divide-slate-700">
+                <div className="flex justify-between px-4 py-3">
+                  <span className="text-sm text-slate-400">Container ID</span>
+                  <span className="text-sm text-white font-mono">
+                    {container.container_id || "N/A"}
+                  </span>
+                </div>
+                <div className="flex justify-between px-4 py-3">
+                  <span className="text-sm text-slate-400">Created</span>
+                  <span className="text-sm text-white">
+                    {container.created_at
+                      ? new Date(container.created_at).toLocaleString()
+                      : "N/A"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "logs" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Terminal className="w-4 h-4" />
+                <span className="text-sm">Container Logs</span>
+              </div>
+              <button
+                onClick={fetchLogs}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Refresh
+              </button>
+            </div>
+            <pre className="bg-slate-950 text-slate-300 text-xs font-mono p-4 rounded-lg overflow-auto max-h-[500px] whitespace-pre-wrap">
+              {logs || "No logs available."}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

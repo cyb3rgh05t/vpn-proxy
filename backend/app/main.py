@@ -49,7 +49,11 @@ def health():
 
 # Serve built frontend in production (Docker)
 if os.path.isdir(STATIC_DIR):
-    app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="static-assets")
+    app.mount(
+        "/assets",
+        StaticFiles(directory=os.path.join(STATIC_DIR, "assets")),
+        name="static-assets",
+    )
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):

@@ -12,7 +12,12 @@ from app.schemas.container import (
     ContainerStatusResponse,
 )
 from app.services import docker_service
-from app.services.providers import VPN_PROVIDERS, get_provider_list, get_provider_fields
+from app.services.providers import (
+    VPN_PROVIDERS,
+    get_provider_list,
+    get_provider_fields,
+    get_gluetun_env_variables,
+)
 from app.utils.security import get_current_user
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
@@ -79,6 +84,11 @@ def list_providers():
     return get_provider_list()
 
 
+@router.get("/env-variables")
+def list_env_variables():
+    return get_gluetun_env_variables()
+
+
 @router.get("/providers/{provider_key}")
 def get_provider(provider_key: str):
     provider = get_provider_fields(provider_key)
@@ -134,6 +144,7 @@ def create_container(
             port_http_proxy=req.port_http_proxy,
             port_shadowsocks=req.port_shadowsocks,
             port_control=req.port_control,
+            extra_ports=req.extra_ports,
         )
     except Exception as e:
         raise HTTPException(
@@ -149,6 +160,7 @@ def create_container(
         port_http_proxy=req.port_http_proxy,
         port_shadowsocks=req.port_shadowsocks,
         port_control=req.port_control,
+        extra_ports=req.extra_ports,
         container_id=container_id,
         status="running",
         created_by=current_user.id,
@@ -317,5 +329,6 @@ def export_compose(
         port_http_proxy=c.port_http_proxy,
         port_shadowsocks=c.port_shadowsocks,
         port_control=c.port_control,
+        extra_ports=c.extra_ports if c.extra_ports else None,
     )
     return yaml_content

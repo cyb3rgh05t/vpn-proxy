@@ -40,6 +40,7 @@ def create_container(
     port_http_proxy: int = 8888,
     port_shadowsocks: int = 8388,
     port_control: int = 8001,
+    extra_ports: list[dict] | None = None,
 ):
     client = _get_client()
     container_name = f"gluetun-{name}"
@@ -61,6 +62,15 @@ def create_container(
         "8388/udp": port_shadowsocks,
         "8000/tcp": port_control,
     }
+
+    # Add extra port mappings
+    if extra_ports:
+        for ep in extra_ports:
+            host = int(ep.get("host", 0))
+            container_port = int(ep.get("container", 0))
+            protocol = ep.get("protocol", "tcp").lower()
+            if host > 0 and container_port > 0 and protocol in ("tcp", "udp"):
+                ports[f"{container_port}/{protocol}"] = host
 
     try:
         container = client.containers.run(
@@ -170,6 +180,7 @@ def generate_compose_yaml(
     port_http_proxy: int = 8888,
     port_shadowsocks: int = 8388,
     port_control: int = 8001,
+    extra_ports: list[dict] | None = None,
 ) -> str:
     container_name = f"gluetun-{name}"
     env_vars = {
@@ -180,6 +191,20 @@ def generate_compose_yaml(
         if value:
             env_vars[key] = str(value)
 
+    port_list = [
+        f"{port_http_proxy}:8888",
+        f"{port_shadowsocks}:8388/tcp",
+        f"{port_shadowsocks}:8388/udp",
+        f"{port_control}:8000",
+    ]
+    if extra_ports:
+        for ep in extra_ports:
+            host = int(ep.get("host", 0))
+            container_port = int(ep.get("container", 0))
+            protocol = ep.get("protocol", "tcp").lower()
+            if host > 0 and container_port > 0 and protocol in ("tcp", "udp"):
+                port_list.append(f"{host}:{container_port}/{protocol}")
+
     compose = {
         "services": {
             container_name: {
@@ -188,12 +213,7 @@ def generate_compose_yaml(
                 "cap_add": ["NET_ADMIN"],
                 "devices": ["/dev/net/tun:/dev/net/tun"],
                 "environment": env_vars,
-                "ports": [
-                    f"{port_http_proxy}:8888",
-                    f"{port_shadowsocks}:8388/tcp",
-                    f"{port_shadowsocks}:8388/udp",
-                    f"{port_control}:8000",
-                ],
+                "ports": port_list,
                 "volumes": [f"./gluetun/{name}:/gluetun"],
                 "restart": "unless-stopped",
             }

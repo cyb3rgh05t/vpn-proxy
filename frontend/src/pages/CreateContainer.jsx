@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import api from "../services/api";
 
 export default function CreateContainer() {
@@ -19,12 +26,21 @@ export default function CreateContainer() {
     port_control: 8001,
   });
   const [configFields, setConfigFields] = useState({});
+  const [extraPorts, setExtraPorts] = useState([]);
+  const [envVarCategories, setEnvVarCategories] = useState({});
+  const [advancedFields, setAdvancedFields] = useState({});
+  const [openCategories, setOpenCategories] = useState({});
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     api
       .get("/containers/providers")
       .then((res) => setProviders(Array.isArray(res.data) ? res.data : []))
       .catch(() => setError("Failed to load providers"));
+    api
+      .get("/containers/env-variables")
+      .then((res) => setEnvVarCategories(res.data || {}))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -51,20 +67,67 @@ export default function CreateContainer() {
     return [...typeFields, ...commonFields];
   };
 
+  const addExtraPort = () => {
+    setExtraPorts([
+      ...extraPorts,
+      { host: "", container: "", protocol: "tcp" },
+    ]);
+  };
+
+  const removeExtraPort = (index) => {
+    setExtraPorts(extraPorts.filter((_, i) => i !== index));
+  };
+
+  const updateExtraPort = (index, field, value) => {
+    const updated = [...extraPorts];
+    updated[index] = { ...updated[index], [field]: value };
+    setExtraPorts(updated);
+  };
+
+  // Get provider-specific field keys to exclude from advanced settings
+  const getProviderFieldKeys = () => {
+    if (!providerDetails) return new Set();
+    const typeFields = providerDetails.fields?.[form.vpn_type] || [];
+    const commonFields = providerDetails.common_fields || [];
+    return new Set([...typeFields, ...commonFields].map((f) => f.key));
+  };
+
+  const toggleCategory = (cat) => {
+    setOpenCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
+
+    const validExtraPorts = extraPorts.filter(
+      (p) =>
+        p.host &&
+        p.container &&
+        parseInt(p.host) > 0 &&
+        parseInt(p.container) > 0,
+    );
+
+    // Merge provider config fields with advanced env var fields
+    const filledAdvanced = {};
+    for (const [key, value] of Object.entries(advancedFields)) {
+      if (value && value.trim()) {
+        filledAdvanced[key] = value.trim();
+      }
+    }
+    const mergedConfig = { ...configFields, ...filledAdvanced };
 
     try {
       await api.post("/containers", {
         name: form.name,
         vpn_provider: form.vpn_provider,
         vpn_type: form.vpn_type,
-        config: configFields,
+        config: mergedConfig,
         port_http_proxy: form.port_http_proxy,
         port_shadowsocks: form.port_shadowsocks,
         port_control: form.port_control,
+        extra_ports: validExtraPorts,
       });
       navigate("/");
     } catch (err) {
@@ -84,7 +147,7 @@ export default function CreateContainer() {
   const labelClass = "block text-sm font-medium text-vpn-muted mb-1.5";
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div>
       <button
         onClick={() => navigate("/")}
         className="flex items-center gap-2 text-vpn-muted hover:text-white mb-6 transition-colors"
@@ -93,22 +156,23 @@ export default function CreateContainer() {
         Back to Dashboard
       </button>
 
-      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-8">
-        <h1 className="text-2xl font-bold text-white mb-2">
-          Create VPN Container
-        </h1>
-        <p className="text-vpn-muted mb-8">
-          Configure and deploy a new Gluetun VPN container.
-        </p>
+      <h1 className="text-2xl font-bold text-white mb-2">
+        Create VPN Container
+      </h1>
+      <p className="text-vpn-muted mb-6">
+        Configure and deploy a new Gluetun VPN container.
+      </p>
 
-        {error && (
-          <div className="p-3 mb-6 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-            {error}
-          </div>
-        )}
+      {error && (
+        <div className="p-3 mb-6 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+          {error}
+        </div>
+      )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Container Name */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Card: General */}
+        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">General</h2>
           <div>
             <label className={labelClass}>Container Name</label>
             <input
@@ -123,59 +187,67 @@ export default function CreateContainer() {
               Lowercase letters, numbers, hyphens, underscores only
             </p>
           </div>
+        </div>
 
-          {/* VPN Provider */}
-          <div>
-            <label className={labelClass}>VPN Provider</label>
-            <select
-              value={form.vpn_provider}
-              onChange={(e) =>
-                setForm({ ...form, vpn_provider: e.target.value })
-              }
-              className={inputClass}
-              required
-            >
-              <option value="">Select a provider...</option>
-              {providers.map((p) => (
-                <option key={p.key} value={p.key}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* VPN Type */}
-          {providerDetails && (
+        {/* Card: VPN Provider */}
+        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">
+            VPN Provider
+          </h2>
+          <div className="space-y-4">
             <div>
-              <label className={labelClass}>VPN Type</label>
-              <div className="flex gap-3">
-                {providerDetails.vpn_types.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => {
-                      setForm({ ...form, vpn_type: type });
-                      setConfigFields({});
-                    }}
-                    className={`flex-1 py-2.5 rounded-lg border font-medium transition-colors ${
-                      form.vpn_type === type
-                        ? "bg-vpn-primary/20 border-vpn-primary text-vpn-primary"
-                        : "bg-vpn-input border-vpn-border text-vpn-muted hover:border-vpn-muted"
-                    }`}
-                  >
-                    {type === "openvpn" ? "OpenVPN" : "WireGuard"}
-                  </button>
+              <label className={labelClass}>Provider</label>
+              <select
+                value={form.vpn_provider}
+                onChange={(e) =>
+                  setForm({ ...form, vpn_provider: e.target.value })
+                }
+                className={inputClass}
+                required
+              >
+                <option value="">Select a provider...</option>
+                {providers.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.name}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
-          )}
 
-          {/* Provider-specific fields */}
-          {getFields().length > 0 && (
-            <div className="space-y-4 p-5 bg-vpn-input/50 border border-vpn-border rounded-xl">
-              <h3 className="text-sm font-semibold text-vpn-text uppercase tracking-wider">
-                VPN Configuration
-              </h3>
+            {providerDetails && (
+              <div>
+                <label className={labelClass}>VPN Type</label>
+                <div className="flex gap-3">
+                  {providerDetails.vpn_types.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => {
+                        setForm({ ...form, vpn_type: type });
+                        setConfigFields({});
+                      }}
+                      className={`flex-1 py-2.5 rounded-lg border font-medium transition-colors ${
+                        form.vpn_type === type
+                          ? "bg-vpn-primary/20 border-vpn-primary text-vpn-primary"
+                          : "bg-vpn-input border-vpn-border text-vpn-muted hover:border-vpn-muted"
+                      }`}
+                    >
+                      {type === "openvpn" ? "OpenVPN" : "WireGuard"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card: VPN Configuration */}
+        {getFields().length > 0 && (
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">
+              VPN Configuration
+            </h2>
+            <div className="space-y-4">
               {getFields().map((field) => (
                 <div key={field.key}>
                   <label className={labelClass}>
@@ -201,76 +273,265 @@ export default function CreateContainer() {
                 </div>
               ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Port Configuration */}
-          <div className="space-y-4 p-5 bg-vpn-input/50 border border-vpn-border rounded-xl">
-            <h3 className="text-sm font-semibold text-vpn-text uppercase tracking-wider">
-              Port Mapping
-            </h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className={labelClass}>HTTP Proxy</label>
-                <input
-                  type="number"
-                  value={form.port_http_proxy}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      port_http_proxy: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className={inputClass}
-                  min="1024"
-                  max="65535"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Shadowsocks</label>
-                <input
-                  type="number"
-                  value={form.port_shadowsocks}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      port_shadowsocks: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className={inputClass}
-                  min="1024"
-                  max="65535"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Control</label>
-                <input
-                  type="number"
-                  value={form.port_control}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      port_control: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className={inputClass}
-                  min="1024"
-                  max="65535"
-                />
-              </div>
+        {/* Card: Access Ports */}
+        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">
+            Access Ports
+          </h2>
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className={labelClass}>HTTP Proxy</label>
+              <input
+                type="number"
+                value={form.port_http_proxy}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    port_http_proxy: parseInt(e.target.value) || 0,
+                  })
+                }
+                className={inputClass}
+                min="1024"
+                max="65535"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Shadowsocks</label>
+              <input
+                type="number"
+                value={form.port_shadowsocks}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    port_shadowsocks: parseInt(e.target.value) || 0,
+                  })
+                }
+                className={inputClass}
+                min="1024"
+                max="65535"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Gluetun API</label>
+              <input
+                type="number"
+                value={form.port_control}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    port_control: parseInt(e.target.value) || 0,
+                  })
+                }
+                className={inputClass}
+                min="1024"
+                max="65535"
+              />
             </div>
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {loading ? "Creating Container..." : "Create Container"}
-          </button>
-        </form>
-      </div>
+          {/* Extra Ports */}
+          <div className="border-t border-vpn-border pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-medium text-vpn-muted">
+                Additional Ports
+              </label>
+              <button
+                type="button"
+                onClick={addExtraPort}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Port
+              </button>
+            </div>
+
+            {extraPorts.length === 0 && (
+              <p className="text-xs text-vpn-muted">
+                No additional ports configured. Click "Add Port" to map extra
+                ports through the VPN container.
+              </p>
+            )}
+
+            <div className="space-y-2">
+              {extraPorts.map((port, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      value={port.host}
+                      onChange={(e) =>
+                        updateExtraPort(index, "host", e.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="Host port"
+                      min="1"
+                      max="65535"
+                    />
+                  </div>
+                  <span className="text-vpn-muted text-lg">:</span>
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      value={port.container}
+                      onChange={(e) =>
+                        updateExtraPort(index, "container", e.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="Container port"
+                      min="1"
+                      max="65535"
+                    />
+                  </div>
+                  <select
+                    value={port.protocol}
+                    onChange={(e) =>
+                      updateExtraPort(index, "protocol", e.target.value)
+                    }
+                    className="px-3 py-2.5 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-vpn-primary"
+                  >
+                    <option value="tcp">TCP</option>
+                    <option value="udp">UDP</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => removeExtraPort(index)}
+                    className="p-2.5 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Card: Advanced Settings (Gluetun Env Variables) */}
+        {Object.keys(envVarCategories).length > 0 && (
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center justify-between w-full"
+            >
+              <h2 className="text-lg font-semibold text-white">
+                Advanced Settings
+              </h2>
+              {showAdvanced ? (
+                <ChevronDown className="w-5 h-5 text-vpn-muted" />
+              ) : (
+                <ChevronRight className="w-5 h-5 text-vpn-muted" />
+              )}
+            </button>
+            <p className="text-xs text-vpn-muted mt-1">
+              Optional Gluetun environment variables. Provider-specific fields
+              above take priority.
+            </p>
+
+            {showAdvanced && (
+              <div className="mt-4 space-y-3">
+                {Object.entries(envVarCategories).map(([category, vars]) => {
+                  const providerKeys = getProviderFieldKeys();
+                  const filteredVars = vars.filter(
+                    (v) => !providerKeys.has(v.key),
+                  );
+                  if (filteredVars.length === 0) return null;
+
+                  return (
+                    <div
+                      key={category}
+                      className="border border-vpn-border rounded-lg overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory(category)}
+                        className="flex items-center justify-between w-full px-4 py-2.5 bg-vpn-input hover:bg-vpn-border transition-colors"
+                      >
+                        <span className="text-sm font-medium text-vpn-text">
+                          {category}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {filteredVars.some((v) => advancedFields[v.key]) && (
+                            <span className="text-xs text-vpn-primary">
+                              {
+                                filteredVars.filter(
+                                  (v) => advancedFields[v.key],
+                                ).length
+                              }{" "}
+                              set
+                            </span>
+                          )}
+                          {openCategories[category] ? (
+                            <ChevronDown className="w-4 h-4 text-vpn-muted" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-vpn-muted" />
+                          )}
+                        </div>
+                      </button>
+
+                      {openCategories[category] && (
+                        <div className="px-4 py-3 space-y-3">
+                          {filteredVars.map((envVar) => (
+                            <div key={envVar.key}>
+                              <label className={labelClass}>
+                                {envVar.label}
+                                <span className="text-xs text-vpn-muted ml-2 font-normal">
+                                  {envVar.key}
+                                </span>
+                              </label>
+                              <input
+                                type={
+                                  envVar.type === "password"
+                                    ? "password"
+                                    : "text"
+                                }
+                                value={advancedFields[envVar.key] || ""}
+                                onChange={(e) =>
+                                  setAdvancedFields({
+                                    ...advancedFields,
+                                    [envVar.key]: e.target.value,
+                                  })
+                                }
+                                className={inputClass}
+                                placeholder={
+                                  envVar.default
+                                    ? `Default: ${envVar.default}`
+                                    : envVar.placeholder || ""
+                                }
+                                autoComplete="off"
+                              />
+                              {envVar.default && (
+                                <p className="text-xs text-vpn-muted mt-1">
+                                  Default:{" "}
+                                  <span className="text-vpn-primary/70">
+                                    {envVar.default}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-3 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+          {loading ? "Creating Container..." : "Create Container"}
+        </button>
+      </form>
     </div>
   );
 }

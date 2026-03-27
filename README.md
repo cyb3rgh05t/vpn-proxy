@@ -215,7 +215,7 @@ Unter **Settings** kannst du dein Passwort ändern.
 | `8000` | VPN Proxy Manager          | WebUI + API               |
 | `8888` | Gluetun HTTP Proxy         | Pro Container (anpassbar) |
 | `8388` | Gluetun Shadowsocks/SOCKS5 | Pro Container (anpassbar) |
-| `8001` | Gluetun Control API        | Pro Container (anpassbar) |
+| `8001` | Gluetun API                | Pro Container (anpassbar) |
 
 > **Wichtig:** Jeder Gluetun Container braucht eigene Ports. Bei mehreren Containern die Ports hochzählen (8888, 8889, 8890...).
 

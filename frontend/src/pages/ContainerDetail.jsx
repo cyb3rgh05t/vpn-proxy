@@ -225,12 +225,32 @@ export default function ContainerDetail() {
                   </p>
                 </div>
                 <div className="bg-vpn-input rounded-lg p-4">
-                  <p className="text-xs text-vpn-muted mb-1">Control API</p>
+                  <p className="text-xs text-vpn-muted mb-1">Gluetun API</p>
                   <p className="text-lg font-mono text-white">
                     :{container.port_control}
                   </p>
                 </div>
               </div>
+              {/* Extra Ports */}
+              {container.extra_ports && container.extra_ports.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs text-vpn-muted mb-2">
+                    Additional Ports
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {container.extra_ports.map((ep, i) => (
+                      <div key={i} className="bg-vpn-input rounded-lg p-3">
+                        <p className="text-xs text-vpn-muted mb-1">
+                          {ep.protocol?.toUpperCase() || "TCP"}
+                        </p>
+                        <p className="text-sm font-mono text-white">
+                          {ep.host} → {ep.container}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {maskedConfig.length > 0 && (

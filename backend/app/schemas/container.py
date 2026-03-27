@@ -12,6 +12,7 @@ class ContainerCreate(BaseModel):
     port_http_proxy: int = 8888
     port_shadowsocks: int = 8388
     port_control: int = 8001
+    extra_ports: list[dict] = []
 
     @field_validator("name")
     @classmethod
@@ -40,6 +41,7 @@ class ContainerUpdate(BaseModel):
     port_http_proxy: Optional[int] = None
     port_shadowsocks: Optional[int] = None
     port_control: Optional[int] = None
+    extra_ports: Optional[list[dict]] = None
 
 
 class ContainerResponse(BaseModel):
@@ -51,6 +53,7 @@ class ContainerResponse(BaseModel):
     port_http_proxy: int
     port_shadowsocks: int
     port_control: int
+    extra_ports: list[dict] = []
     container_id: Optional[str] = None
     status: str
     created_by: Optional[int] = None

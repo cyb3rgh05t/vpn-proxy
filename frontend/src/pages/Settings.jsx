@@ -157,134 +157,10 @@ export default function Settings() {
   );
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white mb-2">Settings</h1>
         <p className="text-vpn-muted">Manage your account settings</p>
-      </div>
-
-      {/* Account Info */}
-      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Account</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-vpn-input rounded-lg p-4">
-            <p className="text-xs text-vpn-muted mb-1">Username</p>
-            <p className="text-white font-medium">{user?.username}</p>
-          </div>
-          <div className="bg-vpn-input rounded-lg p-4">
-            <p className="text-xs text-vpn-muted mb-1">Role</p>
-            <p className="text-white font-medium">
-              {user?.is_admin ? "Administrator" : "User"}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Change Username */}
-      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">
-          Change Username
-        </h2>
-        {usernameError && <Alert type="error" message={usernameError} />}
-        {usernameSuccess && <Alert type="success" message={usernameSuccess} />}
-        <form onSubmit={handleChangeUsername} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-              New Username
-            </label>
-            <input
-              type="text"
-              value={newUsername}
-              onChange={(e) => setNewUsername(e.target.value)}
-              className={inputClass}
-              required
-              minLength={3}
-              maxLength={50}
-              placeholder="Enter new username"
-              autoComplete="username"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              value={usernamePassword}
-              onChange={(e) => setUsernamePassword(e.target.value)}
-              className={inputClass}
-              required
-              placeholder="Enter your password to confirm"
-              autoComplete="current-password"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={usernameLoading}
-            className="px-6 py-2.5 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 text-black font-medium rounded-lg transition-colors"
-          >
-            {usernameLoading ? "Saving..." : "Change Username"}
-          </button>
-        </form>
-      </div>
-
-      {/* Change Password */}
-      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">
-          Change Password
-        </h2>
-        {passwordError && <Alert type="error" message={passwordError} />}
-        {passwordSuccess && <Alert type="success" message={passwordSuccess} />}
-        <form onSubmit={handleChangePassword} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-              Current Password
-            </label>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className={inputClass}
-              required
-              autoComplete="current-password"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-              New Password
-            </label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className={inputClass}
-              required
-              minLength={6}
-              autoComplete="new-password"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-              Confirm New Password
-            </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className={inputClass}
-              required
-              minLength={6}
-              autoComplete="new-password"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={passwordLoading}
-            className="px-6 py-2.5 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 text-black font-medium rounded-lg transition-colors"
-          >
-            {passwordLoading ? "Saving..." : "Change Password"}
-          </button>
-        </form>
       </div>
 
       {/* User Management (admin only) */}
@@ -428,6 +304,130 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* Account Info */}
+      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-white mb-4">Account</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-vpn-input rounded-lg p-4">
+            <p className="text-xs text-vpn-muted mb-1">Username</p>
+            <p className="text-white font-medium">{user?.username}</p>
+          </div>
+          <div className="bg-vpn-input rounded-lg p-4">
+            <p className="text-xs text-vpn-muted mb-1">Role</p>
+            <p className="text-white font-medium">
+              {user?.is_admin ? "Administrator" : "User"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Change Username */}
+      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-white mb-4">
+          Change Username
+        </h2>
+        {usernameError && <Alert type="error" message={usernameError} />}
+        {usernameSuccess && <Alert type="success" message={usernameSuccess} />}
+        <form onSubmit={handleChangeUsername} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+              New Username
+            </label>
+            <input
+              type="text"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              className={inputClass}
+              required
+              minLength={3}
+              maxLength={50}
+              placeholder="Enter new username"
+              autoComplete="username"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              value={usernamePassword}
+              onChange={(e) => setUsernamePassword(e.target.value)}
+              className={inputClass}
+              required
+              placeholder="Enter your password to confirm"
+              autoComplete="current-password"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={usernameLoading}
+            className="px-6 py-2.5 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 text-black font-medium rounded-lg transition-colors"
+          >
+            {usernameLoading ? "Saving..." : "Change Username"}
+          </button>
+        </form>
+      </div>
+
+      {/* Change Password */}
+      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-white mb-4">
+          Change Password
+        </h2>
+        {passwordError && <Alert type="error" message={passwordError} />}
+        {passwordSuccess && <Alert type="success" message={passwordSuccess} />}
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+              Current Password
+            </label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className={inputClass}
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+              New Password
+            </label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className={inputClass}
+              required
+              minLength={6}
+              autoComplete="new-password"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+              Confirm New Password
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className={inputClass}
+              required
+              minLength={6}
+              autoComplete="new-password"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={passwordLoading}
+            className="px-6 py-2.5 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 text-black font-medium rounded-lg transition-colors"
+          >
+            {passwordLoading ? "Saving..." : "Change Password"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

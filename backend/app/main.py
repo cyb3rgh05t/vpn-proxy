@@ -66,10 +66,26 @@ def auto_discover_containers():
         logger.warning("Auto-discovery of Gluetun containers failed: %s", e)
 
 
+def run_migrations():
+    """Add missing columns to existing tables."""
+    import sqlalchemy
+    with engine.connect() as conn:
+        inspector = sqlalchemy.inspect(engine)
+        if "vpn_containers" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("vpn_containers")]
+            if "extra_ports" not in columns:
+                conn.execute(sqlalchemy.text(
+                    "ALTER TABLE vpn_containers ADD COLUMN extra_ports JSON DEFAULT '[]'"
+                ))
+                conn.commit()
+                logger.info("Migrated: added 'extra_ports' column to vpn_containers.")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Creating database tables...")
     Base.metadata.create_all(bind=engine)
+    run_migrations()
     auto_discover_containers()
     logger.info("VPN Proxy Manager started.")
     yield

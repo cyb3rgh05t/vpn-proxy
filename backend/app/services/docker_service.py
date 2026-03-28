@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import socket
 from typing import Any
 import docker
 import requests as http_requests
@@ -244,9 +245,95 @@ def _get_gluetun_auth(container_id: str) -> tuple[str, str] | None | str:
     return None
 
 
+def _get_docker_host_ip() -> str | None:
+    """Get the Docker host IP reachable from within a container."""
+    # Try host.docker.internal (Docker Desktop on Windows/Mac)
+    try:
+        return socket.gethostbyname("host.docker.internal")
+    except socket.gaierror:
+        pass
+    # Fall back to default bridge gateway
+    client = _get_client()
+    try:
+        networks = client.networks.list(names=["bridge"])
+        if networks:
+            ipam_config = networks[0].attrs.get("IPAM", {}).get("Config", [])
+            if ipam_config:
+                gateway = ipam_config[0].get("Gateway")
+                if gateway:
+                    return gateway
+    except Exception:
+        pass
+    return "172.17.0.1"  # Common Linux default
+
+
+def _get_container_published_port(
+    container_id: str, internal_port: str = "8000/tcp"
+) -> int | None:
+    """Get the published host port for a container's internal port."""
+    client = _get_client()
+    try:
+        container = client.containers.get(container_id)
+        port_bindings = (
+            container.attrs.get("HostConfig", {}).get("PortBindings", {}) or {}
+        )
+        bindings = port_bindings.get(internal_port, [])
+        if bindings:
+            port = int(bindings[0].get("HostPort", 0))
+            return port if port > 0 else None
+    except Exception:
+        pass
+    return None
+
+
+def _get_gluetun_base_url(
+    container_id: str, debug_info: dict[str, Any] | None = None
+) -> str | None:
+    """Determine the best reachable URL for the Gluetun control server.
+    Tries internal IP first (same Docker network), then falls back to
+    Docker host gateway + published port (cross-network).
+    """
+    # 1. Try internal IP on port 8000
+    ip = _get_container_ip(container_id)
+    if debug_info is not None:
+        debug_info["internal_ip"] = ip
+    if ip:
+        internal_url = f"http://{ip}:8000"
+        try:
+            resp = http_requests.get(f"{internal_url}/v1/vpn/status", timeout=2)
+            # Any response (even 401) means it's reachable
+            if debug_info is not None:
+                debug_info["connection_method"] = "internal"
+            return internal_url
+        except Exception:
+            if debug_info is not None:
+                debug_info["internal_ip_reachable"] = False
+
+    # 2. Fall back to host gateway + published port
+    host_ip = _get_docker_host_ip()
+    published_port = _get_container_published_port(container_id)
+    if debug_info is not None:
+        debug_info["host_ip"] = host_ip
+        debug_info["published_port"] = published_port
+    if host_ip and published_port:
+        host_url = f"http://{host_ip}:{published_port}"
+        try:
+            resp = http_requests.get(f"{host_url}/v1/vpn/status", timeout=2)
+            if debug_info is not None:
+                debug_info["connection_method"] = "host_gateway"
+            return host_url
+        except Exception:
+            if debug_info is not None:
+                debug_info["host_gateway_reachable"] = False
+
+    if debug_info is not None:
+        debug_info["connection_method"] = "none"
+    return None
+
+
 def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
     """Query the Gluetun control server for VPN status and public IP.
-    Uses the container's internal IP on port 8000 (Gluetun's default control port).
+    Tries internal container IP first, falls back to host gateway + published port.
     """
     result: dict[str, Any] = {
         "vpn_status": None,
@@ -257,11 +344,9 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
     }
     debug_info: dict[str, Any] | None = {} if debug else None
 
-    ip = _get_container_ip(container_id)
     auth = _get_gluetun_auth(container_id)
     if debug and debug_info is not None:
         debug_info["container_id"] = container_id
-        debug_info["internal_ip"] = ip
         debug_info["auth_found"] = auth is not None and auth != "none"
         debug_info["auth_type"] = (
             "none"
@@ -269,18 +354,20 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
             else "basic" if isinstance(auth, tuple) else "missing"
         )
         debug_info["errors"] = []
-    if not ip:
+
+    base = _get_gluetun_base_url(container_id, debug_info)
+    if not base:
         if debug and debug_info is not None:
-            debug_info["errors"].append("Could not get container internal IP")
+            debug_info["errors"].append(
+                "Could not reach Gluetun control server (tried internal IP and host gateway)"
+            )
             result["_debug"] = debug_info
         return result
 
-    base = f"http://{ip}:8000"
     req_kwargs: dict[str, Any] = {"timeout": 3}
     # auth can be a (user, pass) tuple, "none" string, or None
     if isinstance(auth, tuple):
         req_kwargs["auth"] = auth
-    # auth == "none" means no auth needed, auth == None means unknown
     if debug and debug_info is not None:
         debug_info["base_url"] = base
 

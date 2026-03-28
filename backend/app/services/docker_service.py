@@ -705,6 +705,18 @@ def list_all_docker_containers() -> list[dict]:
             gluetun_map[mid] = mname
             gluetun_map[mname] = mname
 
+        # Build a map of networks each managed Gluetun container is connected to
+        gluetun_networks: dict[str, str] = {}  # network_id -> gluetun_name
+        for m in managed:
+            try:
+                nets = m.attrs.get("NetworkSettings", {}).get("Networks", {})
+                for net_name, net_info in nets.items():
+                    net_id = net_info.get("NetworkID", "")
+                    if net_id and net_name not in ("bridge", "host", "none"):
+                        gluetun_networks[net_id] = m.name or ""
+            except Exception:
+                continue
+
         for c in client.containers.list(all=True):
             try:
                 cid = c.id or ""
@@ -718,6 +730,8 @@ def list_all_docker_containers() -> list[dict]:
 
                 network_mode = c.attrs.get("HostConfig", {}).get("NetworkMode", "")
                 vpn_parent = None
+
+                # Method 1: network_mode: container:<ref>
                 if network_mode.startswith("container:"):
                     ref = network_mode.split(":", 1)[1]
                     if ref in gluetun_map:
@@ -727,6 +741,18 @@ def list_all_docker_containers() -> list[dict]:
                             if mid.startswith(ref) or ref.startswith(mid[:12]):
                                 vpn_parent = gluetun_map.get(mid, ref)
                                 break
+
+                # Method 2: Shared Docker network with a managed Gluetun container
+                if not vpn_parent:
+                    try:
+                        c_nets = c.attrs.get("NetworkSettings", {}).get("Networks", {})
+                        for net_name, net_info in c_nets.items():
+                            net_id = net_info.get("NetworkID", "")
+                            if net_id in gluetun_networks:
+                                vpn_parent = gluetun_networks[net_id]
+                                break
+                    except Exception:
+                        pass
 
                 image_tags = c.image.tags if c.image else []
                 # Get health status

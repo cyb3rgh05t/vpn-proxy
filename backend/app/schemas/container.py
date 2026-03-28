@@ -55,7 +55,7 @@ class ContainerResponse(BaseModel):
     port_http_proxy: int
     port_shadowsocks: int
     port_control: int
-    extra_ports: list[dict] = []
+    extra_ports: Optional[list[dict]] = []
     container_id: Optional[str] = None
     status: str
     created_by: Optional[int] = None

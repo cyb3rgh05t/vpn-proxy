@@ -8,12 +8,16 @@ import {
   Shield,
   Menu,
   X,
+  Boxes,
+  Network,
 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/create", icon: PlusCircle, label: "New Container" },
+  { to: "/vpn-proxy", icon: Shield, label: "VPN-PROXY" },
+  { to: "/o11", icon: Boxes, label: "O11" },
+  { to: "/create", icon: PlusCircle, label: "New VPN-PROXY" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 

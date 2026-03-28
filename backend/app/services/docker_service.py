@@ -640,6 +640,69 @@ def get_dependent_containers(container_id: str) -> list[dict]:
     return dependents
 
 
+def get_all_dependent_containers() -> list[dict]:
+    """Find all containers using any managed Gluetun container's network."""
+    client = _get_client()
+    result = []
+    try:
+        # Get all managed Gluetun containers
+        managed = client.containers.list(
+            all=True, filters={"label": f"{CONTAINER_LABEL}={CONTAINER_LABEL_VALUE}"}
+        )
+        managed_ids = set()
+        managed_names = set()
+        # Map gluetun id/name -> gluetun container name for display
+        gluetun_map: dict[str, str] = {}
+        for m in managed:
+            mid = m.id or ""
+            mname = m.name or ""
+            managed_ids.add(mid)
+            managed_names.add(mname)
+            gluetun_map[mid] = mname
+            gluetun_map[mname] = mname
+
+        for c in client.containers.list(all=True):
+            try:
+                cid = c.id or ""
+                if cid in managed_ids:
+                    continue
+                network_mode = c.attrs.get("HostConfig", {}).get("NetworkMode", "")
+                if not network_mode.startswith("container:"):
+                    continue
+                ref = network_mode.split(":", 1)[1]
+                # Check if this ref matches any managed Gluetun container
+                vpn_parent = None
+                if ref in gluetun_map:
+                    vpn_parent = gluetun_map[ref]
+                else:
+                    for mid in managed_ids:
+                        if mid.startswith(ref) or ref.startswith(mid[:12]):
+                            vpn_parent = gluetun_map.get(mid, ref)
+                            break
+                if vpn_parent is None:
+                    continue
+                image_tags = c.image.tags if c.image else []
+                result.append(
+                    {
+                        "name": c.name,
+                        "id": c.short_id,
+                        "container_id": cid,
+                        "status": c.status,
+                        "image": (
+                            image_tags[0]
+                            if image_tags
+                            else c.attrs.get("Config", {}).get("Image", "unknown")
+                        ),
+                        "vpn_parent": vpn_parent,
+                    }
+                )
+            except Exception:
+                continue
+    except Exception as e:
+        logger.error("Failed to list all dependent containers: %s", e)
+    return result
+
+
 def get_container_logs(container_id: str, tail: int = 200) -> str:
     client = _get_client()
     try:

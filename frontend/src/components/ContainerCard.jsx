@@ -195,32 +195,42 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
         )}
       </div>
 
-      {/* Ports & Network Grid */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-3 text-xs">
-        <div className="flex justify-between text-vpn-muted">
-          <span>HTTP Proxy</span>
-          <span className="text-vpn-text font-mono">
+      {/* Ports & Network */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
+          <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+            HTTP Proxy
+          </p>
+          <p className="text-sm text-vpn-text font-mono">
             :{container.port_http_proxy}
-          </span>
+          </p>
         </div>
-        <div className="flex justify-between text-vpn-muted">
-          <span>Shadowsocks</span>
-          <span className="text-vpn-text font-mono">
+        <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
+          <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+            Shadowsocks
+          </p>
+          <p className="text-sm text-vpn-text font-mono">
             :{container.port_shadowsocks}
-          </span>
+          </p>
         </div>
         {container.extra_ports?.length > 0 && (
-          <div className="flex justify-between text-vpn-muted col-span-2">
-            <span>Extra Ports</span>
-            <span className="text-vpn-text">
+          <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
+            <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+              Extra Ports
+            </p>
+            <p className="text-sm text-vpn-text">
               {container.extra_ports.length} mapped
-            </span>
+            </p>
           </div>
         )}
         {container.network_name && (
-          <div className="flex justify-between text-vpn-muted col-span-2">
-            <span>Network</span>
-            <span className="text-vpn-text">{container.network_name}</span>
+          <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
+            <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+              Network
+            </p>
+            <p className="text-sm text-vpn-text truncate">
+              {container.network_name}
+            </p>
           </div>
         )}
       </div>

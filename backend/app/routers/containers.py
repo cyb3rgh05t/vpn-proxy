@@ -108,6 +108,39 @@ def list_stacks(
     return docker_service.list_docker_stacks()
 
 
+@router.get("/dependents")
+def list_all_dependents(
+    current_user: User = Depends(get_current_user),
+):
+    """List all dependent containers across all managed Gluetun instances."""
+    return docker_service.get_all_dependent_containers()
+
+
+@router.post("/dependents/{container_name}/{action}")
+def control_any_dependent(
+    container_name: str,
+    action: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Start/stop/restart any dependent container by Docker name."""
+    if action not in ("start", "stop", "restart"):
+        raise HTTPException(status_code=400, detail="Invalid action")
+    # Verify it's actually a dependent
+    all_deps = docker_service.get_all_dependent_containers()
+    if not any(d["name"] == container_name for d in all_deps):
+        raise HTTPException(status_code=403, detail="Container is not a VPN dependent")
+    try:
+        if action == "start":
+            docker_service.start_container(container_name)
+        elif action == "stop":
+            docker_service.stop_container(container_name)
+        elif action == "restart":
+            docker_service.restart_container(container_name)
+        return {"message": f"Container {container_name} {action}ed"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/vpn-info-batch")
 def get_vpn_info_batch(
     db: Session = Depends(get_db),

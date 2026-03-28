@@ -9,6 +9,11 @@ import {
   AlertTriangle,
   Box,
   Image,
+  Wifi,
+  WifiOff,
+  Globe,
+  MapPin,
+  ArrowUpDown,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -20,6 +25,8 @@ export default function O11() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
+  const [managedContainers, setManagedContainers] = useState([]);
+  const [vpnInfoMap, setVpnInfoMap] = useState({});
 
   const fetchContainers = useCallback(async () => {
     try {
@@ -32,6 +39,43 @@ export default function O11() {
       setLoading(false);
     }
   }, []);
+
+  const fetchManagedInfo = useCallback(async () => {
+    try {
+      const [containersRes, vpnRes] = await Promise.all([
+        api.get("/containers"),
+        api.get("/containers/vpn-info-batch"),
+      ]);
+      setManagedContainers(
+        Array.isArray(containersRes.data) ? containersRes.data : [],
+      );
+      setVpnInfoMap(vpnRes.data || {});
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchContainers();
+    fetchManagedInfo();
+    const interval = setInterval(() => {
+      fetchContainers();
+      fetchManagedInfo();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [fetchContainers, fetchManagedInfo]);
+
+  const getVpnInfoForParent = (vpnParent) => {
+    if (!vpnParent) return null;
+    const mc = managedContainers.find(
+      (m) =>
+        m.docker_name === vpnParent ||
+        `gluetun-${m.name}` === vpnParent ||
+        m.name === vpnParent,
+    );
+    if (!mc) return null;
+    return vpnInfoMap[String(mc.id)] || null;
+  };
 
   useEffect(() => {
     fetchContainers();
@@ -146,6 +190,7 @@ export default function O11() {
             const isStopped = ["exited", "created", "dead"].includes(
               dep.status,
             );
+            const parentInfo = getVpnInfoForParent(dep.vpn_parent);
             return (
               <div
                 key={dep.id}
@@ -180,21 +225,67 @@ export default function O11() {
                 </div>
 
                 {/* VPN Connection */}
-                {dep.vpn_parent && (
-                  <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg px-3 py-2.5 mb-3">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-3.5 h-3.5 text-blue-400" />
-                      <span className="text-xs text-blue-400 font-medium">
-                        VPN Routed
-                      </span>
+                {dep.vpn_parent ? (
+                  <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg px-3 py-2.5 mb-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5 text-blue-400" />
+                        <span className="text-xs text-blue-400 font-medium">
+                          VPN Routed
+                        </span>
+                        <span className="text-xs text-white font-medium truncate">
+                          via {dep.vpn_parent}
+                        </span>
+                      </div>
+                      {parentInfo?.vpn_status && (
+                        <span
+                          className={`flex items-center gap-1 text-xs font-medium ${
+                            parentInfo.vpn_status === "running"
+                              ? "text-emerald-400"
+                              : "text-red-400"
+                          }`}
+                        >
+                          {parentInfo.vpn_status === "running" ? (
+                            <Wifi className="w-3 h-3" />
+                          ) : (
+                            <WifiOff className="w-3 h-3" />
+                          )}
+                          {parentInfo.vpn_status === "running"
+                            ? "Connected"
+                            : "Disconnected"}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-sm text-white font-medium mt-1 truncate">
-                      {dep.vpn_parent}
-                    </p>
+                    {parentInfo && (
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {parentInfo.public_ip && (
+                          <span className="flex items-center gap-1 text-xs">
+                            <Globe className="w-3 h-3 text-vpn-primary" />
+                            <span className="text-vpn-primary font-mono">
+                              {parentInfo.public_ip}
+                            </span>
+                          </span>
+                        )}
+                        {(parentInfo.country || parentInfo.region) && (
+                          <span className="flex items-center gap-1 text-xs text-vpn-muted">
+                            <MapPin className="w-3 h-3" />
+                            {[parentInfo.region, parentInfo.country]
+                              .filter(Boolean)
+                              .join(", ")}
+                          </span>
+                        )}
+                        {parentInfo.port_forwarded && (
+                          <span className="flex items-center gap-1 text-xs text-amber-400">
+                            <ArrowUpDown className="w-3 h-3" />
+                            <span className="font-mono">
+                              {parentInfo.port_forwarded}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
-
-                {!dep.vpn_parent && (
+                ) : (
                   <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-lg px-3 py-2.5 mb-3">
                     <div className="flex items-center gap-2">
                       <Shield className="w-3.5 h-3.5 text-vpn-muted" />

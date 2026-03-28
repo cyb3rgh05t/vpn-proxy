@@ -176,7 +176,12 @@ export default function ContainerDetail() {
   };
 
   const handleRedeploy = async () => {
-    if (!confirm("Redeploy this container? Dependents will be restarted automatically.")) return;
+    if (
+      !confirm(
+        "Redeploy this container? Dependents will be restarted automatically.",
+      )
+    )
+      return;
     setRedeploying(true);
     try {
       const res = await api.post(`/containers/${id}/redeploy`, {
@@ -612,7 +617,9 @@ export default function ContainerDetail() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-vpn-card border border-vpn-border rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-vpn-border">
-              <h2 className="text-lg font-bold text-white">Edit Configuration & Redeploy</h2>
+              <h2 className="text-lg font-bold text-white">
+                Edit Configuration & Redeploy
+              </h2>
               <button
                 onClick={() => setEditingConfig(false)}
                 className="p-2 rounded-lg text-vpn-muted hover:text-white hover:bg-vpn-input transition-colors"
@@ -625,12 +632,17 @@ export default function ContainerDetail() {
               {Object.entries(editConfig).map(([key, value]) => (
                 <div key={key} className="flex gap-3 items-start">
                   <div className="flex-1 min-w-0">
-                    <label className="text-xs text-vpn-muted font-mono block mb-1">{key}</label>
+                    <label className="text-xs text-vpn-muted font-mono block mb-1">
+                      {key}
+                    </label>
                     <input
                       type="text"
                       value={value}
                       onChange={(e) =>
-                        setEditConfig((prev) => ({ ...prev, [key]: e.target.value }))
+                        setEditConfig((prev) => ({
+                          ...prev,
+                          [key]: e.target.value,
+                        }))
                       }
                       className="w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
                     />
@@ -676,7 +688,9 @@ export default function ContainerDetail() {
                 disabled={redeploying}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
               >
-                <Rocket className={`w-4 h-4 ${redeploying ? "animate-pulse" : ""}`} />
+                <Rocket
+                  className={`w-4 h-4 ${redeploying ? "animate-pulse" : ""}`}
+                />
                 {redeploying ? "Redeploying..." : "Save & Redeploy"}
               </button>
             </div>

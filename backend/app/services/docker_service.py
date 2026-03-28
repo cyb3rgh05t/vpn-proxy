@@ -734,22 +734,26 @@ def list_all_docker_containers() -> list[dict]:
                 health = c.attrs.get("State", {}).get("Health", {})
                 health_status = health.get("Status")
                 if docker_status == "running" and health_status in (
-                    "healthy", "unhealthy", "starting",
+                    "healthy",
+                    "unhealthy",
+                    "starting",
                 ):
                     docker_status = health_status
 
-                result.append({
-                    "name": cname,
-                    "id": c.short_id,
-                    "container_id": cid,
-                    "status": docker_status,
-                    "image": (
-                        image_tags[0]
-                        if image_tags
-                        else c.attrs.get("Config", {}).get("Image", "unknown")
-                    ),
-                    "vpn_parent": vpn_parent,
-                })
+                result.append(
+                    {
+                        "name": cname,
+                        "id": c.short_id,
+                        "container_id": cid,
+                        "status": docker_status,
+                        "image": (
+                            image_tags[0]
+                            if image_tags
+                            else c.attrs.get("Config", {}).get("Image", "unknown")
+                        ),
+                        "vpn_parent": vpn_parent,
+                    }
+                )
             except Exception:
                 continue
     except Exception as e:

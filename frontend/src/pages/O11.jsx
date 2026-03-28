@@ -89,9 +89,7 @@ export default function O11() {
             <Boxes className="w-6 h-6 text-vpn-primary" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-white">
-              {containers.length}
-            </p>
+            <p className="text-2xl font-bold text-white">{containers.length}</p>
             <p className="text-sm text-vpn-muted">Total</p>
           </div>
         </div>

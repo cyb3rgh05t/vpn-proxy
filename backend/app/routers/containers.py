@@ -128,9 +128,7 @@ def control_any_dependent(
     # Verify the container exists in our list
     all_containers = docker_service.list_all_docker_containers()
     if not any(d["name"] == container_name for d in all_containers):
-        raise HTTPException(
-            status_code=404, detail="Container not found"
-        )
+        raise HTTPException(status_code=404, detail="Container not found")
     try:
         if action == "start":
             docker_service.start_container(container_name)

@@ -39,43 +39,44 @@ export function ContainerDataProvider({ children }) {
     }
   }, []);
 
-  const fetchO11Containers = useCallback(async () => {
+  const fetchAllDependents = useCallback(async () => {
     try {
       const res = await api.get("/containers/dependents");
-      const all = Array.isArray(res.data) ? res.data : [];
-      setO11Containers(all.filter((c) => /o11/i.test(c.name)));
+      return Array.isArray(res.data) ? res.data : [];
     } catch {
-      // ignore
+      return [];
     }
-  }, []);
-
-  const fetchDependents = useCallback(async (containerList) => {
-    if (!containerList?.length) return;
-    const map = {};
-    await Promise.all(
-      containerList.map(async (c) => {
-        try {
-          const res = await api.get(`/containers/${c.id}/dependents`);
-          map[c.id] = Array.isArray(res.data) ? res.data : [];
-        } catch {
-          map[c.id] = [];
-        }
-      }),
-    );
-    setDepsMap(map);
   }, []);
 
   const fetchAll = useCallback(async () => {
-    const [containerData] = await Promise.all([
+    const [containerData, , allDeps] = await Promise.all([
       fetchContainers(),
       fetchVpnInfo(),
-      fetchO11Containers(),
+      fetchAllDependents(),
     ]);
-    if (containerData?.length) {
-      await fetchDependents(containerData);
+
+    // Set O11 containers
+    setO11Containers(allDeps.filter((c) => /o11/i.test(c.name)));
+
+    // Build depsMap client-side: group dependents by their vpn_parent → managed container id
+    if (containerData?.length && allDeps.length) {
+      const nameToId = {};
+      for (const c of containerData) {
+        if (c.name) nameToId[c.name] = c.id;
+      }
+      const map = {};
+      for (const dep of allDeps) {
+        if (dep.vpn_parent && nameToId[dep.vpn_parent] !== undefined) {
+          const parentId = nameToId[dep.vpn_parent];
+          if (!map[parentId]) map[parentId] = [];
+          map[parentId].push(dep);
+        }
+      }
+      setDepsMap(map);
     }
+
     setLoading(false);
-  }, [fetchContainers, fetchVpnInfo, fetchO11Containers, fetchDependents]);
+  }, [fetchContainers, fetchVpnInfo, fetchAllDependents]);
 
   useEffect(() => {
     fetchAll();
@@ -93,7 +94,7 @@ export function ContainerDataProvider({ children }) {
         loading,
         error,
         refreshContainers: fetchContainers,
-        refreshO11Containers: fetchO11Containers,
+        refreshO11Containers: fetchAll,
         refreshAll: fetchAll,
       }}
     >

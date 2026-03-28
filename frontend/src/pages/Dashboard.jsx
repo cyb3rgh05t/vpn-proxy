@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
+  const [vpnInfoMap, setVpnInfoMap] = useState({});
 
   const fetchContainers = useCallback(async () => {
     try {
@@ -33,11 +34,24 @@ export default function Dashboard() {
     }
   }, []);
 
+  const fetchVpnInfo = useCallback(async () => {
+    try {
+      const res = await api.get("/containers/vpn-info-batch");
+      setVpnInfoMap(res.data || {});
+    } catch {
+      // Silently ignore - VPN info is optional
+    }
+  }, []);
+
   useEffect(() => {
     fetchContainers();
-    const interval = setInterval(fetchContainers, 15000);
+    fetchVpnInfo();
+    const interval = setInterval(() => {
+      fetchContainers();
+      fetchVpnInfo();
+    }, 15000);
     return () => clearInterval(interval);
-  }, [fetchContainers]);
+  }, [fetchContainers, fetchVpnInfo]);
 
   const running = containers.filter((c) => c.status === "running").length;
   const stopped = containers.filter((c) =>
@@ -180,6 +194,7 @@ export default function Dashboard() {
             <ContainerCard
               key={container.id}
               container={container}
+              vpnInfo={vpnInfoMap[String(container.id)]}
               onRefresh={fetchContainers}
             />
           ))}

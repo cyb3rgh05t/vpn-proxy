@@ -89,6 +89,27 @@ def list_env_variables():
     return get_gluetun_env_variables()
 
 
+@router.get("/vpn-info-batch")
+def get_vpn_info_batch(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get VPN info for all running containers in one call."""
+    containers = db.query(VPNContainer).all()
+    result = {}
+    for c in containers:
+        if c.container_id:
+            try:
+                status_info = docker_service.get_container_status(c.container_id)
+                if status_info["status"] == "running":
+                    result[str(c.id)] = docker_service.get_gluetun_vpn_info(
+                        c.container_id
+                    )
+            except Exception:
+                pass
+    return result
+
+
 @router.get("/providers/{provider_key}")
 def get_provider(provider_key: str):
     provider = get_provider_fields(provider_key)
@@ -358,6 +379,18 @@ def get_status(
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
     return docker_service.get_container_status(c.container_id)
+
+
+@router.get("/{container_id}/vpn-info")
+def get_vpn_info(
+    container_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
+    if not c or not c.container_id:
+        raise HTTPException(status_code=404, detail="Container not found")
+    return docker_service.get_gluetun_vpn_info(c.container_id)
 
 
 @router.get("/{container_id}/compose", response_class=PlainTextResponse)

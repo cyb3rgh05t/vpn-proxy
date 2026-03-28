@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Terminal,
   Network,
+  Globe,
+  Shield,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -26,6 +28,7 @@ export default function ContainerDetail() {
   const [dependents, setDependents] = useState([]);
   const [actionLoading, setActionLoading] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [vpnInfo, setVpnInfo] = useState(null);
   const [description, setDescription] = useState("");
   const [descSaving, setDescSaving] = useState(false);
   const descFocused = useRef(false);
@@ -56,6 +59,15 @@ export default function ContainerDetail() {
     }
   }, [id]);
 
+  const fetchVpnInfo = useCallback(async () => {
+    try {
+      const res = await api.get(`/containers/${id}/vpn-info`);
+      setVpnInfo(res.data);
+    } catch {
+      setVpnInfo(null);
+    }
+  }, [id]);
+
   const fetchLogs = useCallback(async () => {
     try {
       const res = await api.get(`/containers/${id}/logs`);
@@ -68,7 +80,8 @@ export default function ContainerDetail() {
   useEffect(() => {
     fetchContainer();
     fetchDependents();
-  }, [fetchContainer, fetchDependents]);
+    fetchVpnInfo();
+  }, [fetchContainer, fetchDependents, fetchVpnInfo]);
 
   useEffect(() => {
     if (tab === "logs") fetchLogs();
@@ -78,9 +91,10 @@ export default function ContainerDetail() {
     const interval = setInterval(() => {
       fetchContainer();
       fetchDependents();
+      fetchVpnInfo();
     }, 10000);
     return () => clearInterval(interval);
-  }, [fetchContainer, fetchDependents]);
+  }, [fetchContainer, fetchDependents, fetchVpnInfo]);
 
   const handleAction = async (action) => {
     setActionLoading(action);
@@ -303,6 +317,57 @@ export default function ContainerDetail() {
       <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
         {tab === "info" && (
           <div className="space-y-6">
+            {/* VPN Status */}
+            {isRunning && vpnInfo && (
+              <div>
+                <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
+                  <Shield className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                  VPN Status
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-vpn-input rounded-lg p-4">
+                    <p className="text-xs text-vpn-muted mb-1">VPN</p>
+                    <p
+                      className={`text-sm font-semibold ${
+                        vpnInfo.vpn_status === "running"
+                          ? "text-emerald-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {vpnInfo.vpn_status || "Unknown"}
+                    </p>
+                  </div>
+                  <div className="bg-vpn-input rounded-lg p-4">
+                    <p className="text-xs text-vpn-muted mb-1">Public IP</p>
+                    <p className="text-sm font-mono text-white">
+                      {vpnInfo.public_ip || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-vpn-input rounded-lg p-4">
+                    <p className="text-xs text-vpn-muted mb-1">
+                      <Globe className="w-3 h-3 inline mr-1 -mt-0.5" />
+                      Location
+                    </p>
+                    <p className="text-sm text-white">
+                      {[vpnInfo.region, vpnInfo.country]
+                        .filter(Boolean)
+                        .join(", ") || "N/A"}
+                    </p>
+                  </div>
+                  {vpnInfo.port_forwarded && (
+                    <div className="bg-vpn-input rounded-lg p-4">
+                      <p className="text-xs text-vpn-muted mb-1">
+                        Port Forward
+                      </p>
+                      <p className="text-sm font-mono text-vpn-primary">
+                        {vpnInfo.port_forwarded}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div>
               <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
                 Network

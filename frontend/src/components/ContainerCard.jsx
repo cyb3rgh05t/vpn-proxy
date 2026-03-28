@@ -1,11 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Square, RotateCcw, Trash2, Eye, Network } from "lucide-react";
+import {
+  Play,
+  Square,
+  RotateCcw,
+  Trash2,
+  Eye,
+  Network,
+  Globe,
+} from "lucide-react";
 import StatusBadge from "./StatusBadge";
 import api from "../services/api";
 import { useToast } from "../context/ToastContext";
 
-export default function ContainerCard({ container, onRefresh }) {
+export default function ContainerCard({ container, vpnInfo, onRefresh }) {
   const navigate = useNavigate();
   const toast = useToast();
   const [dependents, setDependents] = useState([]);
@@ -111,10 +119,19 @@ export default function ContainerCard({ container, onRefresh }) {
           SOCKS:{" "}
           <span className="text-vpn-text">:{container.port_shadowsocks}</span>
         </div>
-        <div className="text-vpn-muted">
-          Control:{" "}
-          <span className="text-vpn-text">:{container.port_control}</span>
-        </div>
+        {vpnInfo?.public_ip ? (
+          <div className="text-vpn-muted">
+            <Globe className="w-3 h-3 inline mr-1 -mt-0.5" />
+            <span className="text-vpn-primary text-xs font-mono">
+              {vpnInfo.public_ip}
+            </span>
+          </div>
+        ) : (
+          <div className="text-vpn-muted">
+            Control:{" "}
+            <span className="text-vpn-text">:{container.port_control}</span>
+          </div>
+        )}
       </div>
 
       {/* Dependent Containers */}

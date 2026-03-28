@@ -158,10 +158,11 @@ def get_container_status(container_id: str) -> dict:
         return {"status": "error", "container_id": container_id}
 
 
-def find_container_by_name(name: str) -> dict | None:
-    """Try to find a Docker container by name or label.
-    Tries 'gluetun-{name}', '{name}', then falls back to searching
-    all managed containers by vpn-proxy-name label.
+def find_container_by_name(name: str, vpn_provider: str | None = None) -> dict | None:
+    """Try to find a Docker container by name, label, or env-var matching.
+    Tries 'gluetun-{name}', '{name}', then searches managed containers by
+    vpn-proxy-name label, and finally falls back to scanning all gluetun
+    containers by VPN_SERVICE_PROVIDER env variable.
     """
     client = _get_client()
     # Direct name lookup
@@ -174,7 +175,7 @@ def find_container_by_name(name: str) -> dict | None:
             }
         except (NotFound, APIError):
             continue
-    # Fallback: search by label (handles renamed containers)
+    # Fallback 1: search by label (handles renamed containers created by vpn-proxy)
     try:
         managed = client.containers.list(
             all=True, filters={"label": f"{CONTAINER_LABEL}={CONTAINER_LABEL_VALUE}"}
@@ -188,6 +189,35 @@ def find_container_by_name(name: str) -> dict | None:
                 }
     except Exception:
         pass
+    # Fallback 2: scan all gluetun containers and match by env vars
+    # (handles discovered containers that were renamed in Portainer)
+    if vpn_provider:
+        try:
+            all_containers = client.containers.list(all=True)
+            for container in all_containers:
+                image_tags = container.image.tags if container.image else []
+                is_gluetun = any("gluetun" in t.lower() for t in image_tags)
+                if not is_gluetun:
+                    image_id = container.attrs.get("Config", {}).get("Image", "")
+                    if "gluetun" not in image_id.lower():
+                        continue
+                # Check env vars for matching provider
+                env_list = container.attrs.get("Config", {}).get("Env", [])
+                env_vars = {}
+                for e in env_list:
+                    if "=" in e:
+                        k, v = e.split("=", 1)
+                        env_vars[k] = v
+                if (
+                    env_vars.get("VPN_SERVICE_PROVIDER", "").lower()
+                    == vpn_provider.lower()
+                ):
+                    return {
+                        "container_id": container.id,
+                        "status": container.status,
+                    }
+        except Exception:
+            pass
     return None
 
 

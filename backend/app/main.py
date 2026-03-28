@@ -82,6 +82,14 @@ def run_migrations():
                 )
                 conn.commit()
                 logger.info("Migrated: added 'extra_ports' column to vpn_containers.")
+            if "description" not in columns:
+                conn.execute(
+                    sqlalchemy.text(
+                        "ALTER TABLE vpn_containers ADD COLUMN description VARCHAR(500)"
+                    )
+                )
+                conn.commit()
+                logger.info("Migrated: added 'description' column to vpn_containers.")
 
 
 @asynccontextmanager

@@ -87,6 +87,11 @@ export default function ContainerCard({ container, onRefresh }) {
           <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors">
             {container.name}
           </h3>
+          {container.description && (
+            <p className="text-xs text-vpn-muted mt-0.5 truncate max-w-[200px]">
+              {container.description}
+            </p>
+          )}
           <p className="text-sm text-vpn-muted mt-0.5">
             {container.vpn_provider}
           </p>

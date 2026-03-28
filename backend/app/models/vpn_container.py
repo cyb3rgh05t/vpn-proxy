@@ -10,6 +10,7 @@ class VPNContainer(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(150), unique=True, index=True)
+    description: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     vpn_provider: Mapped[str] = mapped_column(String(100))
     vpn_type: Mapped[str] = mapped_column(String(50), default="openvpn")
     config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

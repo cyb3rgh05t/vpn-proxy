@@ -7,7 +7,6 @@ from app.models.vpn_container import VPNContainer
 from app.schemas.container import (
     ContainerCreate,
     ContainerUpdate,
-    ContainerRename,
     ContainerResponse,
     ContainerLogsResponse,
     ContainerStatusResponse,
@@ -113,7 +112,9 @@ def list_containers(
                 data.status = status_info["status"]
                 # If container was removed/replaced, try to find it by name
                 if status_info["status"] in ("removed", "error"):
-                    found = docker_service.find_container_by_name(c.name)
+                    found = docker_service.find_container_by_name(
+                        c.name, vpn_provider=c.vpn_provider
+                    )
                     if found:
                         old_id = c.container_id
                         c.container_id = found["container_id"]
@@ -204,7 +205,9 @@ def get_container(
             data.status = status_info["status"]
             # If container was removed/replaced, try to find it by name
             if status_info["status"] in ("removed", "error"):
-                found = docker_service.find_container_by_name(c.name)
+                found = docker_service.find_container_by_name(
+                    c.name, vpn_provider=c.vpn_provider
+                )
                 if found:
                     old_id = c.container_id
                     c.container_id = found["container_id"]
@@ -233,33 +236,6 @@ def update_container(
 
     for field, value in req.model_dump(exclude_none=True).items():
         setattr(c, field, value)
-    db.commit()
-    db.refresh(c)
-    return ContainerResponse.model_validate(c)
-
-
-@router.patch("/{container_id}/rename", response_model=ContainerResponse)
-def rename_container(
-    container_id: int,
-    req: ContainerRename,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
-    if not c:
-        raise HTTPException(status_code=404, detail="Container not found")
-    # Check name uniqueness
-    existing = (
-        db.query(VPNContainer)
-        .filter(VPNContainer.name == req.name, VPNContainer.id != container_id)
-        .first()
-    )
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Name '{req.name}' is already in use",
-        )
-    c.name = req.name
     db.commit()
     db.refresh(c)
     return ContainerResponse.model_validate(c)

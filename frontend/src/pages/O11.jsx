@@ -7,6 +7,8 @@ import {
   RotateCcw,
   Shield,
   AlertTriangle,
+  Box,
+  Image,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -22,7 +24,8 @@ export default function O11() {
   const fetchContainers = useCallback(async () => {
     try {
       const res = await api.get("/containers/dependents");
-      setContainers(Array.isArray(res.data) ? res.data : []);
+      const all = Array.isArray(res.data) ? res.data : [];
+      setContainers(all.filter((c) => /o11/i.test(c.name)));
     } catch {
       setContainers([]);
     } finally {
@@ -62,9 +65,7 @@ export default function O11() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">O11 Overview</h1>
-          <p className="text-vpn-muted mt-1">
-            All Docker containers on this host
-          </p>
+          <p className="text-vpn-muted mt-1">Your O11 & O11 Pro containers</p>
         </div>
         <button
           onClick={async () => {
@@ -122,7 +123,7 @@ export default function O11() {
         </div>
       </div>
 
-      {/* Container List */}
+      {/* Container Grid */}
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-vpn-primary"></div>
@@ -131,14 +132,15 @@ export default function O11() {
         <div className="text-center py-16 bg-vpn-card border border-vpn-border rounded-2xl">
           <Boxes className="w-16 h-16 text-vpn-border mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-vpn-text mb-2">
-            No containers found
+            No O11 containers found
           </h3>
           <p className="text-vpn-muted">
-            Other Docker containers on this host will appear here.
+            Docker containers with &quot;o11&quot; in their name will appear
+            here.
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {containers.map((dep) => {
             const isRunning = ["running", "healthy"].includes(dep.status);
             const isStopped = ["exited", "created", "dead"].includes(
@@ -147,38 +149,64 @@ export default function O11() {
             return (
               <div
                 key={dep.id}
-                className="bg-vpn-card border border-vpn-border rounded-xl p-4 flex items-center justify-between hover:border-vpn-muted transition-all"
+                className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all group"
               >
-                <div className="flex items-center gap-4 min-w-0 flex-1">
-                  <div
-                    className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                      isRunning
-                        ? "bg-emerald-500 shadow-lg shadow-emerald-500/30"
-                        : isStopped
-                          ? "bg-red-500"
-                          : "bg-amber-500"
-                    }`}
-                  />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-semibold text-white truncate">
-                        {dep.name}
-                      </h3>
-                      <StatusBadge status={dep.status} />
-                      {dep.vpn_parent && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                          <Shield className="w-3 h-3" />
-                          {dep.vpn_parent}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-vpn-muted font-mono truncate max-w-[350px] mt-1">
+                {/* Header: Name + Status */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
+                      {dep.name}
+                    </h3>
+                  </div>
+                  <StatusBadge status={dep.status} />
+                </div>
+
+                {/* Image Info */}
+                <div className="bg-vpn-input/50 rounded-lg p-3 mb-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Image className="w-3.5 h-3.5 text-vpn-primary flex-shrink-0" />
+                    <span className="text-vpn-text font-mono text-xs truncate">
                       {dep.image}
-                    </p>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Box className="w-3.5 h-3.5 text-vpn-muted flex-shrink-0" />
+                    <span className="text-vpn-muted font-mono text-xs truncate">
+                      {dep.container_id
+                        ? dep.container_id.substring(0, 12)
+                        : dep.id}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 flex-shrink-0 ml-4">
+                {/* VPN Connection */}
+                {dep.vpn_parent && (
+                  <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg px-3 py-2.5 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="text-xs text-blue-400 font-medium">
+                        VPN Routed
+                      </span>
+                    </div>
+                    <p className="text-sm text-white font-medium mt-1 truncate">
+                      {dep.vpn_parent}
+                    </p>
+                  </div>
+                )}
+
+                {!dep.vpn_parent && (
+                  <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-lg px-3 py-2.5 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-3.5 h-3.5 text-vpn-muted" />
+                      <span className="text-xs text-vpn-muted">
+                        No VPN connection
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-3 border-t border-vpn-border">
                   {isStopped && (
                     <button
                       onClick={() => handleAction(dep.name, "start")}

@@ -129,6 +129,12 @@ def create_container(
     gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
     os.makedirs(gluetun_data, exist_ok=True)
 
+    # Use HOST_DATA_DIR for Docker bind mounts when running inside a container
+    if settings.HOST_DATA_DIR:
+        gluetun_mount = os.path.join(settings.HOST_DATA_DIR, "gluetun", name)
+    else:
+        gluetun_mount = gluetun_data
+
     # Build port mappings - only expose services that are enabled
     ports = {}
     httpproxy_enabled = str(config.get("HTTPPROXY", "off")).lower() == "on"
@@ -158,7 +164,7 @@ def create_container(
             "devices": ["/dev/net/tun:/dev/net/tun"],
             "environment": env_vars,
             "ports": ports,
-            "volumes": {gluetun_data: {"bind": "/gluetun", "mode": "rw"}},
+            "volumes": {gluetun_mount: {"bind": "/gluetun", "mode": "rw"}},
             "detach": True,
             "restart_policy": {"Name": "unless-stopped", "MaximumRetryCount": 0},
             "labels": {CONTAINER_LABEL: CONTAINER_LABEL_VALUE, "vpn-proxy-name": name},

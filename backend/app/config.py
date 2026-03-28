@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./data/vpnproxy.db"
     GLUETUN_IMAGE: str = "qmcgaw/gluetun:latest"
     DATA_DIR: str = "./data"
+    HOST_DATA_DIR: str = ""  # Host-side path for DATA_DIR when running in Docker
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

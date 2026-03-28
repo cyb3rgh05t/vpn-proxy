@@ -10,6 +10,7 @@ services:
       - "SECRET_KEY=${SECRET_KEY}"
       - "DATABASE_URL=sqlite:///./data/vpnproxy.db"
       - "GLUETUN_IMAGE=qmcgaw/gluetun:latest"
+      - "HOST_DATA_DIR=${APPFOLDER}/vpn-proxy/data"
     image: "ghcr.io/cyb3rgh05t/vpn-proxy:latest"
     restart: "${RESTARTAPP}"
     networks:

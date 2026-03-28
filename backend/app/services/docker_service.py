@@ -996,8 +996,15 @@ def inspect_container_by_name(container_name: str) -> dict | None:
     ):
         docker_status = health_status
 
-    # Network mode
+    # Network mode — resolve container ID to name
     network_mode = host_config.get("NetworkMode", "")
+    if network_mode.startswith("container:"):
+        ref = network_mode.split(":", 1)[1]
+        try:
+            ref_container = client.containers.get(ref)
+            network_mode = f"container:{ref_container.name}"
+        except Exception:
+            pass  # Keep original if resolution fails
 
     # Networks
     networks = {}

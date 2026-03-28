@@ -8,6 +8,11 @@ import {
   Eye,
   Network,
   Globe,
+  Shield,
+  Wifi,
+  WifiOff,
+  MapPin,
+  ArrowUpDown,
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 import api from "../services/api";
@@ -87,15 +92,22 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
     container.status,
   );
 
+  const serverLocation =
+    container.config?.SERVER_COUNTRIES ||
+    container.config?.SERVER_CITIES ||
+    container.config?.SERVER_REGIONS ||
+    null;
+
   return (
     <div
       onClick={() => navigate(`/containers/${container.id}`)}
       className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all cursor-pointer group"
     >
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors">
+      {/* Header: Name + Status */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
               {container.name}
             </h3>
             {container.description && (
@@ -111,36 +123,104 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                 {container.docker_name}
               </p>
             )}
-          <p className="text-sm text-vpn-muted mt-0.5">
-            {container.vpn_provider}
-          </p>
         </div>
         <StatusBadge status={container.status} />
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-        <div className="text-vpn-muted">
-          Type: <span className="text-vpn-text">{container.vpn_type}</span>
-        </div>
-        <div className="text-vpn-muted">
-          HTTP:{" "}
-          <span className="text-vpn-text">:{container.port_http_proxy}</span>
-        </div>
-        <div className="text-vpn-muted">
-          SOCKS:{" "}
-          <span className="text-vpn-text">:{container.port_shadowsocks}</span>
-        </div>
-        {vpnInfo?.public_ip ? (
-          <div className="text-vpn-muted">
-            <Globe className="w-3 h-3 inline mr-1 -mt-0.5" />
-            <span className="text-vpn-primary text-xs font-mono">
-              {vpnInfo.public_ip}
+      {/* VPN Connection Info */}
+      <div className="bg-vpn-input/50 rounded-lg p-3 mb-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            <Shield className="w-3.5 h-3.5 text-vpn-primary" />
+            <span className="text-vpn-text font-medium capitalize">
+              {container.vpn_provider}
+            </span>
+            <span className="text-vpn-muted">·</span>
+            <span className="text-vpn-muted text-xs uppercase">
+              {container.vpn_type}
             </span>
           </div>
-        ) : (
-          <div className="text-vpn-muted">
-            Control:{" "}
-            <span className="text-vpn-text">:{container.port_control}</span>
+          {vpnInfo?.vpn_status && (
+            <span
+              className={`flex items-center gap-1 text-xs font-medium ${
+                vpnInfo.vpn_status === "running"
+                  ? "text-emerald-400"
+                  : "text-red-400"
+              }`}
+            >
+              {vpnInfo.vpn_status === "running" ? (
+                <Wifi className="w-3 h-3" />
+              ) : (
+                <WifiOff className="w-3 h-3" />
+              )}
+              {vpnInfo.vpn_status === "running" ? "Connected" : "Disconnected"}
+            </span>
+          )}
+        </div>
+
+        {/* IP & Location Row */}
+        {(vpnInfo?.public_ip || serverLocation) && (
+          <div className="flex items-center gap-3 flex-wrap">
+            {vpnInfo?.public_ip && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Globe className="w-3 h-3 text-vpn-primary" />
+                <span className="text-vpn-primary font-mono">
+                  {vpnInfo.public_ip}
+                </span>
+              </div>
+            )}
+            {(vpnInfo?.country || serverLocation) && (
+              <div className="flex items-center gap-1 text-xs text-vpn-muted">
+                <MapPin className="w-3 h-3" />
+                <span>{vpnInfo?.country || serverLocation}</span>
+                {vpnInfo?.region && (
+                  <span className="text-vpn-muted/60">· {vpnInfo.region}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Port Forwarding */}
+        {vpnInfo?.port_forwarded && (
+          <div className="flex items-center gap-1.5 text-xs text-vpn-muted">
+            <ArrowUpDown className="w-3 h-3 text-amber-400" />
+            <span>
+              Port Forwarded:{" "}
+              <span className="text-amber-400 font-mono">
+                {vpnInfo.port_forwarded}
+              </span>
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Ports & Network Grid */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-3 text-xs">
+        <div className="flex justify-between text-vpn-muted">
+          <span>HTTP Proxy</span>
+          <span className="text-vpn-text font-mono">
+            :{container.port_http_proxy}
+          </span>
+        </div>
+        <div className="flex justify-between text-vpn-muted">
+          <span>Shadowsocks</span>
+          <span className="text-vpn-text font-mono">
+            :{container.port_shadowsocks}
+          </span>
+        </div>
+        {container.extra_ports?.length > 0 && (
+          <div className="flex justify-between text-vpn-muted col-span-2">
+            <span>Extra Ports</span>
+            <span className="text-vpn-text">
+              {container.extra_ports.length} mapped
+            </span>
+          </div>
+        )}
+        {container.network_name && (
+          <div className="flex justify-between text-vpn-muted col-span-2">
+            <span>Network</span>
+            <span className="text-vpn-text">{container.network_name}</span>
           </div>
         )}
       </div>

@@ -90,6 +90,14 @@ def run_migrations():
                 )
                 conn.commit()
                 logger.info("Migrated: added 'description' column to vpn_containers.")
+            if "network_name" not in columns:
+                conn.execute(
+                    sqlalchemy.text(
+                        "ALTER TABLE vpn_containers ADD COLUMN network_name VARCHAR(150)"
+                    )
+                )
+                conn.commit()
+                logger.info("Migrated: added 'network_name' column to vpn_containers.")
 
 
 @asynccontextmanager
@@ -112,7 +120,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:5000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

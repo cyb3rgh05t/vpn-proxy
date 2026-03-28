@@ -10,6 +10,63 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 
+const WHITELISTED_KEYS = new Set([
+  "PGID",
+  "PUID",
+  "TZ",
+  "VERSION_INFORMATION",
+  "LOG_LEVEL",
+  "VPN_SERVICE_PROVIDER",
+  "VPN_TYPE",
+  "SERVER_COUNTRIES",
+  "SERVER_REGIONS",
+  "SERVER_CITIES",
+  "WIREGUARD_PRIVATE_KEY",
+  "WIREGUARD_ADDRESSES",
+  "OPENVPN_USER",
+  "OPENVPN_PASSWORD",
+  "OPENVPN_USER_SECRETFILE",
+  "OPENVPN_PASSWORD_SECRETFILE",
+  "OPENVPN_AUTH",
+  "OPENVPN_PROCESS_USER",
+  "VPN_PORT_FORWARDING_USERNAME",
+  "VPN_PORT_FORWARDING_PASSWORD",
+  "OPENVPN_KEY_PASSPHRASE",
+  "OPENVPN_KEY_PASSPHRASE_SECRETFILE",
+  "DOT_EXCLUDE_IPS",
+  "FIREWALL_OUTBOUND_SUBNETS",
+  "PUBLICIP_ENABLED",
+  "PUBLICIP_API",
+  "PUBLICIP_API_TOKEN",
+  "HTTPPROXY",
+  "HTTPPROXY_LOG",
+  "HTTPPROXY_LISTENING_ADDRESS",
+  "HTTPPROXY_STEALTH",
+  "HTTPPROXY_USER",
+  "HTTPPROXY_PASSWORD",
+  "HTTPPROXY_USER_SECRETFILE",
+  "HTTPPROXY_PASSWORD_SECRETFILE",
+  "SHADOWSOCKS",
+  "SHADOWSOCKS_ADDRESS",
+  "SHADOWSOCKS_PASSWORD",
+  "SHADOWSOCKS_PASSWORD_SECRETFILE",
+  "HTTP_CONTROL_SERVER_LOG",
+  "HTTP_CONTROL_SERVER_ADDRESS",
+  "HTTP_CONTROL_SERVER_AUTH_CONFIG_FILEPATH",
+  "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE",
+  "UPDATER_PROTONVPN_EMAIL",
+  "UPDATER_PROTONVPN_PASSWORD",
+  "UPDATER_PERIOD",
+  "UPDATER_MIN_RATIO",
+  "UPDATER_VPN_SERVICE_PROVIDERS",
+]);
+
+const AUTO_SET_KEYS = new Set([
+  "VPN_SERVICE_PROVIDER",
+  "VPN_TYPE",
+  "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE",
+]);
+
 export default function CreateContainer() {
   const navigate = useNavigate();
   const [providers, setProviders] = useState([]);
@@ -23,14 +80,17 @@ export default function CreateContainer() {
     vpn_type: "openvpn",
     port_http_proxy: 8888,
     port_shadowsocks: 8388,
-    port_control: 8001,
+    network_name: "",
   });
   const [configFields, setConfigFields] = useState({});
   const [extraPorts, setExtraPorts] = useState([]);
   const [envVarCategories, setEnvVarCategories] = useState({});
   const [advancedFields, setAdvancedFields] = useState({});
+  const [gluetunFields, setGluetunFields] = useState({});
   const [openCategories, setOpenCategories] = useState({});
+  const [openGluetunCategories, setOpenGluetunCategories] = useState({});
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [networks, setNetworks] = useState([]);
 
   useEffect(() => {
     api
@@ -40,6 +100,10 @@ export default function CreateContainer() {
     api
       .get("/containers/env-variables")
       .then((res) => setEnvVarCategories(res.data || {}))
+      .catch(() => {});
+    api
+      .get("/containers/networks")
+      .then((res) => setNetworks(Array.isArray(res.data) ? res.data : []))
       .catch(() => {});
   }, []);
 
@@ -96,6 +160,10 @@ export default function CreateContainer() {
     setOpenCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
   };
 
+  const toggleGluetunCategory = (cat) => {
+    setOpenGluetunCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -109,14 +177,24 @@ export default function CreateContainer() {
         parseInt(p.container) > 0,
     );
 
-    // Merge provider config fields with advanced env var fields
+    // Merge provider config fields with gluetun config and advanced env var fields
+    const filledGluetun = {};
+    for (const [key, value] of Object.entries(gluetunFields)) {
+      if (value && value.trim()) {
+        filledGluetun[key] = value.trim();
+      }
+    }
     const filledAdvanced = {};
     for (const [key, value] of Object.entries(advancedFields)) {
       if (value && value.trim()) {
         filledAdvanced[key] = value.trim();
       }
     }
-    const mergedConfig = { ...configFields, ...filledAdvanced };
+    const mergedConfig = {
+      ...configFields,
+      ...filledGluetun,
+      ...filledAdvanced,
+    };
 
     try {
       await api.post("/containers", {
@@ -126,8 +204,8 @@ export default function CreateContainer() {
         config: mergedConfig,
         port_http_proxy: form.port_http_proxy,
         port_shadowsocks: form.port_shadowsocks,
-        port_control: form.port_control,
         extra_ports: validExtraPorts,
+        network_name: form.network_name || undefined,
       });
       navigate("/");
     } catch (err) {
@@ -173,19 +251,41 @@ export default function CreateContainer() {
         {/* Card: General */}
         <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4">General</h2>
-          <div>
-            <label className={labelClass}>Container Name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className={inputClass}
-              placeholder="e.g. my-vpn"
-              required
-            />
-            <p className="text-xs text-vpn-muted mt-1">
-              Lowercase letters, numbers, hyphens, underscores only
-            </p>
+          <div className="space-y-4">
+            <div>
+              <label className={labelClass}>Container Name</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className={inputClass}
+                placeholder="e.g. my-vpn"
+                required
+              />
+              <p className="text-xs text-vpn-muted mt-1">
+                Lowercase letters, numbers, hyphens, underscores only
+              </p>
+            </div>
+            <div>
+              <label className={labelClass}>Docker Network</label>
+              <select
+                value={form.network_name}
+                onChange={(e) =>
+                  setForm({ ...form, network_name: e.target.value })
+                }
+                className={inputClass}
+              >
+                <option value="">Default (bridge)</option>
+                {networks.map((n) => (
+                  <option key={n.name} value={n.name}>
+                    {n.name} ({n.driver})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-vpn-muted mt-1">
+                Select an existing Docker network for this container
+              </p>
+            </div>
           </div>
         </div>
 
@@ -281,7 +381,7 @@ export default function CreateContainer() {
           <h2 className="text-lg font-semibold text-white mb-4">
             Access Ports
           </h2>
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className={labelClass}>HTTP Proxy</label>
               <input
@@ -307,22 +407,6 @@ export default function CreateContainer() {
                   setForm({
                     ...form,
                     port_shadowsocks: parseInt(e.target.value) || 0,
-                  })
-                }
-                className={inputClass}
-                min="1024"
-                max="65535"
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Gluetun API</label>
-              <input
-                type="number"
-                value={form.port_control}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    port_control: parseInt(e.target.value) || 0,
                   })
                 }
                 className={inputClass}
@@ -408,6 +492,106 @@ export default function CreateContainer() {
           </div>
         </div>
 
+        {/* Card: Gluetun Configuration */}
+        {Object.keys(envVarCategories).length > 0 && (
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <h2 className="text-lg font-semibold text-white mb-1">
+              Gluetun Configuration
+            </h2>
+            <p className="text-xs text-vpn-muted mb-4">
+              Common Gluetun environment variables. Provider-specific fields
+              above take priority.
+            </p>
+            <div className="space-y-3">
+              {Object.entries(envVarCategories).map(([category, vars]) => {
+                const providerKeys = getProviderFieldKeys();
+                const filteredVars = vars.filter(
+                  (v) =>
+                    WHITELISTED_KEYS.has(v.key) &&
+                    !AUTO_SET_KEYS.has(v.key) &&
+                    !providerKeys.has(v.key),
+                );
+                if (filteredVars.length === 0) return null;
+
+                return (
+                  <div
+                    key={category}
+                    className="border border-vpn-border rounded-lg overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleGluetunCategory(category)}
+                      className="flex items-center justify-between w-full px-4 py-2.5 bg-vpn-input hover:bg-vpn-border transition-colors"
+                    >
+                      <span className="text-sm font-medium text-vpn-text">
+                        {category}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {filteredVars.some((v) => gluetunFields[v.key]) && (
+                          <span className="text-xs text-vpn-primary">
+                            {
+                              filteredVars.filter((v) => gluetunFields[v.key])
+                                .length
+                            }{" "}
+                            set
+                          </span>
+                        )}
+                        {openGluetunCategories[category] ? (
+                          <ChevronDown className="w-4 h-4 text-vpn-muted" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-vpn-muted" />
+                        )}
+                      </div>
+                    </button>
+
+                    {openGluetunCategories[category] && (
+                      <div className="px-4 py-3 space-y-3">
+                        {filteredVars.map((envVar) => (
+                          <div key={envVar.key}>
+                            <label className={labelClass}>
+                              {envVar.label}
+                              <span className="text-xs text-vpn-muted ml-2 font-normal">
+                                {envVar.key}
+                              </span>
+                            </label>
+                            <input
+                              type={
+                                envVar.type === "password" ? "password" : "text"
+                              }
+                              value={gluetunFields[envVar.key] || ""}
+                              onChange={(e) =>
+                                setGluetunFields({
+                                  ...gluetunFields,
+                                  [envVar.key]: e.target.value,
+                                })
+                              }
+                              className={inputClass}
+                              placeholder={
+                                envVar.default
+                                  ? `Default: ${envVar.default}`
+                                  : envVar.placeholder || ""
+                              }
+                              autoComplete="off"
+                            />
+                            {envVar.default && (
+                              <p className="text-xs text-vpn-muted mt-1">
+                                Default:{" "}
+                                <span className="text-vpn-primary/70">
+                                  {envVar.default}
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Card: Advanced Settings (Gluetun Env Variables) */}
         {Object.keys(envVarCategories).length > 0 && (
           <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
@@ -426,8 +610,7 @@ export default function CreateContainer() {
               )}
             </button>
             <p className="text-xs text-vpn-muted mt-1">
-              Optional Gluetun environment variables. Provider-specific fields
-              above take priority.
+              Optional Gluetun environment variables not covered above.
             </p>
 
             {showAdvanced && (
@@ -435,7 +618,8 @@ export default function CreateContainer() {
                 {Object.entries(envVarCategories).map(([category, vars]) => {
                   const providerKeys = getProviderFieldKeys();
                   const filteredVars = vars.filter(
-                    (v) => !providerKeys.has(v.key),
+                    (v) =>
+                      !WHITELISTED_KEYS.has(v.key) && !providerKeys.has(v.key),
                   );
                   if (filteredVars.length === 0) return null;
 

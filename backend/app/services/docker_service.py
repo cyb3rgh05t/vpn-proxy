@@ -101,8 +101,8 @@ def create_container(
     config: dict,
     port_http_proxy: int = 8888,
     port_shadowsocks: int = 8388,
-    port_control: int = 8001,
     extra_ports: list[dict] | None = None,
+    network_name: str | None = None,
 ):
     client = _get_client()
     container_name = f"gluetun-{name}"
@@ -123,12 +123,17 @@ def create_container(
     gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
     os.makedirs(gluetun_data, exist_ok=True)
 
-    ports = {
-        "8888/tcp": port_http_proxy,
-        "8388/tcp": port_shadowsocks,
-        "8388/udp": port_shadowsocks,
-        "8000/tcp": port_control,
-    }
+    # Build port mappings - only expose services that are enabled
+    ports = {}
+    httpproxy_enabled = str(config.get("HTTPPROXY", "off")).lower() == "on"
+    shadowsocks_enabled = str(config.get("SHADOWSOCKS", "off")).lower() == "on"
+
+    if httpproxy_enabled and port_http_proxy > 0:
+        ports["8888/tcp"] = port_http_proxy
+    if shadowsocks_enabled and port_shadowsocks > 0:
+        ports["8388/tcp"] = port_shadowsocks
+        ports["8388/udp"] = port_shadowsocks
+    # Control port 8000 is NOT exposed - accessed internally only
 
     # Add extra port mappings
     if extra_ports:
@@ -140,18 +145,21 @@ def create_container(
                 ports[f"{container_port}/{protocol}"] = host
 
     try:
-        container = client.containers.run(
-            image=settings.GLUETUN_IMAGE,
-            name=container_name,
-            cap_add=["NET_ADMIN"],
-            devices=["/dev/net/tun:/dev/net/tun"],
-            environment=env_vars,
-            ports=ports,
-            volumes={gluetun_data: {"bind": "/gluetun", "mode": "rw"}},
-            detach=True,
-            restart_policy={"Name": "unless-stopped", "MaximumRetryCount": 0},  # type: ignore[arg-type]
-            labels={CONTAINER_LABEL: CONTAINER_LABEL_VALUE, "vpn-proxy-name": name},
-        )
+        run_kwargs: dict[str, Any] = {
+            "image": settings.GLUETUN_IMAGE,
+            "name": container_name,
+            "cap_add": ["NET_ADMIN"],
+            "devices": ["/dev/net/tun:/dev/net/tun"],
+            "environment": env_vars,
+            "ports": ports,
+            "volumes": {gluetun_data: {"bind": "/gluetun", "mode": "rw"}},
+            "detach": True,
+            "restart_policy": {"Name": "unless-stopped", "MaximumRetryCount": 0},
+            "labels": {CONTAINER_LABEL: CONTAINER_LABEL_VALUE, "vpn-proxy-name": name},
+        }
+        if network_name:
+            run_kwargs["network"] = network_name
+        container = client.containers.run(**run_kwargs)
         return container.id  # type: ignore[union-attr]
     except APIError as e:
         logger.error("Failed to create container %s: %s", container_name, e)
@@ -653,8 +661,8 @@ def generate_compose_yaml(
     config: dict,
     port_http_proxy: int = 8888,
     port_shadowsocks: int = 8388,
-    port_control: int = 8001,
     extra_ports: list[dict] | None = None,
+    network_name: str | None = None,
 ) -> str:
     container_name = f"gluetun-{name}"
     api_key = secrets.token_urlsafe(32)
@@ -669,12 +677,16 @@ def generate_compose_yaml(
         if value:
             env_vars[key] = str(value)
 
-    port_list = [
-        f"{port_http_proxy}:8888",
-        f"{port_shadowsocks}:8388/tcp",
-        f"{port_shadowsocks}:8388/udp",
-        f"{port_control}:8000",
-    ]
+    # Build port list - only expose enabled services
+    port_list: list[str] = []
+    httpproxy_enabled = str(config.get("HTTPPROXY", "off")).lower() == "on"
+    shadowsocks_enabled = str(config.get("SHADOWSOCKS", "off")).lower() == "on"
+    if httpproxy_enabled and port_http_proxy > 0:
+        port_list.append(f"{port_http_proxy}:8888")
+    if shadowsocks_enabled and port_shadowsocks > 0:
+        port_list.append(f"{port_shadowsocks}:8388/tcp")
+        port_list.append(f"{port_shadowsocks}:8388/udp")
+
     if extra_ports:
         for ep in extra_ports:
             host = int(ep.get("host", 0))
@@ -683,21 +695,58 @@ def generate_compose_yaml(
             if host > 0 and container_port > 0 and protocol in ("tcp", "udp"):
                 port_list.append(f"{host}:{container_port}/{protocol}")
 
-    compose = {
-        "services": {
-            container_name: {
-                "image": settings.GLUETUN_IMAGE,
-                "container_name": container_name,
-                "cap_add": ["NET_ADMIN"],
-                "devices": ["/dev/net/tun:/dev/net/tun"],
-                "environment": env_vars,
-                "ports": port_list,
-                "volumes": [f"./gluetun/{name}:/gluetun"],
-                "restart": "unless-stopped",
-            }
-        }
+    service: dict[str, Any] = {
+        "image": settings.GLUETUN_IMAGE,
+        "container_name": container_name,
+        "cap_add": ["NET_ADMIN"],
+        "devices": ["/dev/net/tun:/dev/net/tun"],
+        "environment": env_vars,
+        "volumes": [f"./gluetun/{name}:/gluetun"],
+        "restart": "unless-stopped",
     }
+    if port_list:
+        service["ports"] = port_list
+    if network_name:
+        service["networks"] = [network_name]
+
+    compose: dict[str, Any] = {"services": {container_name: service}}
+    if network_name:
+        compose["networks"] = {network_name: {"external": True}}
     return yaml.dump(compose, default_flow_style=False, sort_keys=False)
+
+
+def list_docker_networks() -> list[dict]:
+    """List all Docker networks."""
+    client = _get_client()
+    result = []
+    try:
+        for net in client.networks.list():
+            driver = net.attrs.get("Driver", "")
+            result.append(
+                {
+                    "name": net.name,
+                    "driver": driver,
+                    "scope": net.attrs.get("Scope", ""),
+                }
+            )
+    except Exception as e:
+        logger.error("Failed to list Docker networks: %s", e)
+    return result
+
+
+def list_docker_stacks() -> list[str]:
+    """List all Docker Compose stacks (projects) by inspecting container labels."""
+    client = _get_client()
+    stacks: set[str] = set()
+    try:
+        for c in client.containers.list(all=True):
+            labels = c.labels or {}
+            project = labels.get("com.docker.compose.project", "")
+            if project:
+                stacks.add(project)
+    except Exception as e:
+        logger.error("Failed to list Docker stacks: %s", e)
+    return sorted(stacks)
 
 
 def discover_gluetun_containers() -> list[dict]:

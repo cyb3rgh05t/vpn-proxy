@@ -35,9 +35,9 @@ elif [ -f "backend/venv/Scripts/activate" ]; then
 fi
 
 # Start Backend
-echo -e "${GREEN}[Starting]${NC} Backend on http://localhost:8000"
+echo -e "${GREEN}[Starting]${NC} Backend on http://localhost:5000"
 cd "$SCRIPT_DIR/backend"
-uvicorn app.main:app --reload --port 8000 &
+uvicorn app.main:app --reload --port 5000 &
 BACKEND_PID=$!
 
 # Wait for backend to be ready

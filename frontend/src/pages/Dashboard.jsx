@@ -53,7 +53,9 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [fetchContainers, fetchVpnInfo]);
 
-  const running = containers.filter((c) => c.status === "running").length;
+  const running = containers.filter((c) =>
+    ["running", "healthy"].includes(c.status),
+  ).length;
   const stopped = containers.filter((c) =>
     ["exited", "dead", "removed"].includes(c.status),
   ).length;

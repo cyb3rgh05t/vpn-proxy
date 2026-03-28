@@ -92,6 +92,22 @@ def list_env_variables():
     return get_gluetun_env_variables()
 
 
+@router.get("/networks")
+def list_networks(
+    current_user: User = Depends(get_current_user),
+):
+    """List available Docker networks."""
+    return docker_service.list_docker_networks()
+
+
+@router.get("/stacks")
+def list_stacks(
+    current_user: User = Depends(get_current_user),
+):
+    """List available Docker Compose stacks."""
+    return docker_service.list_docker_stacks()
+
+
 @router.get("/vpn-info-batch")
 def get_vpn_info_batch(
     db: Session = Depends(get_db),
@@ -197,8 +213,8 @@ def create_container(
             config=req.config,
             port_http_proxy=req.port_http_proxy,
             port_shadowsocks=req.port_shadowsocks,
-            port_control=req.port_control,
             extra_ports=req.extra_ports,
+            network_name=req.network_name,
         )
     except Exception as e:
         raise HTTPException(
@@ -213,8 +229,8 @@ def create_container(
         config=req.config,
         port_http_proxy=req.port_http_proxy,
         port_shadowsocks=req.port_shadowsocks,
-        port_control=req.port_control,
         extra_ports=req.extra_ports,
+        network_name=req.network_name,
         container_id=container_id,
         status="running",
         created_by=current_user.id,
@@ -427,8 +443,8 @@ def export_compose(
         config=c.config,
         port_http_proxy=c.port_http_proxy,
         port_shadowsocks=c.port_shadowsocks,
-        port_control=c.port_control,
         extra_ports=c.extra_ports if c.extra_ports else None,
+        network_name=c.network_name,
     )
     return yaml_content
 

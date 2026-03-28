@@ -741,6 +741,13 @@ def list_all_docker_containers() -> list[dict]:
                             if mid.startswith(ref) or ref.startswith(mid[:12]):
                                 vpn_parent = gluetun_map.get(mid, ref)
                                 break
+                    # Fallback: resolve any Docker container (non-managed Gluetun)
+                    if not vpn_parent:
+                        try:
+                            parent_container = client.containers.get(ref)
+                            vpn_parent = parent_container.name or ref[:12]
+                        except Exception:
+                            vpn_parent = ref[:12]
 
                 # Method 2: Shared Docker network with a managed Gluetun container
                 if not vpn_parent:

@@ -131,15 +131,19 @@ export default function Dashboard() {
 
   const [actionLoading, setActionLoading] = useState("");
 
-  const running = containers.filter((c) =>
-    ["running", "healthy"].includes(c.status),
-  ).length;
-  const unhealthy = containers.filter((c) =>
-    ["unhealthy"].includes(c.status),
-  ).length;
-  const stopped = containers.filter((c) =>
-    ["exited", "dead", "removed"].includes(c.status),
-  ).length;
+  const running =
+    containers.filter((c) => ["running", "healthy"].includes(c.status)).length +
+    o11Containers.filter((c) => ["running", "healthy"].includes(c.status))
+      .length;
+  const unhealthy =
+    containers.filter((c) => ["unhealthy"].includes(c.status)).length +
+    o11Containers.filter((c) => ["unhealthy"].includes(c.status)).length;
+  const stopped =
+    containers.filter((c) => ["exited", "dead", "removed"].includes(c.status))
+      .length +
+    o11Containers.filter((c) =>
+      ["exited", "dead", "removed"].includes(c.status),
+    ).length;
 
   const handleO11Action = async (name, action) => {
     setActionLoading(`o11-${name}-${action}`);
@@ -181,7 +185,7 @@ export default function Dashboard() {
   const stats = [
     {
       label: "Total",
-      value: containers.length,
+      value: containers.length + o11Containers.length,
       icon: Server,
       color: "text-vpn-primary",
       bg: "bg-vpn-primary/10",

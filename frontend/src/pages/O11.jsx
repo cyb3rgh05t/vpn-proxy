@@ -77,12 +77,6 @@ export default function O11() {
     return vpnInfoMap[String(mc.id)] || null;
   };
 
-  useEffect(() => {
-    fetchContainers();
-    const interval = setInterval(fetchContainers, 15000);
-    return () => clearInterval(interval);
-  }, [fetchContainers]);
-
   const handleAction = async (name, action) => {
     setActionLoading(`${name}-${action}`);
     try {

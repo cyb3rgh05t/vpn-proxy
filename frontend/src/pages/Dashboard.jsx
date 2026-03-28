@@ -52,11 +52,30 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState(null);
   const [copiedUrl, setCopiedUrl] = useState(null);
 
-  const copyToClipboard = useCallback((url) => {
-    navigator.clipboard.writeText(url);
-    setCopiedUrl(url);
-    setTimeout(() => setCopiedUrl(null), 2000);
-  }, []);
+  const copyToClipboard = useCallback(
+    (url) => {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        setCopiedUrl(url);
+        toast.success("Proxy URL copied!");
+        setTimeout(() => setCopiedUrl(null), 2000);
+      } catch {
+        toast.error("Failed to copy URL");
+      }
+    },
+    [toast],
+  );
 
   const getVpnInfoForParent = useCallback(
     (vpnParent) => {
@@ -511,7 +530,6 @@ export default function Dashboard() {
                                 user && pass ? `${user}:${pass}@` : "";
                               const url = `http://${auth}${c.ip_address}:${c.port_http_proxy}`;
                               copyToClipboard(url);
-                              toast.success("HTTP Proxy URL copied!");
                             }}
                             className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded font-mono border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                             title="Copy HTTP Proxy URL"

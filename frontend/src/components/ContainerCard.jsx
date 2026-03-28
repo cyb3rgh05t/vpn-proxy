@@ -29,10 +29,25 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
 
   const copyToClipboard = useCallback(
     (url) => {
-      navigator.clipboard.writeText(url);
-      setCopiedUrl(url);
-      toast.success("Proxy URL copied!");
-      setTimeout(() => setCopiedUrl(null), 2000);
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        setCopiedUrl(url);
+        toast.success("Proxy URL copied!");
+        setTimeout(() => setCopiedUrl(null), 2000);
+      } catch {
+        toast.error("Failed to copy URL");
+      }
     },
     [toast],
   );

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import secrets
 import socket
 from typing import Any
 import docker
@@ -49,11 +50,14 @@ def create_container(
     client = _get_client()
     container_name = f"gluetun-{name}"
 
+    # Generate a random API key for secure control server access
+    api_key = secrets.token_urlsafe(32)
     env_vars = {
         "VPN_SERVICE_PROVIDER": vpn_provider,
         "VPN_TYPE": vpn_type,
-        # Allow unauthenticated access to control server (internal only)
-        "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE": '{"auth":"none"}',
+        "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE": json.dumps(
+            {"auth": "apikey", "apikey": api_key}
+        ),
     }
     for key, value in config.items():
         if value:
@@ -212,11 +216,12 @@ def _get_container_env(container_id: str) -> dict:
         return {}
 
 
-def _get_gluetun_auth(container_id: str) -> tuple[str, str] | None | str:
-    """Get Gluetun HTTP control server auth credentials from container env vars.
-    Returns:
-        - (username, password) tuple for basic auth
-        - "none" if auth is explicitly disabled (auth: none)
+def _get_gluetun_auth(container_id: str) -> dict[str, Any] | None:
+    """Get Gluetun HTTP control server auth info from container env vars.
+    Returns dict with 'type' key:
+        - {"type": "apikey", "apikey": "..."}
+        - {"type": "basic", "username": "...", "password": "..."}
+        - {"type": "none"} (auth explicitly disabled)
         - None if no auth info found (will likely get 401)
     """
     env = _get_container_env(container_id)
@@ -224,7 +229,7 @@ def _get_gluetun_auth(container_id: str) -> tuple[str, str] | None | str:
     user = env.get("HTTP_CONTROL_SERVER_USERNAME", "")
     password = env.get("HTTP_CONTROL_SERVER_PASSWORD", "")
     if user or password:
-        return (user, password)
+        return {"type": "basic", "username": user, "password": password}
     # 2. Parse HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE JSON (Gluetun v3.39.1+)
     default_role = env.get("HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE", "")
     if default_role and default_role != "{}":
@@ -232,17 +237,36 @@ def _get_gluetun_auth(container_id: str) -> tuple[str, str] | None | str:
             role = json.loads(default_role)
             auth_type = role.get("auth", "")
             if auth_type == "none":
-                return "none"  # No auth needed
+                return {"type": "none"}
+            if auth_type == "apikey":
+                return {"type": "apikey", "apikey": role.get("apikey", "")}
             if auth_type == "basic":
-                return (role.get("username", ""), role.get("password", ""))
+                return {
+                    "type": "basic",
+                    "username": role.get("username", ""),
+                    "password": role.get("password", ""),
+                }
         except (json.JSONDecodeError, AttributeError):
             pass
     # 3. HTTPPROXY_USER / HTTPPROXY_PASSWORD fallback
     user = env.get("HTTPPROXY_USER", "")
     password = env.get("HTTPPROXY_PASSWORD", "")
     if user or password:
-        return (user, password)
+        return {"type": "basic", "username": user, "password": password}
     return None
+
+
+def _build_request_kwargs(auth: dict[str, Any] | None) -> dict[str, Any]:
+    """Build kwargs dict for requests.get() based on auth info."""
+    kwargs: dict[str, Any] = {"timeout": 3}
+    if auth is None:
+        return kwargs
+    if auth["type"] == "basic":
+        kwargs["auth"] = (auth["username"], auth["password"])
+    elif auth["type"] == "apikey":
+        kwargs["headers"] = {"X-API-Key": auth["apikey"]}
+    # type == "none" → no auth needed
+    return kwargs
 
 
 def _get_docker_host_ip() -> str | None:
@@ -287,12 +311,17 @@ def _get_container_published_port(
 
 
 def _get_gluetun_base_url(
-    container_id: str, debug_info: dict[str, Any] | None = None
+    container_id: str,
+    auth: dict[str, Any] | None = None,
+    debug_info: dict[str, Any] | None = None,
 ) -> str | None:
     """Determine the best reachable URL for the Gluetun control server.
     Tries internal IP first (same Docker network), then falls back to
     Docker host gateway + published port (cross-network).
     """
+    probe_kwargs = _build_request_kwargs(auth)
+    probe_kwargs["timeout"] = 2  # shorter timeout for probes
+
     # 1. Try internal IP on port 8000
     ip = _get_container_ip(container_id)
     if debug_info is not None:
@@ -300,7 +329,7 @@ def _get_gluetun_base_url(
     if ip:
         internal_url = f"http://{ip}:8000"
         try:
-            resp = http_requests.get(f"{internal_url}/v1/vpn/status", timeout=2)
+            http_requests.get(f"{internal_url}/v1/vpn/status", **probe_kwargs)
             # Any response (even 401) means it's reachable
             if debug_info is not None:
                 debug_info["connection_method"] = "internal"
@@ -318,7 +347,7 @@ def _get_gluetun_base_url(
     if host_ip and published_port:
         host_url = f"http://{host_ip}:{published_port}"
         try:
-            resp = http_requests.get(f"{host_url}/v1/vpn/status", timeout=2)
+            http_requests.get(f"{host_url}/v1/vpn/status", **probe_kwargs)
             if debug_info is not None:
                 debug_info["connection_method"] = "host_gateway"
             return host_url
@@ -347,15 +376,10 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
     auth = _get_gluetun_auth(container_id)
     if debug and debug_info is not None:
         debug_info["container_id"] = container_id
-        debug_info["auth_found"] = auth is not None and auth != "none"
-        debug_info["auth_type"] = (
-            "none"
-            if auth == "none"
-            else "basic" if isinstance(auth, tuple) else "missing"
-        )
+        debug_info["auth_type"] = auth["type"] if auth else "missing"
         debug_info["errors"] = []
 
-    base = _get_gluetun_base_url(container_id, debug_info)
+    base = _get_gluetun_base_url(container_id, auth, debug_info)
     if not base:
         if debug and debug_info is not None:
             debug_info["errors"].append(
@@ -364,10 +388,7 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
             result["_debug"] = debug_info
         return result
 
-    req_kwargs: dict[str, Any] = {"timeout": 3}
-    # auth can be a (user, pass) tuple, "none" string, or None
-    if isinstance(auth, tuple):
-        req_kwargs["auth"] = auth
+    req_kwargs = _build_request_kwargs(auth)
     if debug and debug_info is not None:
         debug_info["base_url"] = base
 
@@ -579,10 +600,13 @@ def generate_compose_yaml(
     extra_ports: list[dict] | None = None,
 ) -> str:
     container_name = f"gluetun-{name}"
+    api_key = secrets.token_urlsafe(32)
     env_vars = {
         "VPN_SERVICE_PROVIDER": vpn_provider,
         "VPN_TYPE": vpn_type,
-        "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE": '{"auth":"none"}',
+        "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE": json.dumps(
+            {"auth": "apikey", "apikey": api_key}
+        ),
     }
     for key, value in config.items():
         if value:

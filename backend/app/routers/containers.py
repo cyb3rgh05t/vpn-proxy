@@ -112,8 +112,8 @@ def list_stacks(
 def list_all_dependents(
     current_user: User = Depends(get_current_user),
 ):
-    """List all dependent containers across all managed Gluetun instances."""
-    return docker_service.get_all_dependent_containers()
+    """List all Docker containers (non-Gluetun) with VPN connection info."""
+    return docker_service.list_all_docker_containers()
 
 
 @router.post("/dependents/{container_name}/{action}")
@@ -122,13 +122,15 @@ def control_any_dependent(
     action: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Start/stop/restart any dependent container by Docker name."""
+    """Start/stop/restart any Docker container by name."""
     if action not in ("start", "stop", "restart"):
         raise HTTPException(status_code=400, detail="Invalid action")
-    # Verify it's actually a dependent
-    all_deps = docker_service.get_all_dependent_containers()
-    if not any(d["name"] == container_name for d in all_deps):
-        raise HTTPException(status_code=403, detail="Container is not a VPN dependent")
+    # Verify the container exists in our list
+    all_containers = docker_service.list_all_docker_containers()
+    if not any(d["name"] == container_name for d in all_containers):
+        raise HTTPException(
+            status_code=404, detail="Container not found"
+        )
     try:
         if action == "start":
             docker_service.start_container(container_name)
@@ -419,6 +421,48 @@ def restart_container(
         return {"message": msg}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{container_id}/redeploy")
+def redeploy_container(
+    container_id: int,
+    req: ContainerUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Redeploy a container with updated configuration.
+    Stops dependents, removes old container, creates new one, restarts dependents.
+    """
+    c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
+    if not c or not c.container_id:
+        raise HTTPException(status_code=404, detail="Container not found")
+
+    # Apply updates from request to DB record
+    for field, value in req.model_dump(exclude_none=True).items():
+        setattr(c, field, value)
+    db.commit()
+    db.refresh(c)
+
+    try:
+        new_id = docker_service.redeploy_container(
+            name=c.name,
+            old_container_id=c.container_id,
+            vpn_provider=c.vpn_provider,
+            vpn_type=c.vpn_type,
+            config=c.config,
+            port_http_proxy=c.port_http_proxy,
+            port_shadowsocks=c.port_shadowsocks,
+            extra_ports=c.extra_ports if c.extra_ports else None,
+            network_name=c.network_name,
+        )
+        c.container_id = new_id
+        c.status = "running"
+        db.commit()
+        return {"message": "Container redeployed successfully", "container_id": new_id}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to redeploy container: {e}"
+        )
 
 
 @router.get("/{container_id}/logs", response_model=ContainerLogsResponse)

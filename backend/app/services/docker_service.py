@@ -212,6 +212,50 @@ def remove_container(container_id: str):
         raise
 
 
+def redeploy_container(
+    name: str,
+    old_container_id: str,
+    vpn_provider: str,
+    vpn_type: str,
+    config: dict,
+    port_http_proxy: int = 8888,
+    port_shadowsocks: int = 8388,
+    extra_ports: list[dict] | None = None,
+    network_name: str | None = None,
+) -> str:
+    """Redeploy a Gluetun container with updated config.
+    Stops dependents, removes old container, creates new one with same name, restarts dependents.
+    Returns new container_id.
+    """
+    # 1. Stop dependent containers
+    stopped_deps = stop_dependents(old_container_id)
+    logger.info("Stopped %d dependents before redeploy of %s", len(stopped_deps), name)
+
+    # 2. Remove old container
+    remove_container(old_container_id)
+    logger.info("Removed old container %s for redeploy", old_container_id[:12])
+
+    # 3. Create new container with same name but updated config
+    new_id = create_container(
+        name=name,
+        vpn_provider=vpn_provider,
+        vpn_type=vpn_type,
+        config=config,
+        port_http_proxy=port_http_proxy,
+        port_shadowsocks=port_shadowsocks,
+        extra_ports=extra_ports,
+        network_name=network_name,
+    )
+    logger.info("Created new container %s for %s", new_id[:12], name)
+
+    # 4. Restart dependent containers (they reference by name, so they reconnect)
+    if stopped_deps:
+        started = start_dependents(new_id)
+        logger.info("Restarted %d dependents after redeploy", len(started))
+
+    return new_id
+
+
 def get_container_status(container_id: str) -> dict:
     client = _get_client()
     try:
@@ -640,8 +684,9 @@ def get_dependent_containers(container_id: str) -> list[dict]:
     return dependents
 
 
-def get_all_dependent_containers() -> list[dict]:
-    """Find all containers using any managed Gluetun container's network."""
+def list_all_docker_containers() -> list[dict]:
+    """List all Docker containers except managed Gluetun ones and the vpn-proxy manager itself.
+    Includes info about whether a container is connected to a Gluetun VPN."""
     client = _get_client()
     result = []
     try:
@@ -651,7 +696,6 @@ def get_all_dependent_containers() -> list[dict]:
         )
         managed_ids = set()
         managed_names = set()
-        # Map gluetun id/name -> gluetun container name for display
         gluetun_map: dict[str, str] = {}
         for m in managed:
             mid = m.id or ""
@@ -664,42 +708,52 @@ def get_all_dependent_containers() -> list[dict]:
         for c in client.containers.list(all=True):
             try:
                 cid = c.id or ""
+                cname = c.name or ""
+                # Skip managed Gluetun containers
                 if cid in managed_ids:
                     continue
+                # Skip the vpn-proxy manager itself
+                if cname in ("vpn-proxy", "vpn-proxy-manager"):
+                    continue
+
                 network_mode = c.attrs.get("HostConfig", {}).get("NetworkMode", "")
-                if not network_mode.startswith("container:"):
-                    continue
-                ref = network_mode.split(":", 1)[1]
-                # Check if this ref matches any managed Gluetun container
                 vpn_parent = None
-                if ref in gluetun_map:
-                    vpn_parent = gluetun_map[ref]
-                else:
-                    for mid in managed_ids:
-                        if mid.startswith(ref) or ref.startswith(mid[:12]):
-                            vpn_parent = gluetun_map.get(mid, ref)
-                            break
-                if vpn_parent is None:
-                    continue
+                if network_mode.startswith("container:"):
+                    ref = network_mode.split(":", 1)[1]
+                    if ref in gluetun_map:
+                        vpn_parent = gluetun_map[ref]
+                    else:
+                        for mid in managed_ids:
+                            if mid.startswith(ref) or ref.startswith(mid[:12]):
+                                vpn_parent = gluetun_map.get(mid, ref)
+                                break
+
                 image_tags = c.image.tags if c.image else []
-                result.append(
-                    {
-                        "name": c.name,
-                        "id": c.short_id,
-                        "container_id": cid,
-                        "status": c.status,
-                        "image": (
-                            image_tags[0]
-                            if image_tags
-                            else c.attrs.get("Config", {}).get("Image", "unknown")
-                        ),
-                        "vpn_parent": vpn_parent,
-                    }
-                )
+                # Get health status
+                docker_status = c.status
+                health = c.attrs.get("State", {}).get("Health", {})
+                health_status = health.get("Status")
+                if docker_status == "running" and health_status in (
+                    "healthy", "unhealthy", "starting",
+                ):
+                    docker_status = health_status
+
+                result.append({
+                    "name": cname,
+                    "id": c.short_id,
+                    "container_id": cid,
+                    "status": docker_status,
+                    "image": (
+                        image_tags[0]
+                        if image_tags
+                        else c.attrs.get("Config", {}).get("Image", "unknown")
+                    ),
+                    "vpn_parent": vpn_parent,
+                })
             except Exception:
                 continue
     except Exception as e:
-        logger.error("Failed to list all dependent containers: %s", e)
+        logger.error("Failed to list all Docker containers: %s", e)
     return result
 
 

@@ -14,34 +14,34 @@ import { useToast } from "../context/ToastContext";
 
 export default function O11() {
   const toast = useToast();
-  const [dependents, setDependents] = useState([]);
+  const [containers, setContainers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
 
-  const fetchDependents = useCallback(async () => {
+  const fetchContainers = useCallback(async () => {
     try {
       const res = await api.get("/containers/dependents");
-      setDependents(Array.isArray(res.data) ? res.data : []);
+      setContainers(Array.isArray(res.data) ? res.data : []);
     } catch {
-      setDependents([]);
+      setContainers([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchDependents();
-    const interval = setInterval(fetchDependents, 15000);
+    fetchContainers();
+    const interval = setInterval(fetchContainers, 15000);
     return () => clearInterval(interval);
-  }, [fetchDependents]);
+  }, [fetchContainers]);
 
   const handleAction = async (name, action) => {
     setActionLoading(`${name}-${action}`);
     try {
       const res = await api.post(`/containers/dependents/${name}/${action}`);
       toast.success(res.data?.message || `${name} ${action}ed`);
-      fetchDependents();
+      fetchContainers();
     } catch (err) {
       toast.error(err.response?.data?.detail || `Failed to ${action} ${name}`);
     } finally {
@@ -49,24 +49,27 @@ export default function O11() {
     }
   };
 
-  const running = dependents.filter((d) => d.status === "running").length;
-  const stopped = dependents.filter((d) =>
+  const running = containers.filter((d) =>
+    ["running", "healthy"].includes(d.status),
+  ).length;
+  const stopped = containers.filter((d) =>
     ["exited", "dead", "created"].includes(d.status),
   ).length;
+  const vpnConnected = containers.filter((d) => d.vpn_parent).length;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">O11 Containers</h1>
+          <h1 className="text-2xl font-bold text-white">O11 Overview</h1>
           <p className="text-vpn-muted mt-1">
-            All containers routed through your VPN
+            All Docker containers on this host
           </p>
         </div>
         <button
           onClick={async () => {
             setRefreshing(true);
-            await fetchDependents();
+            await fetchContainers();
             setRefreshing(false);
           }}
           disabled={refreshing}
@@ -80,13 +83,15 @@ export default function O11() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
         <div className="bg-vpn-card border border-vpn-border rounded-xl p-5 flex items-center gap-4">
           <div className="p-3 rounded-lg bg-vpn-primary/10">
             <Boxes className="w-6 h-6 text-vpn-primary" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-white">{dependents.length}</p>
+            <p className="text-2xl font-bold text-white">
+              {containers.length}
+            </p>
             <p className="text-sm text-vpn-muted">Total</p>
           </div>
         </div>
@@ -108,6 +113,15 @@ export default function O11() {
             <p className="text-sm text-vpn-muted">Stopped</p>
           </div>
         </div>
+        <div className="bg-vpn-card border border-vpn-border rounded-xl p-5 flex items-center gap-4">
+          <div className="p-3 rounded-lg bg-blue-500/10">
+            <Shield className="w-6 h-6 text-blue-400" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-white">{vpnConnected}</p>
+            <p className="text-sm text-vpn-muted">VPN Routed</p>
+          </div>
+        </div>
       </div>
 
       {/* Container List */}
@@ -115,24 +129,20 @@ export default function O11() {
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-vpn-primary"></div>
         </div>
-      ) : dependents.length === 0 ? (
+      ) : containers.length === 0 ? (
         <div className="text-center py-16 bg-vpn-card border border-vpn-border rounded-2xl">
           <Boxes className="w-16 h-16 text-vpn-border mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-vpn-text mb-2">
-            No dependent containers
+            No containers found
           </h3>
           <p className="text-vpn-muted">
-            Containers using{" "}
-            <code className="text-vpn-primary">
-              network_mode: container:gluetun-*
-            </code>{" "}
-            will appear here.
+            Other Docker containers on this host will appear here.
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {dependents.map((dep) => {
-            const isRunning = dep.status === "running";
+          {containers.map((dep) => {
+            const isRunning = ["running", "healthy"].includes(dep.status);
             const isStopped = ["exited", "created", "dead"].includes(
               dep.status,
             );
@@ -157,16 +167,16 @@ export default function O11() {
                         {dep.name}
                       </h3>
                       <StatusBadge status={dep.status} />
+                      {dep.vpn_parent && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                          <Shield className="w-3 h-3" />
+                          {dep.vpn_parent}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-vpn-muted">
-                      <span className="font-mono truncate max-w-[250px]">
-                        {dep.image}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Shield className="w-3 h-3 text-vpn-primary" />
-                        {dep.vpn_parent}
-                      </span>
-                    </div>
+                    <p className="text-xs text-vpn-muted font-mono truncate max-w-[350px] mt-1">
+                      {dep.image}
+                    </p>
                   </div>
                 </div>
 

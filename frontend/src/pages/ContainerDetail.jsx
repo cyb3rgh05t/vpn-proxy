@@ -12,6 +12,10 @@ import {
   Network,
   Globe,
   Shield,
+  Rocket,
+  Pencil,
+  X,
+  Save,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -33,6 +37,9 @@ export default function ContainerDetail() {
   const [descSaving, setDescSaving] = useState(false);
   const descFocused = useRef(false);
   const initialLoad = useRef(true);
+  const [editingConfig, setEditingConfig] = useState(false);
+  const [editConfig, setEditConfig] = useState({});
+  const [redeploying, setRedeploying] = useState(false);
 
   const fetchContainer = useCallback(async () => {
     try {
@@ -160,6 +167,30 @@ export default function ContainerDetail() {
       URL.revokeObjectURL(url);
     } catch {
       toast.error("Failed to export compose file");
+    }
+  };
+
+  const handleEditConfig = () => {
+    setEditConfig({ ...(container.config || {}) });
+    setEditingConfig(true);
+  };
+
+  const handleRedeploy = async () => {
+    if (!confirm("Redeploy this container? Dependents will be restarted automatically.")) return;
+    setRedeploying(true);
+    try {
+      const res = await api.post(`/containers/${id}/redeploy`, {
+        config: editConfig,
+      });
+      toast.success(res.data?.message || "Container redeployed");
+      setEditingConfig(false);
+      fetchContainer();
+      fetchDependents();
+      fetchVpnInfo();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to redeploy container");
+    } finally {
+      setRedeploying(false);
     }
   };
 
@@ -291,6 +322,13 @@ export default function ContainerDetail() {
           >
             <Download className="w-4 h-4" />
             Export Compose
+          </button>
+          <button
+            onClick={handleEditConfig}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white rounded-lg text-sm transition-all active:scale-95"
+          >
+            <Pencil className="w-4 h-4" />
+            Edit & Redeploy
           </button>
           <button
             onClick={handleDelete}
@@ -568,6 +606,83 @@ export default function ContainerDetail() {
           </div>
         )}
       </div>
+
+      {/* Edit & Redeploy Modal */}
+      {editingConfig && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-vpn-border">
+              <h2 className="text-lg font-bold text-white">Edit Configuration & Redeploy</h2>
+              <button
+                onClick={() => setEditingConfig(false)}
+                className="p-2 rounded-lg text-vpn-muted hover:text-white hover:bg-vpn-input transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+              {Object.entries(editConfig).map(([key, value]) => (
+                <div key={key} className="flex gap-3 items-start">
+                  <div className="flex-1 min-w-0">
+                    <label className="text-xs text-vpn-muted font-mono block mb-1">{key}</label>
+                    <input
+                      type="text"
+                      value={value}
+                      onChange={(e) =>
+                        setEditConfig((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      className="w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
+                    />
+                  </div>
+                  <button
+                    onClick={() =>
+                      setEditConfig((prev) => {
+                        const next = { ...prev };
+                        delete next[key];
+                        return next;
+                      })
+                    }
+                    className="mt-6 p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                    title="Remove"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+
+              <button
+                onClick={() => {
+                  const key = prompt("Enter new environment variable name:");
+                  if (key && key.trim()) {
+                    setEditConfig((prev) => ({ ...prev, [key.trim()]: "" }));
+                  }
+                }}
+                className="w-full py-2 border border-dashed border-vpn-border rounded-lg text-sm text-vpn-muted hover:text-vpn-primary hover:border-vpn-primary transition-colors"
+              >
+                + Add Variable
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-vpn-border">
+              <button
+                onClick={() => setEditingConfig(false)}
+                className="px-4 py-2 rounded-lg text-sm text-vpn-muted hover:text-white hover:bg-vpn-input transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRedeploy}
+                disabled={redeploying}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                <Rocket className={`w-4 h-4 ${redeploying ? "animate-pulse" : ""}`} />
+                {redeploying ? "Redeploying..." : "Save & Redeploy"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

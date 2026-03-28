@@ -1,5 +1,7 @@
+import json
 import logging
 import os
+from typing import Any
 import docker
 import requests as http_requests
 from docker.types import RestartPolicy  # noqa
@@ -49,6 +51,8 @@ def create_container(
     env_vars = {
         "VPN_SERVICE_PROVIDER": vpn_provider,
         "VPN_TYPE": vpn_type,
+        # Allow unauthenticated access to control server (internal only)
+        "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE": '{"auth":"none"}',
     }
     for key, value in config.items():
         if value:
@@ -207,15 +211,32 @@ def _get_container_env(container_id: str) -> dict:
         return {}
 
 
-def _get_gluetun_auth(container_id: str) -> tuple[str, str] | None:
-    """Get Gluetun HTTP control server auth credentials from container env vars."""
+def _get_gluetun_auth(container_id: str) -> tuple[str, str] | None | str:
+    """Get Gluetun HTTP control server auth credentials from container env vars.
+    Returns:
+        - (username, password) tuple for basic auth
+        - "none" if auth is explicitly disabled (auth: none)
+        - None if no auth info found (will likely get 401)
+    """
     env = _get_container_env(container_id)
-    # Gluetun uses HTTP_CONTROL_SERVER_USERNAME / HTTP_CONTROL_SERVER_PASSWORD
+    # 1. Explicit username/password env vars
     user = env.get("HTTP_CONTROL_SERVER_USERNAME", "")
     password = env.get("HTTP_CONTROL_SERVER_PASSWORD", "")
     if user or password:
         return (user, password)
-    # Some versions use HTTPPROXY_USER / HTTPPROXY_PASSWORD for the API too
+    # 2. Parse HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE JSON (Gluetun v3.39.1+)
+    default_role = env.get("HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE", "")
+    if default_role and default_role != "{}":
+        try:
+            role = json.loads(default_role)
+            auth_type = role.get("auth", "")
+            if auth_type == "none":
+                return "none"  # No auth needed
+            if auth_type == "basic":
+                return (role.get("username", ""), role.get("password", ""))
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    # 3. HTTPPROXY_USER / HTTPPROXY_PASSWORD fallback
     user = env.get("HTTPPROXY_USER", "")
     password = env.get("HTTPPROXY_PASSWORD", "")
     if user or password:
@@ -227,39 +248,46 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
     """Query the Gluetun control server for VPN status and public IP.
     Uses the container's internal IP on port 8000 (Gluetun's default control port).
     """
-    result = {
+    result: dict[str, Any] = {
         "vpn_status": None,
         "public_ip": None,
         "country": None,
         "region": None,
         "port_forwarded": None,
     }
-    debug_info = {} if debug else None
+    debug_info: dict[str, Any] | None = {} if debug else None
 
     ip = _get_container_ip(container_id)
     auth = _get_gluetun_auth(container_id)
-    if debug:
+    if debug and debug_info is not None:
         debug_info["container_id"] = container_id
         debug_info["internal_ip"] = ip
-        debug_info["auth_found"] = auth is not None
+        debug_info["auth_found"] = auth is not None and auth != "none"
+        debug_info["auth_type"] = (
+            "none"
+            if auth == "none"
+            else "basic" if isinstance(auth, tuple) else "missing"
+        )
         debug_info["errors"] = []
     if not ip:
-        if debug:
+        if debug and debug_info is not None:
             debug_info["errors"].append("Could not get container internal IP")
             result["_debug"] = debug_info
         return result
 
     base = f"http://{ip}:8000"
-    req_kwargs = {"timeout": 3}
-    if auth:
+    req_kwargs: dict[str, Any] = {"timeout": 3}
+    # auth can be a (user, pass) tuple, "none" string, or None
+    if isinstance(auth, tuple):
         req_kwargs["auth"] = auth
-    if debug:
+    # auth == "none" means no auth needed, auth == None means unknown
+    if debug and debug_info is not None:
         debug_info["base_url"] = base
 
     # VPN status
     try:
         resp = http_requests.get(f"{base}/v1/vpn/status", **req_kwargs)
-        if debug:
+        if debug and debug_info is not None:
             debug_info["vpn_status_code"] = resp.status_code
             debug_info["vpn_status_body"] = resp.text[:500]
         if resp.ok:
@@ -267,13 +295,13 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
             result["vpn_status"] = data.get("status")
     except Exception as e:
         logger.debug("Gluetun VPN status query failed for %s: %s", container_id, e)
-        if debug:
+        if debug and debug_info is not None:
             debug_info["errors"].append(f"VPN status: {e}")
 
     # Public IP
     try:
         resp = http_requests.get(f"{base}/v1/publicip/ip", **req_kwargs)
-        if debug:
+        if debug and debug_info is not None:
             debug_info["publicip_status_code"] = resp.status_code
             debug_info["publicip_body"] = resp.text[:500]
         if resp.ok:
@@ -283,7 +311,7 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
             result["region"] = data.get("region")
     except Exception as e:
         logger.debug("Gluetun public IP query failed for %s: %s", container_id, e)
-        if debug:
+        if debug and debug_info is not None:
             debug_info["errors"].append(f"Public IP: {e}")
     # Port forwarding
     try:
@@ -467,6 +495,7 @@ def generate_compose_yaml(
     env_vars = {
         "VPN_SERVICE_PROVIDER": vpn_provider,
         "VPN_TYPE": vpn_type,
+        "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE": '{"auth":"none"}',
     }
     for key, value in config.items():
         if value:

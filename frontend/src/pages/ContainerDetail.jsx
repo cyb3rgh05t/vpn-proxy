@@ -201,6 +201,13 @@ export default function ContainerDetail() {
         <div className="flex items-start justify-between mb-2">
           <div>
             <h1 className="text-2xl font-bold text-white">{container.name}</h1>
+            {container.docker_name &&
+              container.docker_name !== `gluetun-${container.name}` &&
+              container.docker_name !== container.name && (
+                <p className="text-xs text-amber-400/70 font-mono mt-0.5">
+                  Docker: {container.docker_name}
+                </p>
+              )}
             <p className="text-vpn-muted mt-1">
               {container.vpn_provider} &middot; {container.vpn_type}
             </p>

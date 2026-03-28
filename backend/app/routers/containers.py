@@ -131,11 +131,10 @@ def list_containers(
             try:
                 status_info = docker_service.get_container_status(c.container_id)
                 data.status = status_info["status"]
-                # If container was removed/replaced, try to find it by name
+                data.docker_name = status_info.get("docker_name")
+                # If container was removed/replaced, try to find it by name/label
                 if status_info["status"] in ("removed", "error"):
-                    found = docker_service.find_container_by_name(
-                        c.name, vpn_provider=c.vpn_provider
-                    )
+                    found = docker_service.find_container_by_name(c.name)
                     if found:
                         old_id = c.container_id
                         c.container_id = found["container_id"]
@@ -143,6 +142,10 @@ def list_containers(
                         db.commit()
                         data.status = found["status"]
                         data.container_id = found["container_id"]
+                        # Get docker name of the recovered container
+                        data.docker_name = docker_service.get_container_docker_name(
+                            found["container_id"]
+                        )
                         # Restart dependents so they reconnect to new container
                         if (
                             found["status"] == "running"
@@ -224,11 +227,10 @@ def get_container(
         try:
             status_info = docker_service.get_container_status(c.container_id)
             data.status = status_info["status"]
-            # If container was removed/replaced, try to find it by name
+            data.docker_name = status_info.get("docker_name")
+            # If container was removed/replaced, try to find it by name/label
             if status_info["status"] in ("removed", "error"):
-                found = docker_service.find_container_by_name(
-                    c.name, vpn_provider=c.vpn_provider
-                )
+                found = docker_service.find_container_by_name(c.name)
                 if found:
                     old_id = c.container_id
                     c.container_id = found["container_id"]
@@ -236,6 +238,9 @@ def get_container(
                     db.commit()
                     data.status = found["status"]
                     data.container_id = found["container_id"]
+                    data.docker_name = docker_service.get_container_docker_name(
+                        found["container_id"]
+                    )
                     # Restart dependents so they reconnect to new container
                     if found["status"] == "running" and old_id != found["container_id"]:
                         docker_service.restart_dependents(found["container_id"])

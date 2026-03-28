@@ -57,6 +57,7 @@ class ContainerResponse(BaseModel):
     port_control: int
     extra_ports: Optional[list[dict]] = []
     container_id: Optional[str] = None
+    docker_name: Optional[str] = None
     status: str
     created_by: Optional[int] = None
     created_at: Optional[datetime] = None

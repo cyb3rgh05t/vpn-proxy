@@ -95,6 +95,13 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
           <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors">
             {container.name}
           </h3>
+          {container.docker_name &&
+            container.docker_name !== `gluetun-${container.name}` &&
+            container.docker_name !== container.name && (
+              <p className="text-xs text-amber-400/70 mt-0.5 truncate max-w-[200px] font-mono">
+                {container.docker_name}
+              </p>
+            )}
           {container.description && (
             <p className="text-xs text-vpn-muted mt-0.5 truncate max-w-[200px]">
               {container.description}

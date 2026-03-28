@@ -109,7 +109,7 @@ export default function O11() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">O11 Overview</h1>
-          <p className="text-vpn-muted mt-1">Your O11 & O11 Pro containers</p>
+          <p className="text-vpn-muted mt-1">Your o11 Pro containers</p>
         </div>
         <button
           onClick={async () => {

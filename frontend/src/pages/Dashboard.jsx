@@ -20,6 +20,9 @@ import {
   ArrowUpDown,
   MapPin,
   Eye,
+  Boxes,
+  Box,
+  Image,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -35,6 +38,7 @@ export default function Dashboard() {
   const [discovering, setDiscovering] = useState(false);
   const [vpnInfoMap, setVpnInfoMap] = useState({});
   const [depsMap, setDepsMap] = useState({});
+  const [o11Containers, setO11Containers] = useState([]);
 
   const fetchContainers = useCallback(async () => {
     try {
@@ -56,6 +60,31 @@ export default function Dashboard() {
       // Silently ignore - VPN info is optional
     }
   }, []);
+
+  const fetchO11Containers = useCallback(async () => {
+    try {
+      const res = await api.get("/containers/dependents");
+      const all = Array.isArray(res.data) ? res.data : [];
+      setO11Containers(all.filter((c) => /o11/i.test(c.name)));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const getVpnInfoForParent = useCallback(
+    (vpnParent) => {
+      if (!vpnParent) return null;
+      const mc = containers.find(
+        (m) =>
+          m.docker_name === vpnParent ||
+          `gluetun-${m.name}` === vpnParent ||
+          m.name === vpnParent,
+      );
+      if (!mc) return null;
+      return vpnInfoMap[String(mc.id)] || null;
+    },
+    [containers, vpnInfoMap],
+  );
 
   const fetchDependents = useCallback(
     async (list) => {
@@ -81,14 +110,16 @@ export default function Dashboard() {
     const init = async () => {
       const res = await fetchContainers();
       fetchVpnInfo();
+      fetchO11Containers();
     };
     init();
     const interval = setInterval(() => {
       fetchContainers();
       fetchVpnInfo();
+      fetchO11Containers();
     }, 15000);
     return () => clearInterval(interval);
-  }, [fetchContainers, fetchVpnInfo]);
+  }, [fetchContainers, fetchVpnInfo, fetchO11Containers]);
 
   useEffect(() => {
     if (containers.length) fetchDependents();
@@ -109,6 +140,19 @@ export default function Dashboard() {
   const stopped = containers.filter((c) =>
     ["exited", "dead", "removed"].includes(c.status),
   ).length;
+
+  const handleO11Action = async (name, action) => {
+    setActionLoading(`o11-${name}-${action}`);
+    try {
+      const res = await api.post(`/containers/dependents/${name}/${action}`);
+      toast.success(res.data?.message || `${name} ${action}ed`);
+      fetchO11Containers();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || `Failed to ${action} ${name}`);
+    } finally {
+      setActionLoading("");
+    }
+  };
 
   const handleAction = async (id, action) => {
     setActionLoading(`${id}-${action}`);
@@ -468,6 +512,161 @@ export default function Dashboard() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* O11 Containers Section */}
+      {o11Containers.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-center gap-3 mb-4">
+            <Boxes className="w-5 h-5 text-vpn-primary" />
+            <h2 className="text-lg font-semibold text-white">O11 Containers</h2>
+            <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-1 rounded-full">
+              {o11Containers.length}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {o11Containers.map((dep) => {
+              const isRunning = ["running", "healthy"].includes(dep.status);
+              const isStopped = ["exited", "created", "dead"].includes(
+                dep.status,
+              );
+              const parentInfo = getVpnInfoForParent(dep.vpn_parent);
+              return (
+                <div
+                  key={dep.id}
+                  className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all group"
+                >
+                  {/* Row 1: Header */}
+                  <div className="flex items-center gap-4 mb-3">
+                    <div
+                      className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                        isRunning
+                          ? "bg-emerald-500 shadow-lg shadow-emerald-500/30"
+                          : isStopped
+                            ? "bg-red-500"
+                            : "bg-amber-500"
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
+                          {dep.name}
+                        </h3>
+                      </div>
+                    </div>
+                    <StatusBadge status={dep.status} />
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isStopped && (
+                        <button
+                          onClick={() => handleO11Action(dep.name, "start")}
+                          disabled={!!actionLoading}
+                          className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90 disabled:opacity-50"
+                          title="Start"
+                        >
+                          <Play
+                            className={`w-4 h-4 ${actionLoading === `o11-${dep.name}-start` ? "animate-pulse" : ""}`}
+                          />
+                        </button>
+                      )}
+                      {isRunning && (
+                        <button
+                          onClick={() => handleO11Action(dep.name, "stop")}
+                          disabled={!!actionLoading}
+                          className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90 disabled:opacity-50"
+                          title="Stop"
+                        >
+                          <Square
+                            className={`w-4 h-4 ${actionLoading === `o11-${dep.name}-stop` ? "animate-pulse" : ""}`}
+                          />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleO11Action(dep.name, "restart")}
+                        disabled={!!actionLoading}
+                        className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90 disabled:opacity-50"
+                        title="Restart"
+                      >
+                        <RotateCcw
+                          className={`w-4 h-4 ${actionLoading === `o11-${dep.name}-restart` ? "animate-spin" : ""}`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Image + Container ID */}
+                  <div className="flex items-center gap-4 flex-wrap mb-3">
+                    <span className="inline-flex items-center gap-1 text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded border border-vpn-border/50 font-mono">
+                      <Image className="w-3 h-3" />
+                      {dep.image}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded border border-vpn-border/50 font-mono">
+                      <Box className="w-3 h-3" />
+                      {dep.container_id
+                        ? dep.container_id.substring(0, 12)
+                        : dep.id}
+                    </span>
+                  </div>
+
+                  {/* Row 3: VPN Info */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {dep.vpn_parent ? (
+                      <>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-blue-500/10 text-blue-400 font-medium">
+                          <Shield className="w-3 h-3" />
+                          via {dep.vpn_parent}
+                        </span>
+                        {parentInfo?.vpn_status && (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+                              parentInfo.vpn_status === "running"
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-red-500/10 text-red-400"
+                            }`}
+                          >
+                            {parentInfo.vpn_status === "running" ? (
+                              <Wifi className="w-3 h-3" />
+                            ) : (
+                              <WifiOff className="w-3 h-3" />
+                            )}
+                            {parentInfo.vpn_status === "running"
+                              ? "Connected"
+                              : "Disconnected"}
+                          </span>
+                        )}
+                        {parentInfo?.public_ip && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-vpn-input text-vpn-primary font-mono">
+                            <Globe className="w-3 h-3" />
+                            {parentInfo.public_ip}
+                          </span>
+                        )}
+                        {(parentInfo?.country || parentInfo?.region) && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-vpn-input text-vpn-muted">
+                            <MapPin className="w-3 h-3" />
+                            {[parentInfo?.region, parentInfo?.country]
+                              .filter(Boolean)
+                              .join(", ")}
+                          </span>
+                        )}
+                        {parentInfo?.port_forwarded && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-amber-500/10 text-amber-400 font-mono">
+                            <ArrowUpDown className="w-3 h-3" />
+                            {parentInfo.port_forwarded}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-vpn-input/30 text-vpn-muted">
+                        <Shield className="w-3 h-3" />
+                        No VPN connection
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

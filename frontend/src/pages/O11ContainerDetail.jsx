@@ -150,7 +150,9 @@ export default function O11ContainerDetail() {
       fetchContainer();
       refreshO11Containers();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to change network mode");
+      toast.error(
+        err.response?.data?.detail || "Failed to change network mode",
+      );
     } finally {
       setNetworkModeLoading(false);
     }
@@ -403,7 +405,10 @@ export default function O11ContainerDetail() {
                 )}
                 {Object.entries(container.networks || {}).map(
                   ([netName, netInfo]) => (
-                    <div key={netName} className="flex justify-between px-4 py-3">
+                    <div
+                      key={netName}
+                      className="flex justify-between px-4 py-3"
+                    >
                       <span className="text-sm text-vpn-muted">{netName}</span>
                       <span className="text-sm text-white font-mono">
                         {netInfo.ip || "—"}
@@ -442,7 +447,10 @@ export default function O11ContainerDetail() {
                 </h3>
                 <div className="bg-vpn-input rounded-lg divide-y divide-vpn-border">
                   {container.mounts.map((m, i) => (
-                    <div key={i} className="flex justify-between px-4 py-3 gap-4">
+                    <div
+                      key={i}
+                      className="flex justify-between px-4 py-3 gap-4"
+                    >
                       <span className="text-sm text-vpn-muted font-mono truncate flex-1">
                         {m.source}
                       </span>
@@ -616,8 +624,8 @@ export default function O11ContainerDetail() {
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-amber-400">
-                    Changing network mode will recreate the container. It will be
-                    stopped and removed, then recreated with the new network
+                    Changing network mode will recreate the container. It will
+                    be stopped and removed, then recreated with the new network
                     mode. All data in non-persistent volumes will be lost.
                   </p>
                 </div>

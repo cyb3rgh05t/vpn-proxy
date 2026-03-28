@@ -325,9 +325,14 @@ export default function O11() {
                 )}
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 pt-3 border-t border-vpn-border" onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="flex items-center gap-2 pt-3 border-t border-vpn-border"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <button
-                    onClick={() => navigate(`/o11/${encodeURIComponent(dep.name)}`)}
+                    onClick={() =>
+                      navigate(`/o11/${encodeURIComponent(dep.name)}`)
+                    }
                     className="p-2 rounded-lg text-vpn-muted hover:bg-vpn-input hover:text-white transition-all active:scale-90"
                     title="Details"
                   >

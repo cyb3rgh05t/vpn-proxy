@@ -990,7 +990,9 @@ def inspect_container_by_name(container_name: str) -> dict | None:
     health = state.get("Health", {})
     health_status = health.get("Status")
     if docker_status == "running" and health_status in (
-        "healthy", "unhealthy", "starting"
+        "healthy",
+        "unhealthy",
+        "starting",
     ):
         docker_status = health_status
 
@@ -1026,8 +1028,13 @@ def inspect_container_by_name(container_name: str) -> dict | None:
     for m in host_config.get("Binds", []) or []:
         parts = m.split(":")
         if len(parts) >= 2:
-            mounts.append({"source": parts[0], "target": parts[1],
-                           "mode": parts[2] if len(parts) > 2 else "rw"})
+            mounts.append(
+                {
+                    "source": parts[0],
+                    "target": parts[1],
+                    "mode": parts[2] if len(parts) > 2 else "rw",
+                }
+            )
 
     # Restart policy
     restart_policy = host_config.get("RestartPolicy", {})
@@ -1060,9 +1067,7 @@ def inspect_container_by_name(container_name: str) -> dict | None:
     }
 
 
-def change_container_network_mode(
-    container_name: str, new_network_mode: str
-) -> dict:
+def change_container_network_mode(container_name: str, new_network_mode: str) -> dict:
     """Change a container's network_mode by recreating it with the same config."""
     client = _get_client()
     try:

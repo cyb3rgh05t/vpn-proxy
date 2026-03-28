@@ -546,7 +546,9 @@ export default function Dashboard() {
               return (
                 <div
                   key={dep.id}
-                  onClick={() => navigate(`/o11/${encodeURIComponent(dep.name)}`)}
+                  onClick={() =>
+                    navigate(`/o11/${encodeURIComponent(dep.name)}`)
+                  }
                   className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all group cursor-pointer"
                 >
                   {/* Row 1: Header */}
@@ -569,9 +571,14 @@ export default function Dashboard() {
                     </div>
                     <StatusBadge status={dep.status} />
                     {/* Actions */}
-                    <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="flex items-center gap-1 flex-shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
-                        onClick={() => navigate(`/o11/${encodeURIComponent(dep.name)}`)}
+                        onClick={() =>
+                          navigate(`/o11/${encodeURIComponent(dep.name)}`)
+                        }
                         className="p-2 rounded-lg text-vpn-muted hover:bg-vpn-input hover:text-white transition-all active:scale-90"
                         title="Details"
                       >

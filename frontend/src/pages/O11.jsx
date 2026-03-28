@@ -64,7 +64,7 @@ export default function O11() {
     const interval = setInterval(() => {
       fetchContainers();
       fetchManagedInfo();
-    }, 15000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [fetchContainers, fetchManagedInfo]);
 

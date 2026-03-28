@@ -52,7 +52,7 @@ export default function VpnProxy() {
     const interval = setInterval(() => {
       fetchContainers();
       fetchVpnInfo();
-    }, 15000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [fetchContainers, fetchVpnInfo]);
 

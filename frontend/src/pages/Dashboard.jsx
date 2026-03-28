@@ -119,7 +119,7 @@ export default function Dashboard() {
       fetchContainers();
       fetchVpnInfo();
       fetchO11Containers();
-    }, 15000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [fetchContainers, fetchVpnInfo, fetchO11Containers]);
 
@@ -127,7 +127,7 @@ export default function Dashboard() {
     if (containers.length) fetchDependents();
     const interval = setInterval(() => {
       if (containers.length) fetchDependents();
-    }, 15000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [containers, fetchDependents]);
 

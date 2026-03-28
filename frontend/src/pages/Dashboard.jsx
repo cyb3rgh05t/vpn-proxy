@@ -17,6 +17,9 @@ import {
   Wifi,
   WifiOff,
   Network,
+  ArrowUpDown,
+  MapPin,
+  Eye,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -31,6 +34,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [vpnInfoMap, setVpnInfoMap] = useState({});
+  const [depsMap, setDepsMap] = useState({});
 
   const fetchContainers = useCallback(async () => {
     try {
@@ -53,15 +57,46 @@ export default function Dashboard() {
     }
   }, []);
 
+  const fetchDependents = useCallback(
+    async (list) => {
+      const src = list || containers;
+      if (!src.length) return;
+      const map = {};
+      await Promise.all(
+        src.map(async (c) => {
+          try {
+            const res = await api.get(`/containers/${c.id}/dependents`);
+            map[c.id] = Array.isArray(res.data) ? res.data : [];
+          } catch {
+            map[c.id] = [];
+          }
+        }),
+      );
+      setDepsMap(map);
+    },
+    [containers],
+  );
+
   useEffect(() => {
-    fetchContainers();
-    fetchVpnInfo();
+    const init = async () => {
+      const res = await fetchContainers();
+      fetchVpnInfo();
+    };
+    init();
     const interval = setInterval(() => {
       fetchContainers();
       fetchVpnInfo();
     }, 15000);
     return () => clearInterval(interval);
   }, [fetchContainers, fetchVpnInfo]);
+
+  useEffect(() => {
+    if (containers.length) fetchDependents();
+    const interval = setInterval(() => {
+      if (containers.length) fetchDependents();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [containers, fetchDependents]);
 
   const [actionLoading, setActionLoading] = useState("");
 
@@ -237,9 +272,10 @@ export default function Dashboard() {
           </button>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {containers.map((c) => {
             const info = vpnInfoMap[String(c.id)];
+            const deps = depsMap[c.id] || [];
             const isRunning = [
               "running",
               "healthy",
@@ -258,51 +294,103 @@ export default function Dashboard() {
               <div
                 key={c.id}
                 onClick={() => navigate(`/containers/${c.id}`)}
-                className="bg-vpn-card border border-vpn-border rounded-xl px-5 py-4 flex items-center gap-4 hover:border-vpn-muted transition-all cursor-pointer group"
+                className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all cursor-pointer group"
               >
-                {/* Status dot */}
-                <div
-                  className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                    c.status === "healthy" || c.status === "running"
-                      ? "bg-emerald-500 shadow-lg shadow-emerald-500/30"
-                      : c.status === "unhealthy"
-                        ? "bg-red-500 shadow-lg shadow-red-500/30 animate-pulse"
-                        : isStopped
-                          ? "bg-red-500"
-                          : "bg-amber-500"
-                  }`}
-                />
-
-                {/* Name + Description */}
-                <div className="min-w-0 w-48 flex-shrink-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
-                      {c.name}
-                    </h3>
-                    {c.description && (
-                      <span className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-vpn-primary/15 text-vpn-primary border border-vpn-primary/30 truncate max-w-[120px]">
-                        {c.description}
+                {/* Row 1: Header */}
+                <div className="flex items-center gap-4 mb-3">
+                  <div
+                    className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                      c.status === "healthy" || c.status === "running"
+                        ? "bg-emerald-500 shadow-lg shadow-emerald-500/30"
+                        : c.status === "unhealthy"
+                          ? "bg-red-500 shadow-lg shadow-red-500/30 animate-pulse"
+                          : isStopped
+                            ? "bg-red-500"
+                            : "bg-amber-500"
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
+                        {c.name}
+                      </h3>
+                      {c.description && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-vpn-primary/15 text-vpn-primary border border-vpn-primary/30 truncate max-w-[160px]">
+                          {c.description}
+                        </span>
+                      )}
+                      <span className="text-xs text-vpn-muted capitalize">
+                        {c.vpn_provider} · {c.vpn_type}
                       </span>
-                    )}
+                    </div>
                   </div>
-                  <p className="text-xs text-vpn-muted capitalize">
-                    {c.vpn_provider} · {c.vpn_type}
-                  </p>
-                </div>
-
-                {/* Status Badge */}
-                <div className="flex-shrink-0">
                   <StatusBadge status={c.status} />
+                  {/* Actions */}
+                  <div
+                    className="flex items-center gap-1 flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => navigate(`/containers/${c.id}`)}
+                      className="p-2 rounded-lg text-vpn-muted hover:bg-vpn-input hover:text-white transition-all active:scale-90"
+                      title="Details"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    {isStopped && (
+                      <button
+                        onClick={() => handleAction(c.id, "start")}
+                        disabled={!!actionLoading}
+                        className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90 disabled:opacity-50"
+                        title="Start"
+                      >
+                        <Play
+                          className={`w-4 h-4 ${actionLoading === `${c.id}-start` ? "animate-pulse" : ""}`}
+                        />
+                      </button>
+                    )}
+                    {isRunning && (
+                      <button
+                        onClick={() => handleAction(c.id, "stop")}
+                        disabled={!!actionLoading}
+                        className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90 disabled:opacity-50"
+                        title="Stop"
+                      >
+                        <Square
+                          className={`w-4 h-4 ${actionLoading === `${c.id}-stop` ? "animate-pulse" : ""}`}
+                        />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleAction(c.id, "restart")}
+                      disabled={!!actionLoading}
+                      className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90 disabled:opacity-50"
+                      title="Restart"
+                    >
+                      <RotateCcw
+                        className={`w-4 h-4 ${actionLoading === `${c.id}-restart` ? "animate-spin" : ""}`}
+                      />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(c.id, c.name)}
+                      disabled={!!actionLoading}
+                      className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-all active:scale-90 disabled:opacity-50"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* VPN Connection */}
-                <div className="hidden md:flex items-center gap-3 flex-1 min-w-0">
+                {/* Row 2: VPN + Ports Info */}
+                <div className="flex items-center gap-3 flex-wrap mb-3">
+                  {/* VPN Status */}
                   {info?.vpn_status && (
                     <span
-                      className={`flex items-center gap-1 text-xs font-medium ${
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
                         info.vpn_status === "running"
-                          ? "text-emerald-400"
-                          : "text-red-400"
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : "bg-red-500/10 text-red-400"
                       }`}
                     >
                       {info.vpn_status === "running" ? (
@@ -310,80 +398,72 @@ export default function Dashboard() {
                       ) : (
                         <WifiOff className="w-3 h-3" />
                       )}
+                      {info.vpn_status === "running"
+                        ? "Connected"
+                        : "Disconnected"}
                     </span>
                   )}
+                  {/* Public IP */}
                   {info?.public_ip && (
-                    <span className="flex items-center gap-1 text-xs text-vpn-muted">
-                      <Globe className="w-3 h-3 text-vpn-primary" />
-                      <span className="font-mono text-vpn-primary">
-                        {info.public_ip}
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-vpn-input text-vpn-primary font-mono">
+                      <Globe className="w-3 h-3" />
+                      {info.public_ip}
+                    </span>
+                  )}
+                  {/* Location */}
+                  {(info?.country || serverLocation) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-vpn-input text-vpn-muted">
+                      <MapPin className="w-3 h-3" />
+                      {info?.country || serverLocation}
+                      {info?.region && (
+                        <span className="text-vpn-muted/60">
+                          · {info.region}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {/* Port Forwarding */}
+                  {info?.port_forwarded && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-amber-500/10 text-amber-400 font-mono">
+                      <ArrowUpDown className="w-3 h-3" />
+                      {info.port_forwarded}
+                    </span>
+                  )}
+                </div>
+
+                {/* Row 3: Ports + Network + Dependents */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded font-mono border border-vpn-border/50">
+                    HTTP :{c.port_http_proxy}
+                  </span>
+                  <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded font-mono border border-vpn-border/50">
+                    SS :{c.port_shadowsocks}
+                  </span>
+                  {c.extra_ports?.length > 0 && (
+                    <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded border border-vpn-border/50">
+                      +{c.extra_ports.length} ports
+                    </span>
+                  )}
+                  {c.network_name && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded border border-vpn-border/50">
+                      <Network className="w-3 h-3" />
+                      {c.network_name}
+                    </span>
+                  )}
+                  {deps.length > 0 && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-blue-400 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
+                      <Network className="w-3 h-3" />
+                      {deps.length} client{deps.length !== 1 ? "s" : ""}
+                      <span className="text-blue-400/60 ml-1">
+                        (
+                        {deps
+                          .slice(0, 3)
+                          .map((d) => d.name)
+                          .join(", ")}
+                        {deps.length > 3 ? ", ..." : ""})
                       </span>
                     </span>
                   )}
-                  {(info?.country || serverLocation) && (
-                    <span className="text-xs text-vpn-muted truncate">
-                      {info?.country || serverLocation}
-                    </span>
-                  )}
-                </div>
-
-                {/* Ports */}
-                <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
-                  <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded font-mono">
-                    :{c.port_http_proxy}
-                  </span>
-                  <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded font-mono">
-                    :{c.port_shadowsocks}
-                  </span>
-                </div>
-
-                {/* Actions */}
-                <div
-                  className="flex items-center gap-1 flex-shrink-0 ml-auto"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {isStopped && (
-                    <button
-                      onClick={() => handleAction(c.id, "start")}
-                      disabled={!!actionLoading}
-                      className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90 disabled:opacity-50"
-                      title="Start"
-                    >
-                      <Play
-                        className={`w-4 h-4 ${actionLoading === `${c.id}-start` ? "animate-pulse" : ""}`}
-                      />
-                    </button>
-                  )}
-                  {isRunning && (
-                    <button
-                      onClick={() => handleAction(c.id, "stop")}
-                      disabled={!!actionLoading}
-                      className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90 disabled:opacity-50"
-                      title="Stop"
-                    >
-                      <Square
-                        className={`w-4 h-4 ${actionLoading === `${c.id}-stop` ? "animate-pulse" : ""}`}
-                      />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleAction(c.id, "restart")}
-                    disabled={!!actionLoading}
-                    className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90 disabled:opacity-50"
-                    title="Restart"
-                  >
-                    <RotateCcw
-                      className={`w-4 h-4 ${actionLoading === `${c.id}-restart` ? "animate-spin" : ""}`}
-                    />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(c.id, c.name)}
-                    disabled={!!actionLoading}
-                    className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-all active:scale-90 disabled:opacity-50"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
             );

@@ -153,7 +153,12 @@ def get_vpn_info_batch(
         if c.container_id:
             try:
                 status_info = docker_service.get_container_status(c.container_id)
-                if status_info["status"] == "running":
+                if status_info["status"] in (
+                    "running",
+                    "healthy",
+                    "unhealthy",
+                    "starting",
+                ):
                     result[str(c.id)] = docker_service.get_gluetun_vpn_info(
                         c.container_id
                     )

@@ -23,6 +23,8 @@ import {
   Boxes,
   Box,
   Image,
+  Copy,
+  Check,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -48,6 +50,13 @@ export default function Dashboard() {
   const [discovering, setDiscovering] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
+  const [copiedUrl, setCopiedUrl] = useState(null);
+
+  const copyToClipboard = useCallback((url) => {
+    navigator.clipboard.writeText(url);
+    setCopiedUrl(url);
+    setTimeout(() => setCopiedUrl(null), 2000);
+  }, []);
 
   const getVpnInfoForParent = useCallback(
     (vpnParent) => {
@@ -485,14 +494,43 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  {/* Row 3: Ports + Network + Dependents */}
+                  {/* Row 3: Proxy URLs + Ports + Network + Dependents */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded font-mono border border-vpn-border/50">
-                      HTTP :{c.port_http_proxy}
-                    </span>
-                    <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded font-mono border border-vpn-border/50">
-                      SS :{c.port_shadowsocks}
-                    </span>
+                    {c.config?.HTTPPROXY?.toLowerCase() === "on" && (
+                      <>
+                        <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded font-mono border border-vpn-border/50">
+                          HTTP :{c.port_http_proxy}
+                        </span>
+                        {c.ip_address && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const user = c.config?.HTTPPROXY_USER;
+                              const pass = c.config?.HTTPPROXY_PASSWORD;
+                              const auth =
+                                user && pass ? `${user}:${pass}@` : "";
+                              const url = `http://${auth}${c.ip_address}:${c.port_http_proxy}`;
+                              copyToClipboard(url);
+                              toast.success("HTTP Proxy URL copied!");
+                            }}
+                            className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded font-mono border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                            title="Copy HTTP Proxy URL"
+                          >
+                            {copiedUrl?.includes(`:${c.port_http_proxy}`) ? (
+                              <Check className="w-3 h-3" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                            http://{c.ip_address}:{c.port_http_proxy}
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {c.config?.SHADOWSOCKS?.toLowerCase() === "on" && (
+                      <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded font-mono border border-vpn-border/50">
+                        SS :{c.port_shadowsocks}
+                      </span>
+                    )}
                     {c.extra_ports?.length > 0 && (
                       <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded border border-vpn-border/50">
                         +{c.extra_ports.length} ports

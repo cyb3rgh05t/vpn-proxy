@@ -59,6 +59,7 @@ class ContainerResponse(BaseModel):
     container_id: Optional[str] = None
     docker_name: Optional[str] = None
     network_name: Optional[str] = None
+    ip_address: Optional[str] = None
     status: str
     created_by: Optional[int] = None
     created_at: Optional[datetime] = None

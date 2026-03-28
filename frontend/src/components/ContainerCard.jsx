@@ -13,6 +13,8 @@ import {
   WifiOff,
   MapPin,
   ArrowUpDown,
+  Copy,
+  Check,
 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 import api from "../services/api";
@@ -23,6 +25,17 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
   const toast = useToast();
   const [dependents, setDependents] = useState([]);
   const [actionLoading, setActionLoading] = useState("");
+  const [copiedUrl, setCopiedUrl] = useState(null);
+
+  const copyToClipboard = useCallback(
+    (url) => {
+      navigator.clipboard.writeText(url);
+      setCopiedUrl(url);
+      toast.success("Proxy URL copied!");
+      setTimeout(() => setCopiedUrl(null), 2000);
+    },
+    [toast],
+  );
 
   const fetchDependents = useCallback(async () => {
     try {
@@ -197,22 +210,51 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
 
       {/* Ports & Network */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
-          <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
-            HTTP Proxy
-          </p>
-          <p className="text-sm text-vpn-text font-mono">
-            :{container.port_http_proxy}
-          </p>
-        </div>
-        <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
-          <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
-            Shadowsocks
-          </p>
-          <p className="text-sm text-vpn-text font-mono">
-            :{container.port_shadowsocks}
-          </p>
-        </div>
+        {container.config?.HTTPPROXY?.toLowerCase() === "on" && (
+          <div
+            className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 cursor-pointer hover:border-emerald-500/30 transition-colors group/proxy"
+            onClick={(e) => {
+              e.stopPropagation();
+              const user = container.config?.HTTPPROXY_USER;
+              const pass = container.config?.HTTPPROXY_PASSWORD;
+              const auth = user && pass ? `${user}:${pass}@` : "";
+              const ip = container.ip_address || "<ip>";
+              const url = `http://${auth}${ip}:${container.port_http_proxy}`;
+              copyToClipboard(url);
+            }}
+            title="Click to copy proxy URL"
+          >
+            <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              HTTP Proxy
+              {copiedUrl?.includes(`:${container.port_http_proxy}`) ? (
+                <Check className="w-2.5 h-2.5 text-emerald-400" />
+              ) : (
+                <Copy className="w-2.5 h-2.5 opacity-0 group-hover/proxy:opacity-100 transition-opacity" />
+              )}
+            </p>
+            <p className="text-sm text-vpn-text font-mono">
+              :{container.port_http_proxy}
+            </p>
+            {container.ip_address && (
+              <p className="text-[9px] text-emerald-400/70 font-mono mt-0.5 truncate">
+                {container.config?.HTTPPROXY_USER &&
+                container.config?.HTTPPROXY_PASSWORD
+                  ? `http://${container.config.HTTPPROXY_USER}:***@${container.ip_address}:${container.port_http_proxy}`
+                  : `http://${container.ip_address}:${container.port_http_proxy}`}
+              </p>
+            )}
+          </div>
+        )}
+        {container.config?.SHADOWSOCKS?.toLowerCase() === "on" && (
+          <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
+            <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+              Shadowsocks
+            </p>
+            <p className="text-sm text-vpn-text font-mono">
+              :{container.port_shadowsocks}
+            </p>
+          </div>
+        )}
         {container.extra_ports?.length > 0 && (
           <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
             <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">

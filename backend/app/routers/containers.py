@@ -117,10 +117,8 @@ def list_all_dependents(
 
 
 @router.get("/dependents/debug")
-def debug_dependents(
-    current_user: User = Depends(get_current_user),
-):
-    """Debug endpoint: show VPN detection details for all containers."""
+def debug_dependents():
+    """Debug endpoint: show VPN detection details for all containers. No auth required."""
     return docker_service.list_all_docker_containers_debug()
 
 

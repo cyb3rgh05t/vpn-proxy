@@ -685,14 +685,15 @@ def get_dependent_containers(container_id: str) -> list[dict]:
 
 
 def _is_gluetun_container(container) -> bool:
-    """Check if a Docker container is likely a Gluetun VPN container."""
+    """Check if a Docker container is likely a Gluetun VPN container.
+    Only checks image name and container name — NOT hostname,
+    because containers using network_mode:container:gluetun inherit its hostname."""
     try:
         image_tags = container.image.tags if container.image else []
         image_str = " ".join(image_tags).lower()
         config_image = container.attrs.get("Config", {}).get("Image", "").lower()
-        hostname = container.attrs.get("Config", {}).get("Hostname", "").lower()
         name = (container.name or "").lower()
-        return any("gluetun" in s for s in (image_str, config_image, hostname, name))
+        return any("gluetun" in s for s in (image_str, config_image, name))
     except Exception:
         return False
 

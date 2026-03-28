@@ -5,11 +5,21 @@ import {
   Server,
   Activity,
   AlertTriangle,
+  HeartCrack,
   RefreshCw,
   Search,
+  Play,
+  Square,
+  RotateCcw,
+  Trash2,
+  Shield,
+  Globe,
+  Wifi,
+  WifiOff,
+  Network,
 } from "lucide-react";
 import api from "../services/api";
-import ContainerCard from "../components/ContainerCard";
+import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../context/ToastContext";
 
 export default function Dashboard() {
@@ -53,16 +63,45 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [fetchContainers, fetchVpnInfo]);
 
+  const [actionLoading, setActionLoading] = useState("");
+
   const running = containers.filter((c) =>
     ["running", "healthy"].includes(c.status),
+  ).length;
+  const unhealthy = containers.filter((c) =>
+    ["unhealthy"].includes(c.status),
   ).length;
   const stopped = containers.filter((c) =>
     ["exited", "dead", "removed"].includes(c.status),
   ).length;
 
+  const handleAction = async (id, action) => {
+    setActionLoading(`${id}-${action}`);
+    try {
+      const res = await api.post(`/containers/${id}/${action}`);
+      toast.success(res.data?.message || `Container ${action}ed`);
+      fetchContainers();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || `Failed to ${action}`);
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleDelete = async (id, name) => {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/containers/${id}`);
+      toast.success(`Container "${name}" deleted`);
+      fetchContainers();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to delete");
+    }
+  };
+
   const stats = [
     {
-      label: "Total Containers",
+      label: "Total",
       value: containers.length,
       icon: Server,
       color: "text-vpn-primary",
@@ -74,6 +113,13 @@ export default function Dashboard() {
       icon: Activity,
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
+    },
+    {
+      label: "Unhealthy",
+      value: unhealthy,
+      icon: HeartCrack,
+      color: "text-red-400",
+      bg: "bg-red-500/10",
     },
     {
       label: "Stopped",
@@ -140,7 +186,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {stats.map(({ label, value, icon: Icon, color, bg }) => (
           <div
             key={label}
@@ -191,15 +237,157 @@ export default function Dashboard() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {containers.map((container) => (
-            <ContainerCard
-              key={container.id}
-              container={container}
-              vpnInfo={vpnInfoMap[String(container.id)]}
-              onRefresh={fetchContainers}
-            />
-          ))}
+        <div className="space-y-2">
+          {containers.map((c) => {
+            const info = vpnInfoMap[String(c.id)];
+            const isRunning = [
+              "running",
+              "healthy",
+              "unhealthy",
+              "starting",
+            ].includes(c.status);
+            const isStopped = ["exited", "created", "removed", "dead"].includes(
+              c.status,
+            );
+            const serverLocation =
+              c.config?.SERVER_COUNTRIES ||
+              c.config?.SERVER_CITIES ||
+              c.config?.SERVER_REGIONS ||
+              null;
+            return (
+              <div
+                key={c.id}
+                onClick={() => navigate(`/containers/${c.id}`)}
+                className="bg-vpn-card border border-vpn-border rounded-xl px-5 py-4 flex items-center gap-4 hover:border-vpn-muted transition-all cursor-pointer group"
+              >
+                {/* Status dot */}
+                <div
+                  className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                    c.status === "healthy" || c.status === "running"
+                      ? "bg-emerald-500 shadow-lg shadow-emerald-500/30"
+                      : c.status === "unhealthy"
+                        ? "bg-red-500 shadow-lg shadow-red-500/30 animate-pulse"
+                        : isStopped
+                          ? "bg-red-500"
+                          : "bg-amber-500"
+                  }`}
+                />
+
+                {/* Name + Description */}
+                <div className="min-w-0 w-48 flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
+                      {c.name}
+                    </h3>
+                    {c.description && (
+                      <span className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-vpn-primary/15 text-vpn-primary border border-vpn-primary/30 truncate max-w-[120px]">
+                        {c.description}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-vpn-muted capitalize">
+                    {c.vpn_provider} · {c.vpn_type}
+                  </p>
+                </div>
+
+                {/* Status Badge */}
+                <div className="flex-shrink-0">
+                  <StatusBadge status={c.status} />
+                </div>
+
+                {/* VPN Connection */}
+                <div className="hidden md:flex items-center gap-3 flex-1 min-w-0">
+                  {info?.vpn_status && (
+                    <span
+                      className={`flex items-center gap-1 text-xs font-medium ${
+                        info.vpn_status === "running"
+                          ? "text-emerald-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {info.vpn_status === "running" ? (
+                        <Wifi className="w-3 h-3" />
+                      ) : (
+                        <WifiOff className="w-3 h-3" />
+                      )}
+                    </span>
+                  )}
+                  {info?.public_ip && (
+                    <span className="flex items-center gap-1 text-xs text-vpn-muted">
+                      <Globe className="w-3 h-3 text-vpn-primary" />
+                      <span className="font-mono text-vpn-primary">
+                        {info.public_ip}
+                      </span>
+                    </span>
+                  )}
+                  {(info?.country || serverLocation) && (
+                    <span className="text-xs text-vpn-muted truncate">
+                      {info?.country || serverLocation}
+                    </span>
+                  )}
+                </div>
+
+                {/* Ports */}
+                <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded font-mono">
+                    :{c.port_http_proxy}
+                  </span>
+                  <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-1 rounded font-mono">
+                    :{c.port_shadowsocks}
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div
+                  className="flex items-center gap-1 flex-shrink-0 ml-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {isStopped && (
+                    <button
+                      onClick={() => handleAction(c.id, "start")}
+                      disabled={!!actionLoading}
+                      className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90 disabled:opacity-50"
+                      title="Start"
+                    >
+                      <Play
+                        className={`w-4 h-4 ${actionLoading === `${c.id}-start` ? "animate-pulse" : ""}`}
+                      />
+                    </button>
+                  )}
+                  {isRunning && (
+                    <button
+                      onClick={() => handleAction(c.id, "stop")}
+                      disabled={!!actionLoading}
+                      className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90 disabled:opacity-50"
+                      title="Stop"
+                    >
+                      <Square
+                        className={`w-4 h-4 ${actionLoading === `${c.id}-stop` ? "animate-pulse" : ""}`}
+                      />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleAction(c.id, "restart")}
+                    disabled={!!actionLoading}
+                    className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90 disabled:opacity-50"
+                    title="Restart"
+                  >
+                    <RotateCcw
+                      className={`w-4 h-4 ${actionLoading === `${c.id}-restart` ? "animate-spin" : ""}`}
+                    />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(c.id, c.name)}
+                    disabled={!!actionLoading}
+                    className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-all active:scale-90 disabled:opacity-50"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

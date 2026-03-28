@@ -218,10 +218,7 @@ export default function ContainerDetail() {
 
   const maskedConfig = Object.entries(container.config || {}).map(([k, v]) => ({
     key: k,
-    value:
-      k.toLowerCase().includes("password") || k.toLowerCase().includes("key")
-        ? "••••••••"
-        : v,
+    value: v,
   }));
 
   return (

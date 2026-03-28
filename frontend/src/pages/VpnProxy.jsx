@@ -22,6 +22,8 @@ export default function VpnProxy() {
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [vpnInfoMap, setVpnInfoMap] = useState({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState(null);
 
   const fetchContainers = useCallback(async () => {
     try {
@@ -68,6 +70,7 @@ export default function VpnProxy() {
       icon: Shield,
       color: "text-vpn-primary",
       bg: "bg-vpn-primary/10",
+      filter: null,
     },
     {
       label: "Running",
@@ -75,6 +78,7 @@ export default function VpnProxy() {
       icon: Activity,
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
+      filter: "running",
     },
     {
       label: "Stopped",
@@ -82,8 +86,28 @@ export default function VpnProxy() {
       icon: AlertTriangle,
       color: "text-amber-400",
       bg: "bg-amber-500/10",
+      filter: "stopped",
     },
   ];
+
+  const matchesFilter = (status) => {
+    if (!statusFilter) return true;
+    if (statusFilter === "running")
+      return ["running", "healthy"].includes(status);
+    if (statusFilter === "stopped")
+      return ["exited", "dead", "removed", "created"].includes(status);
+    return true;
+  };
+
+  const filteredContainers = containers.filter(
+    (c) =>
+      matchesFilter(c.status) &&
+      (searchQuery === "" ||
+        c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.vpn_provider?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.vpn_type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.description?.toLowerCase().includes(searchQuery.toLowerCase())),
+  );
 
   return (
     <div>
@@ -141,11 +165,18 @@ export default function VpnProxy() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        {stats.map(({ label, value, icon: Icon, color, bg }) => (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {stats.map(({ label, value, icon: Icon, color, bg, filter }) => (
           <div
             key={label}
-            className="bg-vpn-card border border-vpn-border rounded-xl p-5 flex items-center gap-4"
+            onClick={() =>
+              setStatusFilter(statusFilter === filter ? null : filter)
+            }
+            className={`bg-vpn-card border rounded-xl p-5 flex items-center gap-4 cursor-pointer transition-all hover:border-vpn-muted ${
+              statusFilter === filter
+                ? "border-vpn-primary ring-1 ring-vpn-primary/30"
+                : "border-vpn-border"
+            }`}
           >
             <div className={`p-3 rounded-lg ${bg}`}>
               <Icon className={`w-6 h-6 ${color}`} />
@@ -156,6 +187,18 @@ export default function VpnProxy() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
+        <input
+          type="text"
+          placeholder="Search VPN containers, providers..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 bg-vpn-card border border-vpn-border rounded-lg text-sm text-vpn-text placeholder-vpn-muted focus:outline-none focus:border-vpn-primary transition-colors"
+        />
       </div>
 
       {/* Container Grid */}
@@ -173,6 +216,14 @@ export default function VpnProxy() {
           >
             Try again
           </button>
+        </div>
+      ) : filteredContainers.length === 0 && (searchQuery || statusFilter) ? (
+        <div className="text-center py-16 bg-vpn-card border border-vpn-border rounded-2xl">
+          <Server className="w-16 h-16 text-vpn-border mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-vpn-text mb-2">
+            No matching containers
+          </h3>
+          <p className="text-vpn-muted">Try adjusting your search or filter.</p>
         </div>
       ) : containers.length === 0 ? (
         <div className="text-center py-16 bg-vpn-card border border-vpn-border rounded-2xl">
@@ -193,7 +244,7 @@ export default function VpnProxy() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {containers.map((container) => (
+          {filteredContainers.map((container) => (
             <ContainerCard
               key={container.id}
               container={container}

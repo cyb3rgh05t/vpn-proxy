@@ -14,6 +14,7 @@ import {
   Globe,
   MapPin,
   ArrowUpDown,
+  Search,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -27,6 +28,8 @@ export default function O11() {
   const [actionLoading, setActionLoading] = useState("");
   const [managedContainers, setManagedContainers] = useState([]);
   const [vpnInfoMap, setVpnInfoMap] = useState({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState(null);
 
   const fetchContainers = useCallback(async () => {
     try {
@@ -98,6 +101,61 @@ export default function O11() {
   ).length;
   const vpnConnected = containers.filter((d) => d.vpn_parent).length;
 
+  const matchesFilter = (status) => {
+    if (!statusFilter) return true;
+    if (statusFilter === "running")
+      return ["running", "healthy"].includes(status);
+    if (statusFilter === "stopped")
+      return ["exited", "dead", "created"].includes(status);
+    if (statusFilter === "vpn") return true;
+    return true;
+  };
+
+  const filteredContainers = containers.filter(
+    (c) =>
+      matchesFilter(c.status) &&
+      (statusFilter !== "vpn" || c.vpn_parent) &&
+      (searchQuery === "" ||
+        c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.image?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.vpn_parent?.toLowerCase().includes(searchQuery.toLowerCase())),
+  );
+
+  const stats = [
+    {
+      label: "Total",
+      value: containers.length,
+      icon: Boxes,
+      color: "text-vpn-primary",
+      bg: "bg-vpn-primary/10",
+      filter: null,
+    },
+    {
+      label: "Running",
+      value: running,
+      icon: Play,
+      color: "text-emerald-400",
+      bg: "bg-emerald-500/10",
+      filter: "running",
+    },
+    {
+      label: "Stopped",
+      value: stopped,
+      icon: AlertTriangle,
+      color: "text-amber-400",
+      bg: "bg-amber-500/10",
+      filter: "stopped",
+    },
+    {
+      label: "VPN Routed",
+      value: vpnConnected,
+      icon: Shield,
+      color: "text-blue-400",
+      bg: "bg-blue-500/10",
+      filter: "vpn",
+    },
+  ];
+
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -122,43 +180,40 @@ export default function O11() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
-        <div className="bg-vpn-card border border-vpn-border rounded-xl p-5 flex items-center gap-4">
-          <div className="p-3 rounded-lg bg-vpn-primary/10">
-            <Boxes className="w-6 h-6 text-vpn-primary" />
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+        {stats.map(({ label, value, icon: Icon, color, bg, filter }) => (
+          <div
+            key={label}
+            onClick={() =>
+              setStatusFilter(statusFilter === filter ? null : filter)
+            }
+            className={`bg-vpn-card border rounded-xl p-5 flex items-center gap-4 cursor-pointer transition-all hover:border-vpn-muted ${
+              statusFilter === filter
+                ? "border-vpn-primary ring-1 ring-vpn-primary/30"
+                : "border-vpn-border"
+            }`}
+          >
+            <div className={`p-3 rounded-lg ${bg}`}>
+              <Icon className={`w-6 h-6 ${color}`} />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white">{value}</p>
+              <p className="text-sm text-vpn-muted">{label}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-white">{containers.length}</p>
-            <p className="text-sm text-vpn-muted">Total</p>
-          </div>
-        </div>
-        <div className="bg-vpn-card border border-vpn-border rounded-xl p-5 flex items-center gap-4">
-          <div className="p-3 rounded-lg bg-emerald-500/10">
-            <Play className="w-6 h-6 text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-white">{running}</p>
-            <p className="text-sm text-vpn-muted">Running</p>
-          </div>
-        </div>
-        <div className="bg-vpn-card border border-vpn-border rounded-xl p-5 flex items-center gap-4">
-          <div className="p-3 rounded-lg bg-amber-500/10">
-            <AlertTriangle className="w-6 h-6 text-amber-400" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-white">{stopped}</p>
-            <p className="text-sm text-vpn-muted">Stopped</p>
-          </div>
-        </div>
-        <div className="bg-vpn-card border border-vpn-border rounded-xl p-5 flex items-center gap-4">
-          <div className="p-3 rounded-lg bg-blue-500/10">
-            <Shield className="w-6 h-6 text-blue-400" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-white">{vpnConnected}</p>
-            <p className="text-sm text-vpn-muted">VPN Routed</p>
-          </div>
-        </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
+        <input
+          type="text"
+          placeholder="Search O11 containers..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 bg-vpn-card border border-vpn-border rounded-lg text-sm text-vpn-text placeholder-vpn-muted focus:outline-none focus:border-vpn-primary transition-colors"
+        />
       </div>
 
       {/* Container Grid */}
@@ -166,20 +221,23 @@ export default function O11() {
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-vpn-primary"></div>
         </div>
-      ) : containers.length === 0 ? (
+      ) : filteredContainers.length === 0 ? (
         <div className="text-center py-16 bg-vpn-card border border-vpn-border rounded-2xl">
           <Boxes className="w-16 h-16 text-vpn-border mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-vpn-text mb-2">
-            No O11 containers found
+            {searchQuery || statusFilter
+              ? "No matching containers"
+              : "No O11 containers found"}
           </h3>
           <p className="text-vpn-muted">
-            Docker containers with &quot;o11&quot; in their name will appear
-            here.
+            {searchQuery || statusFilter
+              ? "Try adjusting your search or filter."
+              : 'Docker containers with "o11" in their name will appear here.'}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {containers.map((dep) => {
+          {filteredContainers.map((dep) => {
             const isRunning = ["running", "healthy"].includes(dep.status);
             const isStopped = ["exited", "created", "dead"].includes(
               dep.status,

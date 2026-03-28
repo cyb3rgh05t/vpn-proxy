@@ -16,6 +16,63 @@ logger = logging.getLogger(__name__)
 CONTAINER_LABEL = "managed-by"
 CONTAINER_LABEL_VALUE = "vpn-proxy"
 
+# Whitelist of env vars to show in the UI config section
+ALLOWED_CONFIG_KEYS = {
+    "PGID",
+    "PUID",
+    "TZ",
+    "VERSION_INFORMATION",
+    "LOG_LEVEL",
+    "VPN_SERVICE_PROVIDER",
+    "VPN_TYPE",
+    "SERVER_COUNTRIES",
+    "SERVER_REGIONS",
+    "SERVER_CITIES",
+    "WIREGUARD_PRIVATE_KEY",
+    "WIREGUARD_ADDRESSES",
+    "OPENVPN_USER",
+    "OPENVPN_PASSWORD",
+    "OPENVPN_USER_SECRETFILE",
+    "OPENVPN_PASSWORD_SECRETFILE",
+    "OPENVPN_AUTH",
+    "OPENVPN_PROCESS_USER",
+    "VPN_PORT_FORWARDING_USERNAME",
+    "VPN_PORT_FORWARDING_PASSWORD",
+    "OPENVPN_KEY_PASSPHRASE",
+    "OPENVPN_KEY_PASSPHRASE_SECRETFILE",
+    "DOT_EXCLUDE_IPS",
+    "FIREWALL_OUTBOUND_SUBNETS",
+    "PUBLICIP_ENABLED",
+    "PUBLICIP_API",
+    "PUBLICIP_API_TOKEN",
+    "HTTPPROXY",
+    "HTTPPROXY_LOG",
+    "HTTPPROXY_LISTENING_ADDRESS",
+    "HTTPPROXY_STEALTH",
+    "HTTPPROXY_USER",
+    "HTTPPROXY_PASSWORD",
+    "HTTPPROXY_USER_SECRETFILE",
+    "HTTPPROXY_PASSWORD_SECRETFILE",
+    "SHADOWSOCKS",
+    "SHADOWSOCKS_ADDRESS",
+    "SHADOWSOCKS_PASSWORD",
+    "SHADOWSOCKS_PASSWORD_SECRETFILE",
+    "HTTP_CONTROL_SERVER_LOG",
+    "HTTP_CONTROL_SERVER_ADDRESS",
+    "HTTP_CONTROL_SERVER_AUTH_CONFIG_FILEPATH",
+    "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE",
+    "UPDATER_PROTONVPN_EMAIL",
+    "UPDATER_PROTONVPN_PASSWORD",
+    "UPDATER_PERIOD",
+    "UPDATER_MIN_RATIO",
+    "UPDATER_VPN_SERVICE_PROVIDERS",
+}
+
+
+def filter_config(config: dict) -> dict:
+    """Filter config dict to only include whitelisted env var keys."""
+    return {k: v for k, v in config.items() if k in ALLOWED_CONFIG_KEYS}
+
 
 def _get_client():
     try:
@@ -703,16 +760,8 @@ def discover_gluetun_containers() -> list[dict]:
                 elif port_key == "8000/tcp":
                     port_control = host_port
 
-            # Build config dict from VPN-related env vars (exclude standard ones)
-            skip_keys = {"VPN_SERVICE_PROVIDER", "VPN_TYPE", "PATH", "HOME", "HOSTNAME"}
-            vpn_config = {}
-            for k, v in env_vars.items():
-                if (
-                    k not in skip_keys
-                    and not k.startswith("GO")
-                    and not k.startswith("TZ")
-                ):
-                    vpn_config[k] = v
+            # Build config dict from VPN-related env vars (whitelist only)
+            vpn_config = {k: v for k, v in env_vars.items() if k in ALLOWED_CONFIG_KEYS}
 
             discovered.append(
                 {

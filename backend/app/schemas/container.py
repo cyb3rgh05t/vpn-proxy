@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
 import re
@@ -64,6 +64,13 @@ class ContainerResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def filter_config_keys(self) -> "ContainerResponse":
+        from app.services.docker_service import filter_config
+
+        self.config = filter_config(self.config)
+        return self
 
 
 class ContainerLogsResponse(BaseModel):

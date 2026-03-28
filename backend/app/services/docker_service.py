@@ -684,6 +684,19 @@ def get_dependent_containers(container_id: str) -> list[dict]:
     return dependents
 
 
+def _is_gluetun_container(container) -> bool:
+    """Check if a Docker container is likely a Gluetun VPN container."""
+    try:
+        image_tags = container.image.tags if container.image else []
+        image_str = " ".join(image_tags).lower()
+        config_image = container.attrs.get("Config", {}).get("Image", "").lower()
+        hostname = container.attrs.get("Config", {}).get("Hostname", "").lower()
+        name = (container.name or "").lower()
+        return any("gluetun" in s for s in (image_str, config_image, hostname, name))
+    except Exception:
+        return False
+
+
 def list_all_docker_containers() -> list[dict]:
     """List all Docker containers except managed Gluetun ones and the vpn-proxy manager itself.
     Includes info about whether a container is connected to a Gluetun VPN."""
@@ -705,9 +718,24 @@ def list_all_docker_containers() -> list[dict]:
             gluetun_map[mid] = mname
             gluetun_map[mname] = mname
 
-        # Build a map of networks each managed Gluetun container is connected to
+        # Also find non-managed Gluetun containers (external docker-compose etc.)
+        external_gluetun_map: dict[str, str] = {}  # id/name -> name
+        for c in client.containers.list(all=True):
+            cid = c.id or ""
+            if cid in managed_ids:
+                continue
+            if _is_gluetun_container(c):
+                cname = c.name or ""
+                external_gluetun_map[cid] = cname
+                external_gluetun_map[cname] = cname
+
+        # Build a map of networks each Gluetun container (managed + external) is connected to
         gluetun_networks: dict[str, str] = {}  # network_id -> gluetun_name
-        for m in managed:
+        all_gluetun = list(managed)
+        for c in client.containers.list(all=True):
+            if (c.id or "") in external_gluetun_map:
+                all_gluetun.append(c)
+        for m in all_gluetun:
             try:
                 nets = m.attrs.get("NetworkSettings", {}).get("Networks", {})
                 for net_name, net_info in nets.items():
@@ -717,12 +745,23 @@ def list_all_docker_containers() -> list[dict]:
             except Exception:
                 continue
 
+        # Combined map of all known Gluetun containers (managed + external)
+        all_gluetun_map = {**gluetun_map, **external_gluetun_map}
+        all_gluetun_ids = managed_ids | set(
+            cid
+            for cid in external_gluetun_map
+            if len(cid) == 64  # full container IDs only
+        )
+
         for c in client.containers.list(all=True):
             try:
                 cid = c.id or ""
                 cname = c.name or ""
                 # Skip managed Gluetun containers
                 if cid in managed_ids:
+                    continue
+                # Skip external Gluetun containers
+                if cid in external_gluetun_map:
                     continue
                 # Skip the vpn-proxy manager itself
                 if cname in ("vpn-proxy", "vpn-proxy-manager"):
@@ -734,22 +773,24 @@ def list_all_docker_containers() -> list[dict]:
                 # Method 1: network_mode: container:<ref>
                 if network_mode.startswith("container:"):
                     ref = network_mode.split(":", 1)[1]
-                    if ref in gluetun_map:
-                        vpn_parent = gluetun_map[ref]
+                    # Check against all known Gluetun containers
+                    if ref in all_gluetun_map:
+                        vpn_parent = all_gluetun_map[ref]
                     else:
-                        for mid in managed_ids:
-                            if mid.startswith(ref) or ref.startswith(mid[:12]):
-                                vpn_parent = gluetun_map.get(mid, ref)
+                        for gid in all_gluetun_ids:
+                            if gid.startswith(ref) or ref.startswith(gid[:12]):
+                                vpn_parent = all_gluetun_map.get(gid, ref)
                                 break
-                    # Fallback: resolve any Docker container (non-managed Gluetun)
+                    # Fallback: resolve the referenced container and check if it's Gluetun
                     if not vpn_parent:
                         try:
                             parent_container = client.containers.get(ref)
-                            vpn_parent = parent_container.name or ref[:12]
+                            if _is_gluetun_container(parent_container):
+                                vpn_parent = parent_container.name or ref[:12]
                         except Exception:
-                            vpn_parent = ref[:12]
+                            pass
 
-                # Method 2: Shared Docker network with a managed Gluetun container
+                # Method 2: Shared Docker network with a Gluetun container
                 if not vpn_parent:
                     try:
                         c_nets = c.attrs.get("NetworkSettings", {}).get("Networks", {})
@@ -792,6 +833,122 @@ def list_all_docker_containers() -> list[dict]:
     except Exception as e:
         logger.error("Failed to list all Docker containers: %s", e)
     return result
+
+
+def list_all_docker_containers_debug() -> list[dict]:
+    """Debug version: returns detection details for each container."""
+    client = _get_client()
+    result = []
+    try:
+        managed = client.containers.list(
+            all=True, filters={"label": f"{CONTAINER_LABEL}={CONTAINER_LABEL_VALUE}"}
+        )
+        managed_ids = set()
+        gluetun_map: dict[str, str] = {}
+        for m in managed:
+            mid = m.id or ""
+            mname = m.name or ""
+            managed_ids.add(mid)
+            gluetun_map[mid] = mname
+            gluetun_map[mname] = mname
+
+        external_gluetun_map: dict[str, str] = {}
+        for c in client.containers.list(all=True):
+            cid = c.id or ""
+            if cid in managed_ids:
+                continue
+            if _is_gluetun_container(c):
+                cname = c.name or ""
+                external_gluetun_map[cid] = cname
+                external_gluetun_map[cname] = cname
+
+        gluetun_networks: dict[str, str] = {}
+        all_gluetun_containers = list(managed)
+        for c in client.containers.list(all=True):
+            if (c.id or "") in external_gluetun_map:
+                all_gluetun_containers.append(c)
+        for m in all_gluetun_containers:
+            try:
+                nets = m.attrs.get("NetworkSettings", {}).get("Networks", {})
+                for net_name, net_info in nets.items():
+                    net_id = net_info.get("NetworkID", "")
+                    if net_id and net_name not in ("bridge", "host", "none"):
+                        gluetun_networks[net_id] = m.name or ""
+            except Exception:
+                continue
+
+        all_gluetun_map = {**gluetun_map, **external_gluetun_map}
+
+        for c in client.containers.list(all=True):
+            try:
+                cid = c.id or ""
+                cname = c.name or ""
+                if cid in managed_ids or cid in external_gluetun_map:
+                    continue
+                if cname in ("vpn-proxy", "vpn-proxy-manager"):
+                    continue
+
+                network_mode = c.attrs.get("HostConfig", {}).get("NetworkMode", "")
+                c_nets = c.attrs.get("NetworkSettings", {}).get("Networks", {})
+                network_names = list(c_nets.keys())
+                network_ids = [ni.get("NetworkID", "")[:12] for ni in c_nets.values()]
+
+                vpn_parent = None
+                detection_method = None
+
+                if network_mode.startswith("container:"):
+                    ref = network_mode.split(":", 1)[1]
+                    if ref in all_gluetun_map:
+                        vpn_parent = all_gluetun_map[ref]
+                        detection_method = "method1_direct"
+                    else:
+                        try:
+                            parent_container = client.containers.get(ref)
+                            is_gluetun = _is_gluetun_container(parent_container)
+                            if is_gluetun:
+                                vpn_parent = parent_container.name or ref[:12]
+                                detection_method = "method1_fallback_gluetun"
+                            else:
+                                detection_method = f"method1_skipped_not_gluetun(parent={parent_container.name})"
+                        except Exception:
+                            detection_method = "method1_failed_resolve"
+
+                if not vpn_parent:
+                    for net_name, net_info in c_nets.items():
+                        net_id = net_info.get("NetworkID", "")
+                        if net_id in gluetun_networks:
+                            vpn_parent = gluetun_networks[net_id]
+                            detection_method = f"method2_shared_network({net_name})"
+                            break
+
+                if not detection_method:
+                    detection_method = "none"
+
+                result.append(
+                    {
+                        "name": cname,
+                        "network_mode": network_mode,
+                        "networks": network_names,
+                        "network_ids": network_ids,
+                        "vpn_parent": vpn_parent,
+                        "detection_method": detection_method,
+                        "is_o11": bool("o11" in cname.lower()),
+                    }
+                )
+            except Exception as ex:
+                result.append({"name": cname, "error": str(ex)})
+    except Exception as e:
+        return [{"error": str(e)}]
+
+    # Also include detected gluetun info
+    gluetun_info = {
+        "managed_gluetun": {v: k[:12] for k, v in gluetun_map.items() if len(k) == 64},
+        "external_gluetun": {
+            v: k[:12] for k, v in external_gluetun_map.items() if len(k) == 64
+        },
+        "gluetun_networks": {v: k[:12] for k, v in gluetun_networks.items()},
+    }
+    return [gluetun_info] + result
 
 
 def get_container_logs(container_id: str, tail: int = 200) -> str:

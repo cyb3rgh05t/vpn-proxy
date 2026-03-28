@@ -217,7 +217,7 @@ export default function ContainerDetail() {
           <StatusBadge status={container.status} />
         </div>
 
-        <div className="mb-4">
+        <div className="mb-4 bg-vpn-input border border-vpn-border rounded-lg px-4 py-2.5">
           <input
             type="text"
             value={description}

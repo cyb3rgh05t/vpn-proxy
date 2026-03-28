@@ -94,9 +94,16 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
     >
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors">
-            {container.name}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors">
+              {container.name}
+            </h3>
+            {container.description && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-vpn-primary/15 text-vpn-primary border border-vpn-primary/30 truncate max-w-[180px]">
+                {container.description}
+              </span>
+            )}
+          </div>
           {container.docker_name &&
             container.docker_name !== `gluetun-${container.name}` &&
             container.docker_name !== container.name && (
@@ -104,11 +111,6 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                 {container.docker_name}
               </p>
             )}
-          {container.description && (
-            <p className="text-xs text-vpn-muted mt-0.5 truncate max-w-[200px]">
-              {container.description}
-            </p>
-          )}
           <p className="text-sm text-vpn-muted mt-0.5">
             {container.vpn_provider}
           </p>

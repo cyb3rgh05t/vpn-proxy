@@ -191,6 +191,38 @@ def _get_container_ip(container_id: str) -> str | None:
     return None
 
 
+def _get_container_env(container_id: str) -> dict:
+    """Extract environment variables from a container."""
+    client = _get_client()
+    try:
+        container = client.containers.get(container_id)
+        env_list = container.attrs.get("Config", {}).get("Env", [])
+        env_vars = {}
+        for e in env_list:
+            if "=" in e:
+                k, v = e.split("=", 1)
+                env_vars[k] = v
+        return env_vars
+    except Exception:
+        return {}
+
+
+def _get_gluetun_auth(container_id: str) -> tuple[str, str] | None:
+    """Get Gluetun HTTP control server auth credentials from container env vars."""
+    env = _get_container_env(container_id)
+    # Gluetun uses HTTP_CONTROL_SERVER_USERNAME / HTTP_CONTROL_SERVER_PASSWORD
+    user = env.get("HTTP_CONTROL_SERVER_USERNAME", "")
+    password = env.get("HTTP_CONTROL_SERVER_PASSWORD", "")
+    if user or password:
+        return (user, password)
+    # Some versions use HTTPPROXY_USER / HTTPPROXY_PASSWORD for the API too
+    user = env.get("HTTPPROXY_USER", "")
+    password = env.get("HTTPPROXY_PASSWORD", "")
+    if user or password:
+        return (user, password)
+    return None
+
+
 def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
     """Query the Gluetun control server for VPN status and public IP.
     Uses the container's internal IP on port 8000 (Gluetun's default control port).
@@ -205,9 +237,11 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
     debug_info = {} if debug else None
 
     ip = _get_container_ip(container_id)
+    auth = _get_gluetun_auth(container_id)
     if debug:
         debug_info["container_id"] = container_id
         debug_info["internal_ip"] = ip
+        debug_info["auth_found"] = auth is not None
         debug_info["errors"] = []
     if not ip:
         if debug:
@@ -216,12 +250,15 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
         return result
 
     base = f"http://{ip}:8000"
+    req_kwargs = {"timeout": 3}
+    if auth:
+        req_kwargs["auth"] = auth
     if debug:
         debug_info["base_url"] = base
 
     # VPN status
     try:
-        resp = http_requests.get(f"{base}/v1/vpn/status", timeout=3)
+        resp = http_requests.get(f"{base}/v1/vpn/status", **req_kwargs)
         if debug:
             debug_info["vpn_status_code"] = resp.status_code
             debug_info["vpn_status_body"] = resp.text[:500]
@@ -235,7 +272,7 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
 
     # Public IP
     try:
-        resp = http_requests.get(f"{base}/v1/publicip/ip", timeout=3)
+        resp = http_requests.get(f"{base}/v1/publicip/ip", **req_kwargs)
         if debug:
             debug_info["publicip_status_code"] = resp.status_code
             debug_info["publicip_body"] = resp.text[:500]
@@ -250,7 +287,7 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
             debug_info["errors"].append(f"Public IP: {e}")
     # Port forwarding
     try:
-        resp = http_requests.get(f"{base}/v1/openvpn/portforwarded", timeout=3)
+        resp = http_requests.get(f"{base}/v1/openvpn/portforwarded", **req_kwargs)
         if resp.ok:
             data = resp.json()
             port = data.get("port", 0)

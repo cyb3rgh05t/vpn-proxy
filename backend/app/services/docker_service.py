@@ -191,7 +191,7 @@ def _get_container_ip(container_id: str) -> str | None:
     return None
 
 
-def get_gluetun_vpn_info(container_id: str) -> dict:
+def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
     """Query the Gluetun control server for VPN status and public IP.
     Uses the container's internal IP on port 8000 (Gluetun's default control port).
     """
@@ -202,21 +202,43 @@ def get_gluetun_vpn_info(container_id: str) -> dict:
         "region": None,
         "port_forwarded": None,
     }
+    debug_info = {} if debug else None
+
     ip = _get_container_ip(container_id)
+    if debug:
+        debug_info["container_id"] = container_id
+        debug_info["internal_ip"] = ip
+        debug_info["errors"] = []
     if not ip:
+        if debug:
+            debug_info["errors"].append("Could not get container internal IP")
+            result["_debug"] = debug_info
         return result
+
     base = f"http://{ip}:8000"
+    if debug:
+        debug_info["base_url"] = base
+
     # VPN status
     try:
         resp = http_requests.get(f"{base}/v1/vpn/status", timeout=3)
+        if debug:
+            debug_info["vpn_status_code"] = resp.status_code
+            debug_info["vpn_status_body"] = resp.text[:500]
         if resp.ok:
             data = resp.json()
             result["vpn_status"] = data.get("status")
     except Exception as e:
         logger.debug("Gluetun VPN status query failed for %s: %s", container_id, e)
+        if debug:
+            debug_info["errors"].append(f"VPN status: {e}")
+
     # Public IP
     try:
         resp = http_requests.get(f"{base}/v1/publicip/ip", timeout=3)
+        if debug:
+            debug_info["publicip_status_code"] = resp.status_code
+            debug_info["publicip_body"] = resp.text[:500]
         if resp.ok:
             data = resp.json()
             result["public_ip"] = data.get("public_ip") or data.get("ip")
@@ -224,6 +246,8 @@ def get_gluetun_vpn_info(container_id: str) -> dict:
             result["region"] = data.get("region")
     except Exception as e:
         logger.debug("Gluetun public IP query failed for %s: %s", container_id, e)
+        if debug:
+            debug_info["errors"].append(f"Public IP: {e}")
     # Port forwarding
     try:
         resp = http_requests.get(f"{base}/v1/openvpn/portforwarded", timeout=3)
@@ -234,6 +258,8 @@ def get_gluetun_vpn_info(container_id: str) -> dict:
                 result["port_forwarded"] = port
     except Exception:
         pass
+    if debug:
+        result["_debug"] = debug_info
     return result
 
 

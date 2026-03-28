@@ -401,13 +401,14 @@ def get_status(
 @router.get("/{container_id}/vpn-info")
 def get_vpn_info(
     container_id: int,
+    debug: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
-    return docker_service.get_gluetun_vpn_info(c.container_id)
+    return docker_service.get_gluetun_vpn_info(c.container_id, debug=debug)
 
 
 @router.get("/{container_id}/compose", response_class=PlainTextResponse)

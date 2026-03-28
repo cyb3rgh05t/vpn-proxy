@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   Boxes,
   RefreshCw,
@@ -19,73 +19,45 @@ import {
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../context/ToastContext";
+import { useContainerData } from "../context/ContainerDataContext";
 
 export default function O11() {
   const toast = useToast();
-  const [containers, setContainers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    o11Containers: containers,
+    containers: managedContainers,
+    vpnInfoMap,
+    loading,
+    refreshO11Containers,
+    refreshAll,
+  } = useContainerData();
+
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
-  const [managedContainers, setManagedContainers] = useState([]);
-  const [vpnInfoMap, setVpnInfoMap] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
 
-  const fetchContainers = useCallback(async () => {
-    try {
-      const res = await api.get("/containers/dependents");
-      const all = Array.isArray(res.data) ? res.data : [];
-      setContainers(all.filter((c) => /o11/i.test(c.name)));
-    } catch {
-      setContainers([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchManagedInfo = useCallback(async () => {
-    try {
-      const [containersRes, vpnRes] = await Promise.all([
-        api.get("/containers"),
-        api.get("/containers/vpn-info-batch"),
-      ]);
-      setManagedContainers(
-        Array.isArray(containersRes.data) ? containersRes.data : [],
+  const getVpnInfoForParent = useCallback(
+    (vpnParent) => {
+      if (!vpnParent) return null;
+      const mc = managedContainers.find(
+        (m) =>
+          m.docker_name === vpnParent ||
+          `gluetun-${m.name}` === vpnParent ||
+          m.name === vpnParent,
       );
-      setVpnInfoMap(vpnRes.data || {});
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchContainers();
-    fetchManagedInfo();
-    const interval = setInterval(() => {
-      fetchContainers();
-      fetchManagedInfo();
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [fetchContainers, fetchManagedInfo]);
-
-  const getVpnInfoForParent = (vpnParent) => {
-    if (!vpnParent) return null;
-    const mc = managedContainers.find(
-      (m) =>
-        m.docker_name === vpnParent ||
-        `gluetun-${m.name}` === vpnParent ||
-        m.name === vpnParent,
-    );
-    if (!mc) return null;
-    return vpnInfoMap[String(mc.id)] || null;
-  };
+      if (!mc) return null;
+      return vpnInfoMap[String(mc.id)] || null;
+    },
+    [managedContainers, vpnInfoMap],
+  );
 
   const handleAction = async (name, action) => {
     setActionLoading(`${name}-${action}`);
     try {
       const res = await api.post(`/containers/dependents/${name}/${action}`);
       toast.success(res.data?.message || `${name} ${action}ed`);
-      fetchContainers();
+      refreshO11Containers();
     } catch (err) {
       toast.error(err.response?.data?.detail || `Failed to ${action} ${name}`);
     } finally {
@@ -166,7 +138,7 @@ export default function O11() {
         <button
           onClick={async () => {
             setRefreshing(true);
-            await fetchContainers();
+            await refreshAll();
             setRefreshing(false);
           }}
           disabled={refreshing}

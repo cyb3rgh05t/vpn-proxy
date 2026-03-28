@@ -7,11 +7,23 @@ import {
   Trash2,
   Shield,
   User,
+  Container,
+  RefreshCw,
+  Server,
+  Cpu,
+  HardDrive,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import api from "../services/api";
 
 export default function Settings() {
   const { user, refreshUser } = useAuth();
+
+  // Docker socket
+  const [dockerStatus, setDockerStatus] = useState(null);
+  const [dockerLoading, setDockerLoading] = useState(false);
+  const [dockerTesting, setDockerTesting] = useState(false);
 
   // Username change
   const [newUsername, setNewUsername] = useState("");
@@ -44,7 +56,32 @@ export default function Settings() {
     if (user?.is_admin) {
       fetchUsers();
     }
+    fetchDockerStatus();
   }, [user]);
+
+  const fetchDockerStatus = async () => {
+    setDockerLoading(true);
+    try {
+      const res = await api.get("/system/docker-status");
+      setDockerStatus(res.data);
+    } catch {
+      setDockerStatus({ connected: false, error: "Failed to reach API" });
+    } finally {
+      setDockerLoading(false);
+    }
+  };
+
+  const testDockerConnection = async () => {
+    setDockerTesting(true);
+    try {
+      const res = await api.get("/system/docker-status");
+      setDockerStatus(res.data);
+    } catch {
+      setDockerStatus({ connected: false, error: "Failed to reach API" });
+    } finally {
+      setDockerTesting(false);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -160,7 +197,148 @@ export default function Settings() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white mb-2">Settings</h1>
-        <p className="text-vpn-muted">Manage your account settings</p>
+        <p className="text-vpn-muted">
+          Manage your account and system settings
+        </p>
+      </div>
+
+      {/* Docker Socket Connection */}
+      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Container className="w-5 h-5 text-vpn-primary" />
+            <h2 className="text-lg font-semibold text-white">
+              Docker Socket Connection
+            </h2>
+          </div>
+          <button
+            onClick={testDockerConnection}
+            disabled={dockerTesting}
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text text-sm rounded-lg transition-all active:scale-95 disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`w-4 h-4 ${dockerTesting ? "animate-spin" : ""}`}
+            />
+            {dockerTesting ? "Testing..." : "Test Connection"}
+          </button>
+        </div>
+
+        {dockerLoading && !dockerStatus ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-vpn-primary"></div>
+          </div>
+        ) : dockerStatus ? (
+          <div className="space-y-4">
+            {/* Connection Status Banner */}
+            <div
+              className={`flex items-center gap-3 p-4 rounded-xl ${
+                dockerStatus.connected
+                  ? "bg-emerald-500/10 border border-emerald-500/30"
+                  : "bg-red-500/10 border border-red-500/30"
+              }`}
+            >
+              {dockerStatus.connected ? (
+                <Wifi className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              ) : (
+                <WifiOff className="w-5 h-5 text-red-400 flex-shrink-0" />
+              )}
+              <div>
+                <p
+                  className={`text-sm font-medium ${
+                    dockerStatus.connected ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  {dockerStatus.connected
+                    ? "Connected to Docker"
+                    : "Docker Connection Failed"}
+                </p>
+                {dockerStatus.error && (
+                  <p className="text-xs text-red-400/80 mt-0.5">
+                    {dockerStatus.error}
+                  </p>
+                )}
+                {dockerStatus.socket && (
+                  <p className="text-xs text-vpn-muted mt-0.5 font-mono">
+                    {dockerStatus.socket}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Docker Info Grid */}
+            {dockerStatus.connected && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="bg-vpn-input rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Server className="w-3.5 h-3.5 text-vpn-muted" />
+                    <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                      Version
+                    </p>
+                  </div>
+                  <p className="text-white font-medium text-sm">
+                    {dockerStatus.server_version || "—"}
+                  </p>
+                </div>
+                <div className="bg-vpn-input rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Cpu className="w-3.5 h-3.5 text-vpn-muted" />
+                    <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                      API
+                    </p>
+                  </div>
+                  <p className="text-white font-medium text-sm">
+                    {dockerStatus.api_version || "—"}
+                  </p>
+                </div>
+                <div className="bg-vpn-input rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <HardDrive className="w-3.5 h-3.5 text-vpn-muted" />
+                    <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                      OS / Arch
+                    </p>
+                  </div>
+                  <p
+                    className="text-white font-medium text-sm truncate"
+                    title={`${dockerStatus.os || "—"} ${dockerStatus.arch || ""}`}
+                  >
+                    {dockerStatus.os || "—"}{" "}
+                    <span className="text-vpn-muted text-xs">
+                      {dockerStatus.arch || ""}
+                    </span>
+                  </p>
+                </div>
+                <div className="bg-vpn-input rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Container className="w-3.5 h-3.5 text-vpn-muted" />
+                    <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                      Containers
+                    </p>
+                  </div>
+                  <p className="text-white font-medium text-sm">
+                    <span className="text-emerald-400">
+                      {dockerStatus.containers_running ?? 0}
+                    </span>
+                    <span className="text-vpn-muted text-xs">
+                      {" "}
+                      / {dockerStatus.containers_total ?? 0}
+                    </span>
+                  </p>
+                </div>
+                <div className="bg-vpn-input rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <HardDrive className="w-3.5 h-3.5 text-vpn-muted" />
+                    <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                      Images
+                    </p>
+                  </div>
+                  <p className="text-white font-medium text-sm">
+                    {dockerStatus.images ?? 0}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* User Management (admin only) */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PlusCircle,
@@ -12,49 +12,24 @@ import {
 import api from "../services/api";
 import ContainerCard from "../components/ContainerCard";
 import { useToast } from "../context/ToastContext";
+import { useContainerData } from "../context/ContainerDataContext";
 
 export default function VpnProxy() {
   const navigate = useNavigate();
   const toast = useToast();
-  const [containers, setContainers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const {
+    containers,
+    vpnInfoMap,
+    loading,
+    error,
+    refreshContainers,
+    refreshAll,
+  } = useContainerData();
+
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
-  const [vpnInfoMap, setVpnInfoMap] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
-
-  const fetchContainers = useCallback(async () => {
-    try {
-      const res = await api.get("/containers");
-      setContainers(Array.isArray(res.data) ? res.data : []);
-      setError("");
-    } catch {
-      setError("Failed to load containers");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchVpnInfo = useCallback(async () => {
-    try {
-      const res = await api.get("/containers/vpn-info-batch");
-      setVpnInfoMap(res.data || {});
-    } catch {
-      // Silently ignore
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchContainers();
-    fetchVpnInfo();
-    const interval = setInterval(() => {
-      fetchContainers();
-      fetchVpnInfo();
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [fetchContainers, fetchVpnInfo]);
 
   const running = containers.filter((c) =>
     ["running", "healthy"].includes(c.status),
@@ -125,7 +100,7 @@ export default function VpnProxy() {
               try {
                 const res = await api.post("/containers/discover");
                 toast.success(res.data.message);
-                fetchContainers();
+                refreshContainers();
               } catch {
                 toast.error("Failed to discover containers");
               } finally {
@@ -143,7 +118,7 @@ export default function VpnProxy() {
           <button
             onClick={async () => {
               setRefreshing(true);
-              await fetchContainers();
+              await refreshAll();
               setRefreshing(false);
             }}
             disabled={refreshing}
@@ -211,7 +186,7 @@ export default function VpnProxy() {
           <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-3" />
           <p className="text-vpn-muted">{error}</p>
           <button
-            onClick={fetchContainers}
+            onClick={refreshContainers}
             className="mt-3 text-vpn-primary hover:text-vpn-accent"
           >
             Try again
@@ -249,7 +224,7 @@ export default function VpnProxy() {
               key={container.id}
               container={container}
               vpnInfo={vpnInfoMap[String(container.id)]}
-              onRefresh={fetchContainers}
+              onRefresh={refreshContainers}
             />
           ))}
         </div>

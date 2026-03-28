@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PlusCircle,
@@ -27,51 +27,27 @@ import {
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../context/ToastContext";
+import { useContainerData } from "../context/ContainerDataContext";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const toast = useToast();
-  const [containers, setContainers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const {
+    containers,
+    vpnInfoMap,
+    depsMap,
+    o11Containers,
+    loading,
+    error,
+    refreshContainers,
+    refreshO11Containers,
+    refreshAll,
+  } = useContainerData();
+
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
-  const [vpnInfoMap, setVpnInfoMap] = useState({});
-  const [depsMap, setDepsMap] = useState({});
-  const [o11Containers, setO11Containers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
-
-  const fetchContainers = useCallback(async () => {
-    try {
-      const res = await api.get("/containers");
-      setContainers(Array.isArray(res.data) ? res.data : []);
-      setError("");
-    } catch (err) {
-      setError("Failed to load containers");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchVpnInfo = useCallback(async () => {
-    try {
-      const res = await api.get("/containers/vpn-info-batch");
-      setVpnInfoMap(res.data || {});
-    } catch {
-      // Silently ignore - VPN info is optional
-    }
-  }, []);
-
-  const fetchO11Containers = useCallback(async () => {
-    try {
-      const res = await api.get("/containers/dependents");
-      const all = Array.isArray(res.data) ? res.data : [];
-      setO11Containers(all.filter((c) => /o11/i.test(c.name)));
-    } catch {
-      // ignore
-    }
-  }, []);
 
   const getVpnInfoForParent = useCallback(
     (vpnParent) => {
@@ -87,49 +63,6 @@ export default function Dashboard() {
     },
     [containers, vpnInfoMap],
   );
-
-  const fetchDependents = useCallback(
-    async (list) => {
-      const src = list || containers;
-      if (!src.length) return;
-      const map = {};
-      await Promise.all(
-        src.map(async (c) => {
-          try {
-            const res = await api.get(`/containers/${c.id}/dependents`);
-            map[c.id] = Array.isArray(res.data) ? res.data : [];
-          } catch {
-            map[c.id] = [];
-          }
-        }),
-      );
-      setDepsMap(map);
-    },
-    [containers],
-  );
-
-  useEffect(() => {
-    const init = async () => {
-      const res = await fetchContainers();
-      fetchVpnInfo();
-      fetchO11Containers();
-    };
-    init();
-    const interval = setInterval(() => {
-      fetchContainers();
-      fetchVpnInfo();
-      fetchO11Containers();
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [fetchContainers, fetchVpnInfo, fetchO11Containers]);
-
-  useEffect(() => {
-    if (containers.length) fetchDependents();
-    const interval = setInterval(() => {
-      if (containers.length) fetchDependents();
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [containers, fetchDependents]);
 
   const [actionLoading, setActionLoading] = useState("");
 
@@ -152,7 +85,7 @@ export default function Dashboard() {
     try {
       const res = await api.post(`/containers/dependents/${name}/${action}`);
       toast.success(res.data?.message || `${name} ${action}ed`);
-      fetchO11Containers();
+      refreshO11Containers();
     } catch (err) {
       toast.error(err.response?.data?.detail || `Failed to ${action} ${name}`);
     } finally {
@@ -165,7 +98,7 @@ export default function Dashboard() {
     try {
       const res = await api.post(`/containers/${id}/${action}`);
       toast.success(res.data?.message || `Container ${action}ed`);
-      fetchContainers();
+      refreshContainers();
     } catch (err) {
       toast.error(err.response?.data?.detail || `Failed to ${action}`);
     } finally {
@@ -178,7 +111,7 @@ export default function Dashboard() {
     try {
       await api.delete(`/containers/${id}`);
       toast.success(`Container "${name}" deleted`);
-      fetchContainers();
+      refreshContainers();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to delete");
     }
@@ -263,7 +196,7 @@ export default function Dashboard() {
               try {
                 const res = await api.post("/containers/discover");
                 toast.success(res.data.message);
-                fetchContainers();
+                refreshContainers();
               } catch {
                 toast.error("Failed to discover containers");
               } finally {
@@ -281,7 +214,7 @@ export default function Dashboard() {
           <button
             onClick={async () => {
               setRefreshing(true);
-              await fetchContainers();
+              await refreshAll();
               setRefreshing(false);
             }}
             disabled={refreshing}
@@ -349,7 +282,7 @@ export default function Dashboard() {
           <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-3" />
           <p className="text-vpn-muted">{error}</p>
           <button
-            onClick={fetchContainers}
+            onClick={refreshContainers}
             className="mt-3 text-vpn-primary hover:text-vpn-accent"
           >
             Try again

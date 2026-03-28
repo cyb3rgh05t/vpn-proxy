@@ -730,8 +730,11 @@ def list_all_docker_containers() -> list[dict]:
                 external_gluetun_map[cid] = cname
                 external_gluetun_map[cname] = cname
 
-        # Build a map of networks each Gluetun container (managed + external) is connected to
+        # Build a map of VPN-dedicated networks each Gluetun container is connected to
+        # Only include networks with "gluetun" or "vpn" in name to avoid false positives
+        # on generic shared networks (e.g. "proxy", "default", "compose_default")
         gluetun_networks: dict[str, str] = {}  # network_id -> gluetun_name
+        _skip_nets = ("bridge", "host", "none")
         all_gluetun = list(managed)
         for c in client.containers.list(all=True):
             if (c.id or "") in external_gluetun_map:
@@ -741,7 +744,12 @@ def list_all_docker_containers() -> list[dict]:
                 nets = m.attrs.get("NetworkSettings", {}).get("Networks", {})
                 for net_name, net_info in nets.items():
                     net_id = net_info.get("NetworkID", "")
-                    if net_id and net_name not in ("bridge", "host", "none"):
+                    net_lower = net_name.lower()
+                    if (
+                        net_id
+                        and net_name not in _skip_nets
+                        and ("gluetun" in net_lower or "vpn" in net_lower)
+                    ):
                         gluetun_networks[net_id] = m.name or ""
             except Exception:
                 continue
@@ -864,6 +872,7 @@ def list_all_docker_containers_debug() -> list[dict]:
                 external_gluetun_map[cname] = cname
 
         gluetun_networks: dict[str, str] = {}
+        _skip_nets = ("bridge", "host", "none")
         all_gluetun_containers = list(managed)
         for c in client.containers.list(all=True):
             if (c.id or "") in external_gluetun_map:
@@ -873,7 +882,12 @@ def list_all_docker_containers_debug() -> list[dict]:
                 nets = m.attrs.get("NetworkSettings", {}).get("Networks", {})
                 for net_name, net_info in nets.items():
                     net_id = net_info.get("NetworkID", "")
-                    if net_id and net_name not in ("bridge", "host", "none"):
+                    net_lower = net_name.lower()
+                    if (
+                        net_id
+                        and net_name not in _skip_nets
+                        and ("gluetun" in net_lower or "vpn" in net_lower)
+                    ):
                         gluetun_networks[net_id] = m.name or ""
             except Exception:
                 continue

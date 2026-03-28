@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
@@ -19,6 +20,8 @@ from app.services.providers import (
     get_gluetun_env_variables,
 )
 from app.utils.security import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
 
@@ -142,7 +145,6 @@ def list_containers(
                         db.commit()
                         data.status = found["status"]
                         data.container_id = found["container_id"]
-                        # Get docker name of the recovered container
                         data.docker_name = docker_service.get_container_docker_name(
                             found["container_id"]
                         )
@@ -152,6 +154,16 @@ def list_containers(
                             and old_id != found["container_id"]
                         ):
                             docker_service.restart_dependents(found["container_id"])
+                    else:
+                        # Container is truly gone — auto-remove from DB
+                        logger.info(
+                            "Container '%s' (id=%s) removed from Docker, deleting from DB",
+                            c.name,
+                            c.id,
+                        )
+                        db.delete(c)
+                        db.commit()
+                        continue
             except Exception:
                 data.status = "unknown"
         result.append(data)

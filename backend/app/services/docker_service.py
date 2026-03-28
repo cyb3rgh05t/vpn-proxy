@@ -143,8 +143,20 @@ def get_container_status(container_id: str) -> dict:
     try:
         container = client.containers.get(container_id)
         docker_name = (container.name or "").lstrip("/")
+        docker_status = container.status
+
+        # Check health status if available (running + healthcheck configured)
+        health = container.attrs.get("State", {}).get("Health", {})
+        health_status = health.get("Status")  # healthy, unhealthy, starting, none
+        if docker_status == "running" and health_status in (
+            "healthy",
+            "unhealthy",
+            "starting",
+        ):
+            docker_status = health_status
+
         info = {
-            "status": container.status,
+            "status": docker_status,
             "container_id": container.short_id,
             "docker_name": docker_name,
         }

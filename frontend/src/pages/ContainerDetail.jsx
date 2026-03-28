@@ -173,7 +173,9 @@ export default function ContainerDetail() {
 
   if (!container) return null;
 
-  const isRunning = container.status === "running";
+  const isRunning = ["running", "healthy", "unhealthy", "starting"].includes(
+    container.status,
+  );
   const isStopped = ["exited", "created", "removed", "dead"].includes(
     container.status,
   );

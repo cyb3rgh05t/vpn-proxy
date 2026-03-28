@@ -8,6 +8,7 @@ import VpnProxy from "./pages/VpnProxy";
 import O11 from "./pages/O11";
 import CreateContainer from "./pages/CreateContainer";
 import ContainerDetail from "./pages/ContainerDetail";
+import O11ContainerDetail from "./pages/O11ContainerDetail";
 import Settings from "./pages/Settings";
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
           <Route path="/o11" element={<O11 />} />
           <Route path="/create" element={<CreateContainer />} />
           <Route path="/containers/:id" element={<ContainerDetail />} />
+          <Route path="/o11/:name" element={<O11ContainerDetail />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>

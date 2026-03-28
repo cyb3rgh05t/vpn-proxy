@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Boxes,
   RefreshCw,
@@ -8,6 +9,7 @@ import {
   Shield,
   AlertTriangle,
   Box,
+  Eye,
   Image,
   Wifi,
   WifiOff,
@@ -22,6 +24,7 @@ import { useToast } from "../context/ToastContext";
 import { useContainerData } from "../context/ContainerDataContext";
 
 export default function O11() {
+  const navigate = useNavigate();
   const toast = useToast();
   const {
     o11Containers: containers,
@@ -218,7 +221,8 @@ export default function O11() {
             return (
               <div
                 key={dep.id}
-                className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all group"
+                onClick={() => navigate(`/o11/${encodeURIComponent(dep.name)}`)}
+                className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all group cursor-pointer"
               >
                 {/* Header: Name + Status */}
                 <div className="flex items-start justify-between mb-3">
@@ -321,7 +325,14 @@ export default function O11() {
                 )}
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 pt-3 border-t border-vpn-border">
+                <div className="flex items-center gap-2 pt-3 border-t border-vpn-border" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => navigate(`/o11/${encodeURIComponent(dep.name)}`)}
+                    className="p-2 rounded-lg text-vpn-muted hover:bg-vpn-input hover:text-white transition-all active:scale-90"
+                    title="Details"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
                   {isStopped && (
                     <button
                       onClick={() => handleAction(dep.name, "start")}

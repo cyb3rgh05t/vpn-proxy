@@ -147,6 +147,56 @@ def control_any_dependent(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/dependents/{container_name}/inspect")
+def inspect_dependent(
+    container_name: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Get detailed info about a dependent container by name."""
+    try:
+        info = docker_service.inspect_container_by_name(container_name)
+        if not info:
+            raise HTTPException(status_code=404, detail="Container not found")
+        return info
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/dependents/{container_name}/logs")
+def get_dependent_logs(
+    container_name: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Get logs of a dependent container by name."""
+    try:
+        logs = docker_service.get_container_logs(container_name)
+        return {"logs": logs}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/dependents/{container_name}/network-mode")
+def change_dependent_network_mode(
+    container_name: str,
+    body: dict,
+    current_user: User = Depends(get_current_user),
+):
+    """Change the network_mode of a container by recreating it."""
+    new_network_mode = body.get("network_mode", "").strip()
+    if not new_network_mode:
+        raise HTTPException(status_code=400, detail="network_mode is required")
+    try:
+        result = docker_service.change_container_network_mode(
+            container_name, new_network_mode
+        )
+        return result
+    except Exception as e:
+        logger.error("Failed to change network_mode for %s: %s", container_name, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/vpn-info-batch")
 def get_vpn_info_batch(
     db: Session = Depends(get_db),

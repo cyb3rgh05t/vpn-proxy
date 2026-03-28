@@ -966,6 +966,192 @@ def list_all_docker_containers_debug() -> list[dict]:
     return [gluetun_info] + result
 
 
+def inspect_container_by_name(container_name: str) -> dict | None:
+    """Get detailed info about any Docker container by name."""
+    client = _get_client()
+    try:
+        container = client.containers.get(container_name)
+    except NotFound:
+        return None
+    except APIError:
+        return None
+
+    attrs = container.attrs or {}
+    config = attrs.get("Config", {})
+    host_config = attrs.get("HostConfig", {})
+    state = attrs.get("State", {})
+    network_settings = attrs.get("NetworkSettings", {})
+
+    image_tags = container.image.tags if container.image else []
+    image_str = image_tags[0] if image_tags else config.get("Image", "unknown")
+
+    # Status with health
+    docker_status = container.status
+    health = state.get("Health", {})
+    health_status = health.get("Status")
+    if docker_status == "running" and health_status in (
+        "healthy", "unhealthy", "starting"
+    ):
+        docker_status = health_status
+
+    # Network mode
+    network_mode = host_config.get("NetworkMode", "")
+
+    # Networks
+    networks = {}
+    for net_name, net_info in network_settings.get("Networks", {}).items():
+        networks[net_name] = {
+            "ip": net_info.get("IPAddress", ""),
+            "gateway": net_info.get("Gateway", ""),
+            "network_id": (net_info.get("NetworkID", "") or "")[:12],
+        }
+
+    # Environment variables
+    env_list = config.get("Env", [])
+    env_dict = {}
+    for e in env_list:
+        parts = e.split("=", 1)
+        if len(parts) == 2:
+            env_dict[parts[0]] = parts[1]
+
+    # Port bindings
+    port_bindings = host_config.get("PortBindings") or {}
+    ports = {}
+    for port_key, bindings in port_bindings.items():
+        if bindings:
+            ports[port_key] = bindings[0].get("HostPort", "")
+
+    # Mounts / Volumes
+    mounts = []
+    for m in host_config.get("Binds", []) or []:
+        parts = m.split(":")
+        if len(parts) >= 2:
+            mounts.append({"source": parts[0], "target": parts[1],
+                           "mode": parts[2] if len(parts) > 2 else "rw"})
+
+    # Restart policy
+    restart_policy = host_config.get("RestartPolicy", {})
+
+    # Created / Started
+    created = attrs.get("Created", "")
+    started = state.get("StartedAt", "")
+
+    # Labels
+    labels = config.get("Labels", {})
+
+    return {
+        "name": container.name,
+        "id": container.short_id,
+        "container_id": container.id,
+        "status": docker_status,
+        "image": image_str,
+        "network_mode": network_mode,
+        "networks": networks,
+        "env": env_dict,
+        "ports": ports,
+        "mounts": mounts,
+        "restart_policy": restart_policy,
+        "labels": labels,
+        "created": created,
+        "started": started,
+        "cmd": config.get("Cmd"),
+        "entrypoint": config.get("Entrypoint"),
+        "hostname": config.get("Hostname", ""),
+    }
+
+
+def change_container_network_mode(
+    container_name: str, new_network_mode: str
+) -> dict:
+    """Change a container's network_mode by recreating it with the same config."""
+    client = _get_client()
+    try:
+        container = client.containers.get(container_name)
+    except NotFound:
+        raise RuntimeError(f"Container '{container_name}' not found")
+
+    attrs = container.attrs or {}
+    config = attrs.get("Config", {})
+    host_config = attrs.get("HostConfig", {})
+    old_network_mode = host_config.get("NetworkMode", "")
+    container_name_clean = container.name
+
+    # Collect config for recreation
+    image = config.get("Image", "")
+    env = config.get("Env", [])
+    labels = config.get("Labels", {})
+    cmd = config.get("Cmd")
+    entrypoint = config.get("Entrypoint")
+    hostname = config.get("Hostname", "")
+    volumes = host_config.get("Binds") or []
+    port_bindings = host_config.get("PortBindings") or {}
+    restart_policy = host_config.get("RestartPolicy") or {}
+    cap_add = host_config.get("CapAdd") or []
+    cap_drop = host_config.get("CapDrop") or []
+    security_opt = host_config.get("SecurityOpt") or []
+    privileged = host_config.get("Privileged", False)
+    devices = host_config.get("Devices") or []
+
+    was_running = container.status == "running"
+
+    # Stop and remove old container
+    if was_running:
+        container.stop(timeout=10)
+    container.remove()
+
+    # Build ports config for the new network mode
+    # If switching to container: mode, port bindings should typically be empty
+    # (the parent handles ports), but we preserve them for the user
+    exposed_ports = config.get("ExposedPorts") or {}
+
+    # Determine hostname behavior
+    # If using container: network mode, don't set hostname (inherited from parent)
+    create_kwargs = {
+        "image": image,
+        "name": container_name_clean,
+        "command": cmd,
+        "entrypoint": entrypoint,
+        "environment": env,
+        "labels": labels,
+        "network_mode": new_network_mode,
+        "volumes": volumes,
+        "restart_policy": restart_policy,
+        "detach": True,
+    }
+
+    if cap_add:
+        create_kwargs["cap_add"] = cap_add
+    if cap_drop:
+        create_kwargs["cap_drop"] = cap_drop
+    if security_opt:
+        create_kwargs["security_opt"] = security_opt
+    if privileged:
+        create_kwargs["privileged"] = privileged
+    if devices:
+        create_kwargs["devices"] = devices
+
+    if new_network_mode.startswith("container:"):
+        # In container: mode, ports are handled by the parent
+        create_kwargs["ports"] = {}
+    else:
+        create_kwargs["ports"] = port_bindings
+        if hostname:
+            create_kwargs["hostname"] = hostname
+
+    # Recreate
+    new_container = client.containers.create(**create_kwargs)
+
+    if was_running:
+        new_container.start()
+
+    return {
+        "message": f"Container '{container_name_clean}' recreated with network_mode '{new_network_mode}'",
+        "old_network_mode": old_network_mode,
+        "new_network_mode": new_network_mode,
+        "status": "running" if was_running else "created",
+    }
+
+
 def get_container_logs(container_id: str, tail: int = 200) -> str:
     client = _get_client()
     try:

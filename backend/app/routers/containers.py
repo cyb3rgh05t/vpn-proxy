@@ -1,7 +1,9 @@
 import logging
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.models.vpn_container import VPNContainer
@@ -562,6 +564,74 @@ def get_vpn_info(
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
     return docker_service.get_gluetun_vpn_info(c.container_id, debug=debug)
+
+
+@router.get("/{container_id}/debug-mount")
+def debug_mount(
+    container_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Debug endpoint: show mount paths and file listing for a container's gluetun data dir."""
+    c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Container not found")
+
+    gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", c.name)
+    if settings.HOST_DATA_DIR:
+        gluetun_mount = os.path.join(settings.HOST_DATA_DIR, "gluetun", c.name)
+    else:
+        gluetun_mount = gluetun_data
+
+    files = []
+    try:
+        files = os.listdir(gluetun_data)
+    except Exception as e:
+        files = [f"ERROR: {e}"]
+
+    # Inspect running container's actual mounts
+    actual_mounts = []
+    if c.container_id:
+        try:
+            client = docker_service._get_client()
+            container = client.containers.get(c.container_id)
+            for m in container.attrs.get("Mounts", []):
+                actual_mounts.append(
+                    {
+                        "source": m.get("Source"),
+                        "destination": m.get("Destination"),
+                        "mode": m.get("Mode"),
+                    }
+                )
+        except Exception as e:
+            actual_mounts = [{"error": str(e)}]
+
+    # Inspect running container's env vars related to cert files
+    cert_env_vars = {}
+    if c.container_id:
+        try:
+            env = docker_service._get_container_env(c.container_id)
+            for k, v in env.items():
+                if "CERT" in k or "KEY" in k or "SECRET" in k:
+                    cert_env_vars[k] = v
+        except Exception:
+            pass
+
+    return {
+        "name": c.name,
+        "HOST_DATA_DIR": settings.HOST_DATA_DIR or "(not set)",
+        "DATA_DIR": os.path.abspath(settings.DATA_DIR),
+        "gluetun_data_path": gluetun_data,
+        "gluetun_mount_path": gluetun_mount,
+        "files_in_data_dir": files,
+        "actual_container_mounts": actual_mounts,
+        "cert_env_vars": cert_env_vars,
+        "db_config": {
+            k: v
+            for k, v in (c.config or {}).items()
+            if "CERT" in k or "KEY" in k or "SECRET" in k
+        },
+    }
 
 
 @router.get("/{container_id}/compose", response_class=PlainTextResponse)

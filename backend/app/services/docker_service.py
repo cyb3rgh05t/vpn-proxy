@@ -135,6 +135,20 @@ def create_container(
     else:
         gluetun_mount = gluetun_data
 
+    # Debug: log mount paths and files in gluetun data dir
+    logger.info(
+        "Container %s mount paths: HOST_DATA_DIR=%r, gluetun_data=%s, gluetun_mount=%s",
+        name,
+        settings.HOST_DATA_DIR,
+        gluetun_data,
+        gluetun_mount,
+    )
+    try:
+        files_in_data = os.listdir(gluetun_data)
+        logger.info("Files in %s: %s", gluetun_data, files_in_data)
+    except Exception as e:
+        logger.warning("Cannot list %s: %s", gluetun_data, e)
+
     # Build port mappings - only expose services that are enabled
     ports = {}
     httpproxy_enabled = str(config.get("HTTPPROXY", "off")).lower() == "on"

@@ -570,7 +570,6 @@ def get_vpn_info(
 def debug_mount(
     container_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """Debug endpoint: show mount paths and file listing for a container's gluetun data dir."""
     c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()

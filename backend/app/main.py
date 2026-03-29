@@ -60,6 +60,16 @@ def auto_discover_containers():
                 logger.info(
                     "Found %d Gluetun containers, all already tracked.", len(discovered)
                 )
+
+            # Fix legacy port_control=8001 entries
+            fixed = (
+                db.query(VPNContainer)
+                .filter(VPNContainer.port_control == 8001)
+                .update({VPNContainer.port_control: 8000})
+            )
+            if fixed:
+                db.commit()
+                logger.info("Fixed %d containers with port_control 8001 → 8000", fixed)
         finally:
             db.close()
     except Exception as e:

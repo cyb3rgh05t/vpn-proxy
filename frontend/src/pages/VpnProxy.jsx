@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Search,
   Server,
+  Network,
 } from "lucide-react";
 import api from "../services/api";
 import ContainerCard from "../components/ContainerCard";
@@ -102,6 +103,18 @@ export default function VpnProxy() {
         c.vpn_provider?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.vpn_type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.description?.toLowerCase().includes(searchQuery.toLowerCase())),
+  );
+
+  const proxyContainers = filteredContainers.filter(
+    (c) =>
+      c.config?.HTTPPROXY?.toLowerCase() === "on" ||
+      c.config?.SHADOWSOCKS?.toLowerCase() === "on",
+  );
+
+  const vpnOnlyContainers = filteredContainers.filter(
+    (c) =>
+      c.config?.HTTPPROXY?.toLowerCase() !== "on" &&
+      c.config?.SHADOWSOCKS?.toLowerCase() !== "on",
   );
 
   return (
@@ -238,17 +251,59 @@ export default function VpnProxy() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredContainers.map((container) => (
-            <div key={container.id} id={`container-${container.id}`}>
-              <ContainerCard
-                container={container}
-                vpnInfo={vpnInfoMap[String(container.id)]}
-                onRefresh={refreshContainers}
-              />
+        <>
+          {/* Proxy Containers */}
+          {proxyContainers.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-4">
+                <Network className="w-5 h-5 text-vpn-primary" />
+                <h2 className="text-lg font-semibold text-white">
+                  Proxy Containers
+                </h2>
+                <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-1 rounded-full">
+                  {proxyContainers.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {proxyContainers.map((container) => (
+                  <div key={container.id} id={`container-${container.id}`}>
+                    <ContainerCard
+                      container={container}
+                      vpnInfo={vpnInfoMap[String(container.id)]}
+                      onRefresh={refreshContainers}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* VPN Only Containers */}
+          {vpnOnlyContainers.length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <Shield className="w-5 h-5 text-vpn-primary" />
+                <h2 className="text-lg font-semibold text-white">
+                  VPN Containers
+                </h2>
+                <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-1 rounded-full">
+                  {vpnOnlyContainers.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {vpnOnlyContainers.map((container) => (
+                  <div key={container.id} id={`container-${container.id}`}>
+                    <ContainerCard
+                      container={container}
+                      vpnInfo={vpnInfoMap[String(container.id)]}
+                      onRefresh={refreshContainers}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

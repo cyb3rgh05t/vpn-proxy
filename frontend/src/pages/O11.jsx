@@ -367,7 +367,7 @@ export default function O11() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-blue-400" />
+                  <Shield className="w-5 h-5 text-vpn-primary" />
                   <h2 className="text-lg font-semibold text-white">
                     VPN Connected
                   </h2>
@@ -403,7 +403,7 @@ export default function O11() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex items-center gap-2">
-                  <Boxes className="w-5 h-5 text-vpn-muted" />
+                  <Boxes className="w-5 h-5 text-vpn-primary" />
                   <h2 className="text-lg font-semibold text-white">
                     No VPN Connection
                   </h2>

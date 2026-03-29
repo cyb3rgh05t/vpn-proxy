@@ -228,11 +228,11 @@ export default function ContainerDetail() {
   return (
     <div>
       <button
-        onClick={() => navigate("/")}
+        onClick={() => navigate("/vpn-proxy")}
         className="flex items-center gap-2 text-vpn-muted hover:text-white mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Dashboard
+        Back to VPN-Proxy
       </button>
 
       {/* Header */}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PlusCircle,
@@ -13,8 +13,11 @@ import api from "../services/api";
 import ContainerCard from "../components/ContainerCard";
 import { useToast } from "../context/ToastContext";
 import { useContainerData } from "../context/ContainerDataContext";
+import { useLocation } from "react-router-dom";
 
 export default function VpnProxy() {
+  const location = useLocation();
+  const scrolledRef = useRef(false);
   const navigate = useNavigate();
   const toast = useToast();
   const {
@@ -25,6 +28,23 @@ export default function VpnProxy() {
     refreshContainers,
     refreshAll,
   } = useContainerData();
+
+  // Scroll to container card when navigated with hash
+  useEffect(() => {
+    if (scrolledRef.current || !location.hash || loading) return;
+    const el = document.getElementById(location.hash.slice(1));
+    if (el) {
+      scrolledRef.current = true;
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-2", "ring-vpn-primary", "rounded-xl");
+        setTimeout(
+          () => el.classList.remove("ring-2", "ring-vpn-primary", "rounded-xl"),
+          2000,
+        );
+      }, 100);
+    }
+  }, [location.hash, loading]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
@@ -220,12 +240,13 @@ export default function VpnProxy() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredContainers.map((container) => (
-            <ContainerCard
-              key={container.id}
-              container={container}
-              vpnInfo={vpnInfoMap[String(container.id)]}
-              onRefresh={refreshContainers}
-            />
+            <div key={container.id} id={`container-${container.id}`}>
+              <ContainerCard
+                container={container}
+                vpnInfo={vpnInfoMap[String(container.id)]}
+                onRefresh={refreshContainers}
+              />
+            </div>
           ))}
         </div>
       )}

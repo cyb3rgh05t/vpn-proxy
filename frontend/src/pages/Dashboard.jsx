@@ -144,6 +144,8 @@ export default function Dashboard() {
       .map((c) => {
         const info = vpnInfoMap[String(c.id)];
         const deps = depsMap[c.id] || [];
+        const httpEnabled = c.config?.HTTPPROXY?.toLowerCase() === "on";
+        const ssEnabled = c.config?.SHADOWSOCKS?.toLowerCase() === "on";
         return {
           id: c.id,
           name: c.name,
@@ -159,7 +161,13 @@ export default function Dashboard() {
             c.config?.SERVER_COUNTRIES ||
             c.config?.SERVER_CITIES ||
             c.config?.SERVER_REGIONS,
-          depCount: deps.length,
+          deps,
+          httpProxy: httpEnabled
+            ? `${c.ip_address || "—"}:${c.port_http_proxy}`
+            : null,
+          shadowsocks: ssEnabled
+            ? `${c.ip_address || "—"}:${c.port_shadowsocks}`
+            : null,
         };
       })
       .filter(
@@ -505,32 +513,41 @@ export default function Dashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-[10px] text-vpn-muted uppercase tracking-wider border-b border-vpn-border">
-                      <th className="text-left pb-2 pr-4">Container</th>
-                      <th className="text-left pb-2 pr-4">Provider</th>
-                      <th className="text-left pb-2 pr-4">Status</th>
-                      <th className="text-left pb-2 pr-4">Public IP</th>
-                      <th className="text-left pb-2 pr-4">Location</th>
-                      <th className="text-right pb-2">Clients</th>
+                      <th className="text-left pb-2 pr-3">Container</th>
+                      <th className="text-left pb-2 pr-3">Provider</th>
+                      <th className="text-left pb-2 pr-3">Type</th>
+                      <th className="text-left pb-2 pr-3">Status</th>
+                      <th className="text-left pb-2 pr-3">Public IP</th>
+                      <th className="text-left pb-2 pr-3">Location</th>
+                      <th className="text-left pb-2 pr-3">Proxy</th>
+                      <th className="text-left pb-2">Clients</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-vpn-border/50">
                     {vpnConnections.map((conn) => (
                       <tr
                         key={conn.id}
-                        onClick={() => navigate(`/containers/${conn.id}`)}
+                        onClick={() =>
+                          navigate(`/vpn-proxy#container-${conn.id}`)
+                        }
                         className="hover:bg-vpn-input/50 cursor-pointer transition-colors"
                       >
-                        <td className="py-2.5 pr-4">
+                        <td className="py-2.5 pr-3">
                           <span className="text-white font-medium">
                             {conn.name}
                           </span>
                         </td>
-                        <td className="py-2.5 pr-4">
+                        <td className="py-2.5 pr-3">
                           <span className="text-xs text-purple-400 capitalize">
                             {conn.provider}
                           </span>
                         </td>
-                        <td className="py-2.5 pr-4">
+                        <td className="py-2.5 pr-3">
+                          <span className="text-xs text-cyan-400 uppercase">
+                            {conn.vpnType}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-3">
                           <span
                             className={`inline-flex items-center gap-1 text-xs font-medium ${
                               conn.vpnStatus === "running"
@@ -548,12 +565,12 @@ export default function Dashboard() {
                               : "Disconnected"}
                           </span>
                         </td>
-                        <td className="py-2.5 pr-4">
+                        <td className="py-2.5 pr-3">
                           <span className="text-xs text-vpn-primary font-mono">
                             {conn.publicIp || "—"}
                           </span>
                         </td>
-                        <td className="py-2.5 pr-4">
+                        <td className="py-2.5 pr-3">
                           <span className="text-xs text-vpn-muted">
                             {conn.country || conn.location || "—"}
                             {conn.region && (
@@ -564,12 +581,48 @@ export default function Dashboard() {
                             )}
                           </span>
                         </td>
-                        <td className="py-2.5 text-right">
-                          {conn.depCount > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-blue-400">
-                              <Network className="w-3 h-3" />
-                              {conn.depCount}
-                            </span>
+                        <td className="py-2.5 pr-3">
+                          <div className="space-y-0.5">
+                            {conn.httpProxy && (
+                              <div className="text-[10px] text-vpn-muted font-mono">
+                                <span className="text-amber-400">HTTP</span>{" "}
+                                {conn.httpProxy}
+                              </div>
+                            )}
+                            {conn.shadowsocks && (
+                              <div className="text-[10px] text-vpn-muted font-mono">
+                                <span className="text-blue-400">SS</span>{" "}
+                                {conn.shadowsocks}
+                              </div>
+                            )}
+                            {!conn.httpProxy && !conn.shadowsocks && (
+                              <span className="text-xs text-vpn-muted">—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2.5">
+                          {conn.deps.length > 0 ? (
+                            <div className="space-y-0.5">
+                              {conn.deps.map((dep) => (
+                                <div
+                                  key={dep.name}
+                                  className="flex items-center gap-1.5 text-[10px]"
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                      ["running", "healthy"].includes(
+                                        dep.status,
+                                      )
+                                        ? "bg-emerald-400"
+                                        : "bg-red-400"
+                                    }`}
+                                  />
+                                  <span className="text-vpn-text truncate max-w-[120px]">
+                                    {dep.name}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           ) : (
                             <span className="text-xs text-vpn-muted">—</span>
                           )}

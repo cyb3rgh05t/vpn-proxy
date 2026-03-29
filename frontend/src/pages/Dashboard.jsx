@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
+import WorldMap from "../components/WorldMap";
 import { useToast } from "../context/ToastContext";
 import { useContainerData } from "../context/ContainerDataContext";
 
@@ -573,6 +574,13 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* World Map */}
+      {vpnConnections.length > 0 && (
+        <div className="mb-6">
+          <WorldMap vpnConnections={vpnConnections} />
         </div>
       )}
 

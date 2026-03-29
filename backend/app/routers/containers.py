@@ -390,7 +390,11 @@ def update_container(
     if not c:
         raise HTTPException(status_code=404, detail="Container not found")
 
-    for field, value in req.model_dump(exclude_none=True).items():
+    update_data = req.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        # Allow clearing string fields by setting them to empty string -> store as None
+        if value == "" and field in ("description",):
+            value = None
         setattr(c, field, value)
     db.commit()
     db.refresh(c)

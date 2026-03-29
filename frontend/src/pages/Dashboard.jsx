@@ -14,6 +14,11 @@ import {
   WifiOff,
   Boxes,
   Layers,
+  Network,
+  ArrowUpDown,
+  MapPin,
+  Users,
+  ChevronRight,
 } from "lucide-react";
 import api from "../services/api";
 import WorldMap from "../components/WorldMap";
@@ -62,11 +67,31 @@ export default function Dashboard() {
     const map = {};
     for (const c of containers) {
       const p = c.vpn_provider || "unknown";
-      if (!map[p]) map[p] = { total: 0, connected: 0, types: new Set() };
+      if (!map[p])
+        map[p] = {
+          total: 0,
+          connected: 0,
+          stopped: 0,
+          unhealthy: 0,
+          types: new Set(),
+          countries: new Set(),
+          proxyCount: 0,
+          clientCount: 0,
+        };
       map[p].total++;
       if (c.vpn_type) map[p].types.add(c.vpn_type);
       const info = vpnInfoMap[String(c.id)];
       if (info?.vpn_status === "running") map[p].connected++;
+      if (["exited", "dead", "removed"].includes(c.status)) map[p].stopped++;
+      if (c.status === "unhealthy") map[p].unhealthy++;
+      if (info?.country) map[p].countries.add(info.country);
+      if (
+        c.config?.HTTPPROXY?.toLowerCase() === "on" ||
+        c.config?.SHADOWSOCKS?.toLowerCase() === "on"
+      )
+        map[p].proxyCount++;
+      const deps = depsMap[c.id] || [];
+      map[p].clientCount += deps.length;
     }
     return Object.entries(map)
       .sort((a, b) => b[1].total - a[1].total)
@@ -74,8 +99,9 @@ export default function Dashboard() {
         name,
         ...data,
         types: [...data.types],
+        countries: [...data.countries],
       }));
-  }, [containers, vpnInfoMap]);
+  }, [containers, vpnInfoMap, depsMap]);
 
   // --- VPN connections overview ---
   const vpnConnections = useMemo(() => {
@@ -286,6 +312,9 @@ export default function Dashboard() {
               <h3 className="text-sm font-semibold text-white">
                 VPN Providers
               </h3>
+              <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full ml-auto">
+                {providerStats.length}
+              </span>
             </div>
             {providerStats.length === 0 ? (
               <p className="text-sm text-vpn-muted">No providers</p>
@@ -294,26 +323,32 @@ export default function Dashboard() {
                 {providerStats.map((p) => (
                   <div
                     key={p.name}
-                    className="flex items-center justify-between"
+                    className="bg-vpn-bg/50 border border-vpn-border/50 rounded-lg p-3 hover:border-vpn-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                    {/* Provider header */}
+                    <div className="flex items-center gap-3 mb-2.5">
+                      <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
                         <Shield className="w-4 h-4 text-purple-400" />
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm text-white font-medium capitalize truncate">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-white font-semibold capitalize truncate">
                           {p.name}
                         </p>
-                        <p className="text-[10px] text-vpn-muted">
-                          {p.types.join(", ")}
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {p.types.map((t) => (
+                            <span
+                              key={t}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-xs text-emerald-400 font-medium">
-                        {p.connected}/{p.total}
-                      </span>
-                      <div className="w-16 h-1.5 bg-vpn-input rounded-full overflow-hidden">
+                    {/* Progress bar */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex-1 h-1.5 bg-vpn-input rounded-full overflow-hidden">
                         <div
                           className="h-full bg-emerald-500 rounded-full transition-all"
                           style={{
@@ -321,6 +356,43 @@ export default function Dashboard() {
                           }}
                         />
                       </div>
+                      <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">
+                        {p.connected}/{p.total}
+                      </span>
+                    </div>
+                    {/* Info badges */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {p.countries.length > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
+                          <MapPin className="w-2.5 h-2.5" />
+                          {p.countries.length}{" "}
+                          {p.countries.length === 1 ? "country" : "countries"}
+                        </span>
+                      )}
+                      {p.proxyCount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          <Network className="w-2.5 h-2.5" />
+                          {p.proxyCount} proxy
+                        </span>
+                      )}
+                      {p.clientCount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                          <Users className="w-2.5 h-2.5" />
+                          {p.clientCount}
+                        </span>
+                      )}
+                      {p.unhealthy > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-red-500/10 text-red-400 border border-red-500/20">
+                          <HeartCrack className="w-2.5 h-2.5" />
+                          {p.unhealthy}
+                        </span>
+                      )}
+                      {p.stopped > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
+                          <AlertTriangle className="w-2.5 h-2.5" />
+                          {p.stopped} off
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -335,7 +407,7 @@ export default function Dashboard() {
               <h3 className="text-sm font-semibold text-white">
                 Active VPN Connections
               </h3>
-              <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full ml-auto">
+              <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full ml-auto">
                 {vpnConnections.length} active
               </span>
             </div>
@@ -344,128 +416,106 @@ export default function Dashboard() {
                 No active VPN connections
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-[10px] text-vpn-muted uppercase tracking-wider border-b border-vpn-border">
-                      <th className="text-left pb-2 pr-3">Container</th>
-                      <th className="text-left pb-2 pr-3">Provider</th>
-                      <th className="text-left pb-2 pr-3">Type</th>
-                      <th className="text-left pb-2 pr-3">Status</th>
-                      <th className="text-left pb-2 pr-3">Public IP</th>
-                      <th className="text-left pb-2 pr-3">Location</th>
-                      <th className="text-left pb-2 pr-3">Proxy</th>
-                      <th className="text-left pb-2">Clients</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-vpn-border/50">
-                    {vpnConnections.map((conn) => (
-                      <tr
-                        key={conn.id}
-                        onClick={() =>
-                          navigate(`/vpn-proxy#container-${conn.id}`)
-                        }
-                        className="hover:bg-vpn-input/50 cursor-pointer transition-colors"
-                      >
-                        <td className="py-2.5 pr-3">
-                          <span className="text-white font-medium">
-                            {conn.name}
-                          </span>
-                        </td>
-                        <td className="py-2.5 pr-3">
-                          <span className="text-xs text-purple-400 capitalize">
-                            {conn.provider}
-                          </span>
-                        </td>
-                        <td className="py-2.5 pr-3">
-                          <span className="text-xs text-cyan-400 uppercase">
-                            {conn.vpnType}
-                          </span>
-                        </td>
-                        <td className="py-2.5 pr-3">
-                          <span
-                            className={`inline-flex items-center gap-1 text-xs font-medium ${
-                              conn.vpnStatus === "running"
-                                ? "text-emerald-400"
-                                : "text-red-400"
-                            }`}
-                          >
-                            {conn.vpnStatus === "running" ? (
-                              <Wifi className="w-3 h-3" />
-                            ) : (
-                              <WifiOff className="w-3 h-3" />
-                            )}
-                            {conn.vpnStatus === "running"
-                              ? "Connected"
-                              : "Disconnected"}
-                          </span>
-                        </td>
-                        <td className="py-2.5 pr-3">
-                          <span className="text-xs text-vpn-primary font-mono">
-                            {conn.publicIp || "—"}
-                          </span>
-                        </td>
-                        <td className="py-2.5 pr-3">
-                          <span className="text-xs text-vpn-muted">
-                            {conn.country || conn.location || "—"}
-                            {conn.region && (
-                              <span className="text-vpn-muted/50">
-                                {" "}
-                                · {conn.region}
-                              </span>
-                            )}
-                          </span>
-                        </td>
-                        <td className="py-2.5 pr-3">
-                          <div className="space-y-0.5">
-                            {conn.httpProxy && (
-                              <div className="text-[10px] text-vpn-muted font-mono">
-                                <span className="text-amber-400">HTTP</span>{" "}
-                                {conn.httpProxy}
-                              </div>
-                            )}
-                            {conn.shadowsocks && (
-                              <div className="text-[10px] text-vpn-muted font-mono">
-                                <span className="text-blue-400">SS</span>{" "}
-                                {conn.shadowsocks}
-                              </div>
-                            )}
-                            {!conn.httpProxy && !conn.shadowsocks && (
-                              <span className="text-xs text-vpn-muted">—</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-2.5">
-                          {conn.deps.length > 0 ? (
-                            <div className="space-y-0.5">
-                              {conn.deps.map((dep) => (
-                                <div
-                                  key={dep.name}
-                                  className="flex items-center gap-1.5 text-[10px]"
-                                >
-                                  <span
-                                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                      ["running", "healthy"].includes(
-                                        dep.status,
-                                      )
-                                        ? "bg-emerald-400"
-                                        : "bg-red-400"
-                                    }`}
-                                  />
-                                  <span className="text-vpn-text truncate max-w-[120px]">
-                                    {dep.name}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
+              <div className="space-y-2">
+                {vpnConnections.map((conn) => (
+                  <div
+                    key={conn.id}
+                    onClick={() => navigate(`/vpn-proxy#container-${conn.id}`)}
+                    className="bg-vpn-bg/50 border border-vpn-border/50 rounded-lg p-3 hover:border-vpn-muted/50 cursor-pointer transition-all group"
+                  >
+                    {/* Row 1: Name + Status */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          conn.vpnStatus === "running"
+                            ? "bg-emerald-500 shadow-sm shadow-emerald-500/50"
+                            : "bg-red-500"
+                        }`}
+                      />
+                      <span className="text-sm text-white font-semibold group-hover:text-vpn-primary transition-colors truncate">
+                        {conn.name}
+                      </span>
+                      <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 capitalize">
+                          {conn.provider}
+                        </span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase">
+                          {conn.vpnType}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                            conn.vpnStatus === "running"
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : "bg-red-500/10 text-red-400 border border-red-500/20"
+                          }`}
+                        >
+                          {conn.vpnStatus === "running" ? (
+                            <Wifi className="w-2.5 h-2.5" />
                           ) : (
-                            <span className="text-xs text-vpn-muted">—</span>
+                            <WifiOff className="w-2.5 h-2.5" />
                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          {conn.vpnStatus === "running"
+                            ? "Connected"
+                            : "Disconnected"}
+                        </span>
+                        <ChevronRight className="w-3.5 h-3.5 text-vpn-muted group-hover:text-vpn-primary transition-colors" />
+                      </div>
+                    </div>
+                    {/* Row 2: Info badges */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {conn.publicIp && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20">
+                          <Globe className="w-2.5 h-2.5" />
+                          {conn.publicIp}
+                        </span>
+                      )}
+                      {(conn.country || conn.location) && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
+                          <MapPin className="w-2.5 h-2.5" />
+                          {conn.country || conn.location}
+                          {conn.region && (
+                            <span className="text-vpn-muted/50">
+                              · {conn.region}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {conn.portForwarded && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          <ArrowUpDown className="w-2.5 h-2.5" />
+                          {conn.portForwarded}
+                        </span>
+                      )}
+                      {conn.httpProxy && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          <Network className="w-2.5 h-2.5" />
+                          HTTP {conn.httpProxy}
+                        </span>
+                      )}
+                      {conn.shadowsocks && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                          <Network className="w-2.5 h-2.5" />
+                          SS {conn.shadowsocks}
+                        </span>
+                      )}
+                      {conn.deps.length > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                          <Users className="w-2.5 h-2.5" />
+                          {conn.deps.length} client
+                          {conn.deps.length !== 1 ? "s" : ""}
+                          <span className="text-blue-400/60 ml-0.5">
+                            (
+                            {conn.deps
+                              .slice(0, 2)
+                              .map((d) => d.name)
+                              .join(", ")}
+                            {conn.deps.length > 2 ? ", ..." : ""})
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

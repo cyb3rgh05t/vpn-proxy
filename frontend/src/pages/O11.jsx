@@ -131,6 +131,156 @@ export default function O11() {
     },
   ];
 
+  const renderContainerCard = (dep, isRunning, isStopped, parentInfo) => (
+    <div
+      key={dep.id}
+      onClick={() => navigate(`/o11/${encodeURIComponent(dep.name)}`)}
+      className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all group cursor-pointer"
+    >
+      {/* Header: Name + Status */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
+            {dep.name}
+          </h3>
+        </div>
+        <StatusBadge status={dep.status} />
+      </div>
+
+      {/* Image Info */}
+      <div className="bg-vpn-input/50 rounded-lg p-3 mb-3 space-y-2">
+        <div className="flex items-center gap-2 text-sm">
+          <Image className="w-3.5 h-3.5 text-vpn-primary flex-shrink-0" />
+          <span className="text-vpn-text font-mono text-xs truncate">
+            {dep.image}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Box className="w-3.5 h-3.5 text-vpn-muted flex-shrink-0" />
+          <span className="text-vpn-muted font-mono text-xs truncate">
+            {dep.container_id ? dep.container_id.substring(0, 12) : dep.id}
+          </span>
+        </div>
+      </div>
+
+      {/* VPN Connection */}
+      {dep.vpn_parent ? (
+        <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg px-3 py-2.5 mb-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-xs text-blue-400 font-medium">
+                VPN Routed
+              </span>
+              <span className="text-xs text-white font-medium truncate">
+                via {dep.vpn_parent}
+              </span>
+            </div>
+            {parentInfo?.vpn_status && (
+              <span
+                className={`flex items-center gap-1 text-xs font-medium ${
+                  parentInfo.vpn_status === "running"
+                    ? "text-emerald-400"
+                    : "text-red-400"
+                }`}
+              >
+                {parentInfo.vpn_status === "running" ? (
+                  <Wifi className="w-3 h-3" />
+                ) : (
+                  <WifiOff className="w-3 h-3" />
+                )}
+                {parentInfo.vpn_status === "running"
+                  ? "Connected"
+                  : "Disconnected"}
+              </span>
+            )}
+          </div>
+          {parentInfo && (
+            <div className="flex items-center gap-3 flex-wrap">
+              {parentInfo.public_ip && (
+                <span className="flex items-center gap-1 text-xs">
+                  <Globe className="w-3 h-3 text-vpn-primary" />
+                  <span className="text-vpn-primary font-mono">
+                    {parentInfo.public_ip}
+                  </span>
+                </span>
+              )}
+              {(parentInfo.country || parentInfo.region) && (
+                <span className="flex items-center gap-1 text-xs text-vpn-muted">
+                  <MapPin className="w-3 h-3" />
+                  {[parentInfo.region, parentInfo.country]
+                    .filter(Boolean)
+                    .join(", ")}
+                </span>
+              )}
+              {parentInfo.port_forwarded && (
+                <span className="flex items-center gap-1 text-xs text-amber-400">
+                  <ArrowUpDown className="w-3 h-3" />
+                  <span className="font-mono">{parentInfo.port_forwarded}</span>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-lg px-3 py-2.5 mb-3">
+          <div className="flex items-center gap-2">
+            <Shield className="w-3.5 h-3.5 text-vpn-muted" />
+            <span className="text-xs text-vpn-muted">No VPN connection</span>
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div
+        className="flex items-center gap-2 pt-3 border-t border-vpn-border"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={() => navigate(`/o11/${encodeURIComponent(dep.name)}`)}
+          className="p-2 rounded-lg text-vpn-muted hover:bg-vpn-input hover:text-white transition-all active:scale-90"
+          title="Details"
+        >
+          <Eye className="w-4 h-4" />
+        </button>
+        {isStopped && (
+          <button
+            onClick={() => handleAction(dep.name, "start")}
+            disabled={!!actionLoading}
+            className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90 disabled:opacity-50"
+            title="Start"
+          >
+            <Play
+              className={`w-4 h-4 ${actionLoading === `${dep.name}-start` ? "animate-pulse" : ""}`}
+            />
+          </button>
+        )}
+        {isRunning && (
+          <button
+            onClick={() => handleAction(dep.name, "stop")}
+            disabled={!!actionLoading}
+            className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90 disabled:opacity-50"
+            title="Stop"
+          >
+            <Square
+              className={`w-4 h-4 ${actionLoading === `${dep.name}-stop` ? "animate-pulse" : ""}`}
+            />
+          </button>
+        )}
+        <button
+          onClick={() => handleAction(dep.name, "restart")}
+          disabled={!!actionLoading}
+          className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90 disabled:opacity-50"
+          title="Restart"
+        >
+          <RotateCcw
+            className={`w-4 h-4 ${actionLoading === `${dep.name}-restart` ? "animate-spin" : ""}`}
+          />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -211,171 +361,72 @@ export default function O11() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredContainers.map((dep) => {
-            const isRunning = ["running", "healthy"].includes(dep.status);
-            const isStopped = ["exited", "created", "dead"].includes(
-              dep.status,
-            );
-            const parentInfo = getVpnInfoForParent(dep.vpn_parent);
-            return (
-              <div
-                key={dep.id}
-                onClick={() => navigate(`/o11/${encodeURIComponent(dep.name)}`)}
-                className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all group cursor-pointer"
-              >
-                {/* Header: Name + Status */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
-                      {dep.name}
-                    </h3>
-                  </div>
-                  <StatusBadge status={dep.status} />
+        <div className="space-y-8">
+          {/* VPN Connected Containers */}
+          {filteredContainers.filter((c) => c.vpn_parent).length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-blue-400" />
+                  <h2 className="text-lg font-semibold text-white">
+                    VPN Connected
+                  </h2>
                 </div>
-
-                {/* Image Info */}
-                <div className="bg-vpn-input/50 rounded-lg p-3 mb-3 space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Image className="w-3.5 h-3.5 text-vpn-primary flex-shrink-0" />
-                    <span className="text-vpn-text font-mono text-xs truncate">
-                      {dep.image}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Box className="w-3.5 h-3.5 text-vpn-muted flex-shrink-0" />
-                    <span className="text-vpn-muted font-mono text-xs truncate">
-                      {dep.container_id
-                        ? dep.container_id.substring(0, 12)
-                        : dep.id}
-                    </span>
-                  </div>
-                </div>
-
-                {/* VPN Connection */}
-                {dep.vpn_parent ? (
-                  <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg px-3 py-2.5 mb-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-3.5 h-3.5 text-blue-400" />
-                        <span className="text-xs text-blue-400 font-medium">
-                          VPN Routed
-                        </span>
-                        <span className="text-xs text-white font-medium truncate">
-                          via {dep.vpn_parent}
-                        </span>
-                      </div>
-                      {parentInfo?.vpn_status && (
-                        <span
-                          className={`flex items-center gap-1 text-xs font-medium ${
-                            parentInfo.vpn_status === "running"
-                              ? "text-emerald-400"
-                              : "text-red-400"
-                          }`}
-                        >
-                          {parentInfo.vpn_status === "running" ? (
-                            <Wifi className="w-3 h-3" />
-                          ) : (
-                            <WifiOff className="w-3 h-3" />
-                          )}
-                          {parentInfo.vpn_status === "running"
-                            ? "Connected"
-                            : "Disconnected"}
-                        </span>
-                      )}
-                    </div>
-                    {parentInfo && (
-                      <div className="flex items-center gap-3 flex-wrap">
-                        {parentInfo.public_ip && (
-                          <span className="flex items-center gap-1 text-xs">
-                            <Globe className="w-3 h-3 text-vpn-primary" />
-                            <span className="text-vpn-primary font-mono">
-                              {parentInfo.public_ip}
-                            </span>
-                          </span>
-                        )}
-                        {(parentInfo.country || parentInfo.region) && (
-                          <span className="flex items-center gap-1 text-xs text-vpn-muted">
-                            <MapPin className="w-3 h-3" />
-                            {[parentInfo.region, parentInfo.country]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </span>
-                        )}
-                        {parentInfo.port_forwarded && (
-                          <span className="flex items-center gap-1 text-xs text-amber-400">
-                            <ArrowUpDown className="w-3 h-3" />
-                            <span className="font-mono">
-                              {parentInfo.port_forwarded}
-                            </span>
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-lg px-3 py-2.5 mb-3">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-3.5 h-3.5 text-vpn-muted" />
-                      <span className="text-xs text-vpn-muted">
-                        No VPN connection
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div
-                  className="flex items-center gap-2 pt-3 border-t border-vpn-border"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    onClick={() =>
-                      navigate(`/o11/${encodeURIComponent(dep.name)}`)
-                    }
-                    className="p-2 rounded-lg text-vpn-muted hover:bg-vpn-input hover:text-white transition-all active:scale-90"
-                    title="Details"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  {isStopped && (
-                    <button
-                      onClick={() => handleAction(dep.name, "start")}
-                      disabled={!!actionLoading}
-                      className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90 disabled:opacity-50"
-                      title="Start"
-                    >
-                      <Play
-                        className={`w-4 h-4 ${actionLoading === `${dep.name}-start` ? "animate-pulse" : ""}`}
-                      />
-                    </button>
-                  )}
-                  {isRunning && (
-                    <button
-                      onClick={() => handleAction(dep.name, "stop")}
-                      disabled={!!actionLoading}
-                      className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90 disabled:opacity-50"
-                      title="Stop"
-                    >
-                      <Square
-                        className={`w-4 h-4 ${actionLoading === `${dep.name}-stop` ? "animate-pulse" : ""}`}
-                      />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleAction(dep.name, "restart")}
-                    disabled={!!actionLoading}
-                    className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90 disabled:opacity-50"
-                    title="Restart"
-                  >
-                    <RotateCcw
-                      className={`w-4 h-4 ${actionLoading === `${dep.name}-restart` ? "animate-spin" : ""}`}
-                    />
-                  </button>
-                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  {filteredContainers.filter((c) => c.vpn_parent).length}
+                </span>
               </div>
-            );
-          })}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredContainers
+                  .filter((c) => c.vpn_parent)
+                  .map((dep) => {
+                    const isRunning = ["running", "healthy"].includes(
+                      dep.status,
+                    );
+                    const isStopped = ["exited", "created", "dead"].includes(
+                      dep.status,
+                    );
+                    const parentInfo = getVpnInfoForParent(dep.vpn_parent);
+                    return renderContainerCard(
+                      dep,
+                      isRunning,
+                      isStopped,
+                      parentInfo,
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Non-VPN Containers */}
+          {filteredContainers.filter((c) => !c.vpn_parent).length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <Boxes className="w-5 h-5 text-vpn-muted" />
+                  <h2 className="text-lg font-semibold text-white">
+                    No VPN Connection
+                  </h2>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-vpn-input text-vpn-muted border border-vpn-border">
+                  {filteredContainers.filter((c) => !c.vpn_parent).length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredContainers
+                  .filter((c) => !c.vpn_parent)
+                  .map((dep) => {
+                    const isRunning = ["running", "healthy"].includes(
+                      dep.status,
+                    );
+                    const isStopped = ["exited", "created", "dead"].includes(
+                      dep.status,
+                    );
+                    return renderContainerCard(dep, isRunning, isStopped, null);
+                  })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

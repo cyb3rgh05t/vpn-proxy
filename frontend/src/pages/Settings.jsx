@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import {
   AlertCircle,
   CheckCircle,
@@ -19,6 +20,7 @@ import api from "../services/api";
 
 export default function Settings() {
   const { user, refreshUser } = useAuth();
+  const toast = useToast();
 
   // Docker socket
   const [dockerStatus, setDockerStatus] = useState(null);
@@ -76,8 +78,14 @@ export default function Settings() {
     try {
       const res = await api.get("/system/docker-status");
       setDockerStatus(res.data);
+      if (res.data.connected) {
+        toast.success("Docker connection successful");
+      } else {
+        toast.error(res.data.error || "Docker connection failed");
+      }
     } catch {
       setDockerStatus({ connected: false, error: "Failed to reach API" });
+      toast.error("Failed to reach API");
     } finally {
       setDockerTesting(false);
     }
@@ -103,6 +111,7 @@ export default function Settings() {
         password: usernamePassword,
       });
       setUsernameSuccess("Username changed successfully");
+      toast.success("Username changed successfully");
       setNewUsername("");
       setUsernamePassword("");
       await refreshUser();
@@ -111,6 +120,7 @@ export default function Settings() {
       setUsernameError(
         err.response?.data?.detail || "Failed to change username",
       );
+      toast.error(err.response?.data?.detail || "Failed to change username");
     } finally {
       setUsernameLoading(false);
     }
@@ -133,6 +143,7 @@ export default function Settings() {
         new_password: newPassword,
       });
       setPasswordSuccess("Password changed successfully");
+      toast.success("Password changed successfully");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -140,6 +151,7 @@ export default function Settings() {
       setPasswordError(
         err.response?.data?.detail || "Failed to change password",
       );
+      toast.error(err.response?.data?.detail || "Failed to change password");
     } finally {
       setPasswordLoading(false);
     }
@@ -153,11 +165,13 @@ export default function Settings() {
     try {
       await api.post("/auth/users", newUser);
       setUserSuccess("User created successfully");
+      toast.success("User created successfully");
       setNewUser({ username: "", password: "", is_admin: true });
       setShowCreateUser(false);
       fetchUsers();
     } catch (err) {
       setUserError(err.response?.data?.detail || "Failed to create user");
+      toast.error(err.response?.data?.detail || "Failed to create user");
     } finally {
       setUserLoading(false);
     }
@@ -167,6 +181,7 @@ export default function Settings() {
     if (!window.confirm(`Delete user "${username}"?`)) return;
     try {
       await api.delete(`/auth/users/${userId}`);
+      toast.success(`User "${username}" deleted`);
       fetchUsers();
     } catch (err) {
       setUserError(err.response?.data?.detail || "Failed to delete user");

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PlusCircle,
@@ -25,6 +25,7 @@ import {
   Image,
   Copy,
   Check,
+  Layers,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -94,19 +95,78 @@ export default function Dashboard() {
 
   const [actionLoading, setActionLoading] = useState("");
 
-  const running =
-    containers.filter((c) => ["running", "healthy"].includes(c.status)).length +
-    o11Containers.filter((c) => ["running", "healthy"].includes(c.status))
-      .length;
-  const unhealthy =
-    containers.filter((c) => ["unhealthy"].includes(c.status)).length +
-    o11Containers.filter((c) => ["unhealthy"].includes(c.status)).length;
-  const stopped =
-    containers.filter((c) => ["exited", "dead", "removed"].includes(c.status))
-      .length +
-    o11Containers.filter((c) =>
-      ["exited", "dead", "removed"].includes(c.status),
-    ).length;
+  // --- Gluetun stats ---
+  const gluetunRunning = containers.filter((c) =>
+    ["running", "healthy"].includes(c.status),
+  ).length;
+  const gluetunUnhealthy = containers.filter(
+    (c) => c.status === "unhealthy",
+  ).length;
+  const gluetunStopped = containers.filter((c) =>
+    ["exited", "dead", "removed"].includes(c.status),
+  ).length;
+
+  // --- O11 stats ---
+  const o11Running = o11Containers.filter((c) =>
+    ["running", "healthy"].includes(c.status),
+  ).length;
+  const o11Unhealthy = o11Containers.filter(
+    (c) => c.status === "unhealthy",
+  ).length;
+  const o11Stopped = o11Containers.filter((c) =>
+    ["exited", "dead", "removed"].includes(c.status),
+  ).length;
+
+  // --- Provider overview ---
+  const providerStats = useMemo(() => {
+    const map = {};
+    for (const c of containers) {
+      const p = c.vpn_provider || "unknown";
+      if (!map[p]) map[p] = { total: 0, connected: 0, types: new Set() };
+      map[p].total++;
+      if (c.vpn_type) map[p].types.add(c.vpn_type);
+      const info = vpnInfoMap[String(c.id)];
+      if (info?.vpn_status === "running") map[p].connected++;
+    }
+    return Object.entries(map)
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([name, data]) => ({
+        name,
+        ...data,
+        types: [...data.types],
+      }));
+  }, [containers, vpnInfoMap]);
+
+  // --- VPN connections overview ---
+  const vpnConnections = useMemo(() => {
+    return containers
+      .map((c) => {
+        const info = vpnInfoMap[String(c.id)];
+        const deps = depsMap[c.id] || [];
+        return {
+          id: c.id,
+          name: c.name,
+          provider: c.vpn_provider,
+          vpnType: c.vpn_type,
+          status: c.status,
+          vpnStatus: info?.vpn_status,
+          publicIp: info?.public_ip,
+          country: info?.country,
+          region: info?.region,
+          portForwarded: info?.port_forwarded,
+          location:
+            c.config?.SERVER_COUNTRIES ||
+            c.config?.SERVER_CITIES ||
+            c.config?.SERVER_REGIONS,
+          depCount: deps.length,
+        };
+      })
+      .filter(
+        (c) =>
+          ["running", "healthy", "unhealthy", "starting"].includes(c.status) &&
+          c.vpnStatus,
+      );
+  }, [containers, vpnInfoMap, depsMap]);
 
   const handleO11Action = async (name, action) => {
     setActionLoading(`o11-${name}-${action}`);
@@ -145,41 +205,6 @@ export default function Dashboard() {
     }
   };
 
-  const stats = [
-    {
-      label: "Total",
-      value: containers.length + o11Containers.length,
-      icon: Server,
-      color: "text-vpn-primary",
-      bg: "bg-vpn-primary/10",
-      filter: null,
-    },
-    {
-      label: "Running",
-      value: running,
-      icon: Activity,
-      color: "text-emerald-400",
-      bg: "bg-emerald-500/10",
-      filter: "running",
-    },
-    {
-      label: "Unhealthy",
-      value: unhealthy,
-      icon: HeartCrack,
-      color: "text-red-400",
-      bg: "bg-red-500/10",
-      filter: "unhealthy",
-    },
-    {
-      label: "Stopped",
-      value: stopped,
-      icon: AlertTriangle,
-      color: "text-amber-400",
-      bg: "bg-amber-500/10",
-      filter: "stopped",
-    },
-  ];
-
   const matchesFilter = (status) => {
     if (!statusFilter) return true;
     if (statusFilter === "running")
@@ -208,9 +233,29 @@ export default function Dashboard() {
         c.image?.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
+  const StatCard = ({ label, value, icon: Icon, color, bg, active, onClick }) => (
+    <div
+      onClick={onClick}
+      className={`bg-vpn-card border rounded-xl p-4 flex items-center gap-3 cursor-pointer transition-all hover:border-vpn-muted ${
+        active
+          ? "border-vpn-primary ring-1 ring-vpn-primary/30"
+          : "border-vpn-border"
+      }`}
+    >
+      <div className={`p-2.5 rounded-lg ${bg}`}>
+        <Icon className={`w-5 h-5 ${color}`} />
+      </div>
+      <div>
+        <p className="text-xl font-bold text-white">{value}</p>
+        <p className="text-xs text-vpn-muted">{label}</p>
+      </div>
+    </div>
+  );
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-vpn-muted mt-1">
@@ -263,30 +308,262 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        {stats.map(({ label, value, icon: Icon, color, bg, filter }) => (
-          <div
-            key={label}
-            onClick={() =>
-              setStatusFilter(statusFilter === filter ? null : filter)
-            }
-            className={`bg-vpn-card border rounded-xl p-5 flex items-center gap-4 cursor-pointer transition-all hover:border-vpn-muted ${
-              statusFilter === filter
-                ? "border-vpn-primary ring-1 ring-vpn-primary/30"
-                : "border-vpn-border"
-            }`}
-          >
-            <div className={`p-3 rounded-lg ${bg}`}>
-              <Icon className={`w-6 h-6 ${color}`} />
+      {/* Stats: Gluetun + O11 side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        {/* Gluetun Stats */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Shield className="w-4 h-4 text-vpn-primary" />
+            <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider">
+              Gluetun VPN
+            </h3>
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            <StatCard
+              label="Total"
+              value={containers.length}
+              icon={Server}
+              color="text-vpn-primary"
+              bg="bg-vpn-primary/10"
+              active={statusFilter === null}
+              onClick={() => setStatusFilter(null)}
+            />
+            <StatCard
+              label="Running"
+              value={gluetunRunning}
+              icon={Activity}
+              color="text-emerald-400"
+              bg="bg-emerald-500/10"
+              active={statusFilter === "running"}
+              onClick={() =>
+                setStatusFilter(statusFilter === "running" ? null : "running")
+              }
+            />
+            <StatCard
+              label="Unhealthy"
+              value={gluetunUnhealthy}
+              icon={HeartCrack}
+              color="text-red-400"
+              bg="bg-red-500/10"
+              active={statusFilter === "unhealthy"}
+              onClick={() =>
+                setStatusFilter(
+                  statusFilter === "unhealthy" ? null : "unhealthy",
+                )
+              }
+            />
+            <StatCard
+              label="Stopped"
+              value={gluetunStopped}
+              icon={AlertTriangle}
+              color="text-amber-400"
+              bg="bg-amber-500/10"
+              active={statusFilter === "stopped"}
+              onClick={() =>
+                setStatusFilter(statusFilter === "stopped" ? null : "stopped")
+              }
+            />
+          </div>
+        </div>
+
+        {/* O11 Stats */}
+        {o11Containers.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Boxes className="w-4 h-4 text-vpn-primary" />
+              <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider">
+                O11 Containers
+              </h3>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{value}</p>
-              <p className="text-sm text-vpn-muted">{label}</p>
+            <div className="grid grid-cols-4 gap-3">
+              <StatCard
+                label="Total"
+                value={o11Containers.length}
+                icon={Boxes}
+                color="text-vpn-primary"
+                bg="bg-vpn-primary/10"
+                active={false}
+                onClick={() => {}}
+              />
+              <StatCard
+                label="Running"
+                value={o11Running}
+                icon={Activity}
+                color="text-emerald-400"
+                bg="bg-emerald-500/10"
+                active={false}
+                onClick={() => {}}
+              />
+              <StatCard
+                label="Unhealthy"
+                value={o11Unhealthy}
+                icon={HeartCrack}
+                color="text-red-400"
+                bg="bg-red-500/10"
+                active={false}
+                onClick={() => {}}
+              />
+              <StatCard
+                label="Stopped"
+                value={o11Stopped}
+                icon={AlertTriangle}
+                color="text-amber-400"
+                bg="bg-amber-500/10"
+                active={false}
+                onClick={() => {}}
+              />
             </div>
           </div>
-        ))}
+        )}
       </div>
+
+      {/* Provider Overview + VPN Connections */}
+      {containers.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          {/* Provider Overview */}
+          <div className="bg-vpn-card border border-vpn-border rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Layers className="w-4 h-4 text-vpn-primary" />
+              <h3 className="text-sm font-semibold text-white">
+                VPN Providers
+              </h3>
+            </div>
+            {providerStats.length === 0 ? (
+              <p className="text-sm text-vpn-muted">No providers</p>
+            ) : (
+              <div className="space-y-3">
+                {providerStats.map((p) => (
+                  <div key={p.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                        <Shield className="w-4 h-4 text-purple-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-white font-medium capitalize truncate">
+                          {p.name}
+                        </p>
+                        <p className="text-[10px] text-vpn-muted">
+                          {p.types.join(", ")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs text-emerald-400 font-medium">
+                        {p.connected}/{p.total}
+                      </span>
+                      <div className="w-16 h-1.5 bg-vpn-input rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-500 rounded-full transition-all"
+                          style={{
+                            width: `${p.total > 0 ? (p.connected / p.total) * 100 : 0}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* VPN Connections Overview */}
+          <div className="lg:col-span-2 bg-vpn-card border border-vpn-border rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Globe className="w-4 h-4 text-vpn-primary" />
+              <h3 className="text-sm font-semibold text-white">
+                Active VPN Connections
+              </h3>
+              <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full ml-auto">
+                {vpnConnections.length} active
+              </span>
+            </div>
+            {vpnConnections.length === 0 ? (
+              <p className="text-sm text-vpn-muted py-4 text-center">
+                No active VPN connections
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[10px] text-vpn-muted uppercase tracking-wider border-b border-vpn-border">
+                      <th className="text-left pb-2 pr-4">Container</th>
+                      <th className="text-left pb-2 pr-4">Provider</th>
+                      <th className="text-left pb-2 pr-4">Status</th>
+                      <th className="text-left pb-2 pr-4">Public IP</th>
+                      <th className="text-left pb-2 pr-4">Location</th>
+                      <th className="text-right pb-2">Clients</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-vpn-border/50">
+                    {vpnConnections.map((conn) => (
+                      <tr
+                        key={conn.id}
+                        onClick={() => navigate(`/containers/${conn.id}`)}
+                        className="hover:bg-vpn-input/50 cursor-pointer transition-colors"
+                      >
+                        <td className="py-2.5 pr-4">
+                          <span className="text-white font-medium">
+                            {conn.name}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-4">
+                          <span className="text-xs text-purple-400 capitalize">
+                            {conn.provider}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-4">
+                          <span
+                            className={`inline-flex items-center gap-1 text-xs font-medium ${
+                              conn.vpnStatus === "running"
+                                ? "text-emerald-400"
+                                : "text-red-400"
+                            }`}
+                          >
+                            {conn.vpnStatus === "running" ? (
+                              <Wifi className="w-3 h-3" />
+                            ) : (
+                              <WifiOff className="w-3 h-3" />
+                            )}
+                            {conn.vpnStatus === "running"
+                              ? "Connected"
+                              : "Disconnected"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-4">
+                          <span className="text-xs text-vpn-primary font-mono">
+                            {conn.publicIp || "—"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-4">
+                          <span className="text-xs text-vpn-muted">
+                            {conn.country || conn.location || "—"}
+                            {conn.region && (
+                              <span className="text-vpn-muted/50">
+                                {" "}
+                                · {conn.region}
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-right">
+                          {conn.depCount > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-blue-400">
+                              <Network className="w-3 h-3" />
+                              {conn.depCount}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-vpn-muted">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative mb-6">

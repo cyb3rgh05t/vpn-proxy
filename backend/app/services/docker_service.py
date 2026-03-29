@@ -1344,7 +1344,7 @@ def discover_gluetun_containers() -> list[dict]:
             port_bindings = host_config.get("PortBindings", {}) or {}
             port_http_proxy = 8888
             port_shadowsocks = 8388
-            port_control = 8001
+            port_control = 8000
 
             for port_key, bindings in port_bindings.items():
                 if not bindings:

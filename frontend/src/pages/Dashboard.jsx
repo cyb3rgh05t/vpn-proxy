@@ -481,12 +481,12 @@ export default function Dashboard() {
                             : "bg-red-500"
                         }`}
                       />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-sm text-white font-semibold group-hover:text-vpn-primary transition-colors truncate block">
+                      <div className="min-w-0 flex-1 flex items-center gap-2">
+                        <span className="text-sm text-white font-semibold group-hover:text-vpn-primary transition-colors truncate">
                           {conn.name}
                         </span>
                         {conn.description && (
-                          <span className="text-[10px] text-vpn-muted truncate block">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20 truncate max-w-[200px]">
                             {conn.description}
                           </span>
                         )}

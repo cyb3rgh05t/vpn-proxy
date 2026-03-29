@@ -49,9 +49,11 @@ export function ContainerDataProvider({ children }) {
   }, []);
 
   const fetchAll = useCallback(async () => {
-    const [containerData, , allDeps] = await Promise.all([
+    // Fire vpn-info fetch independently (slow endpoint, don't block the rest)
+    fetchVpnInfo();
+
+    const [containerData, allDeps] = await Promise.all([
       fetchContainers(),
-      fetchVpnInfo(),
       fetchAllDependents(),
     ]);
 
@@ -81,7 +83,7 @@ export function ContainerDataProvider({ children }) {
     }
 
     setLoading(false);
-  }, [fetchContainers, fetchVpnInfo, fetchAllDependents]);
+  }, [fetchContainers, fetchAllDependents]);
 
   useEffect(() => {
     fetchAll();

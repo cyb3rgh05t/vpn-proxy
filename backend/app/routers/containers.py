@@ -1,6 +1,6 @@
 import logging
 import os
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from app.config import settings
@@ -187,7 +187,7 @@ def get_dependent_logs(
 @router.post("/dependents/{container_name}/network-mode")
 def change_dependent_network_mode(
     container_name: str,
-    body: dict,
+    body: dict = Body(...),
     current_user: User = Depends(get_current_user),
 ):
     """Change the network_mode of a container by recreating it."""

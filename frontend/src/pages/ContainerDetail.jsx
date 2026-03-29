@@ -16,6 +16,7 @@ import {
   Pencil,
   X,
   Save,
+  Plus,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -39,6 +40,7 @@ export default function ContainerDetail() {
   const initialLoad = useRef(true);
   const [editingConfig, setEditingConfig] = useState(false);
   const [editConfig, setEditConfig] = useState({});
+  const [editExtraPorts, setEditExtraPorts] = useState([]);
   const [redeploying, setRedeploying] = useState(false);
 
   const fetchContainer = useCallback(async () => {
@@ -172,6 +174,7 @@ export default function ContainerDetail() {
 
   const handleEditConfig = () => {
     setEditConfig({ ...(container.config || {}) });
+    setEditExtraPorts((container.extra_ports || []).map((ep) => ({ ...ep })));
     setEditingConfig(true);
   };
 
@@ -186,6 +189,7 @@ export default function ContainerDetail() {
     try {
       const res = await api.post(`/containers/${id}/redeploy`, {
         config: editConfig,
+        extra_ports: editExtraPorts.filter((ep) => ep.host && ep.container),
       });
       toast.success(res.data?.message || "Container redeployed");
       setEditingConfig(false);
@@ -419,7 +423,7 @@ export default function ContainerDetail() {
 
             <div>
               <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
-                Network
+                Ports & Network
               </h3>
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-vpn-input rounded-lg p-4">
@@ -427,11 +431,25 @@ export default function ContainerDetail() {
                   <p className="text-lg font-mono text-white">
                     :{container.port_http_proxy}
                   </p>
+                  <p className="text-[10px] text-vpn-muted mt-0.5">
+                    {container.config?.HTTPPROXY?.toLowerCase() === "on" ? (
+                      <span className="text-emerald-400">● enabled</span>
+                    ) : (
+                      <span className="text-vpn-muted/50">○ disabled</span>
+                    )}
+                  </p>
                 </div>
                 <div className="bg-vpn-input rounded-lg p-4">
                   <p className="text-xs text-vpn-muted mb-1">Shadowsocks</p>
                   <p className="text-lg font-mono text-white">
                     :{container.port_shadowsocks}
+                  </p>
+                  <p className="text-[10px] text-vpn-muted mt-0.5">
+                    {container.config?.SHADOWSOCKS?.toLowerCase() === "on" ? (
+                      <span className="text-emerald-400">● enabled</span>
+                    ) : (
+                      <span className="text-vpn-muted/50">○ disabled</span>
+                    )}
                   </p>
                 </div>
                 <div className="bg-vpn-input rounded-lg p-4">
@@ -439,22 +457,46 @@ export default function ContainerDetail() {
                   <p className="text-lg font-mono text-white">
                     :{container.port_control}
                   </p>
+                  <p className="text-[10px] text-vpn-muted mt-0.5">
+                    <span className="text-vpn-muted/50">internal only</span>
+                  </p>
                 </div>
               </div>
+              {container.network_name && (
+                <div className="mt-3">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-vpn-input text-vpn-muted border border-vpn-border/50">
+                    <Network className="w-3 h-3" />
+                    Network:{" "}
+                    <span className="text-white font-medium">
+                      {container.network_name}
+                    </span>
+                  </div>
+                </div>
+              )}
               {/* Extra Ports */}
               {container.extra_ports && container.extra_ports.length > 0 && (
                 <div className="mt-3">
                   <p className="text-xs text-vpn-muted mb-2">
-                    Additional Ports
+                    Additional Port Mappings
                   </p>
                   <div className="grid grid-cols-3 gap-3">
                     {container.extra_ports.map((ep, i) => (
-                      <div key={i} className="bg-vpn-input rounded-lg p-3">
-                        <p className="text-xs text-vpn-muted mb-1">
-                          {ep.protocol?.toUpperCase() || "TCP"}
-                        </p>
+                      <div
+                        key={i}
+                        className="bg-vpn-input rounded-lg p-3 border border-vpn-border/30"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase">
+                            {ep.protocol || "tcp"}
+                          </span>
+                        </div>
                         <p className="text-sm font-mono text-white">
-                          {ep.host} → {ep.container}
+                          <span className="text-vpn-primary">{ep.host}</span>
+                          <span className="text-vpn-muted mx-1">→</span>
+                          {ep.container}
+                        </p>
+                        <p className="text-[10px] text-vpn-muted mt-0.5">
+                          host → container
                         </p>
                       </div>
                     ))}
@@ -671,6 +713,87 @@ export default function ContainerDetail() {
               >
                 + Add Variable
               </button>
+
+              {/* Port Mappings */}
+              <div className="pt-4 border-t border-vpn-border">
+                <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
+                  Port Mappings
+                </h3>
+                <div className="space-y-2">
+                  {editExtraPorts.map((ep, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input
+                        type="number"
+                        value={ep.host || ""}
+                        onChange={(e) =>
+                          setEditExtraPorts((prev) =>
+                            prev.map((p, idx) =>
+                              idx === i ? { ...p, host: e.target.value } : p,
+                            ),
+                          )
+                        }
+                        placeholder="Host"
+                        className="w-24 bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
+                      />
+                      <span className="text-vpn-muted text-sm">→</span>
+                      <input
+                        type="number"
+                        value={ep.container || ""}
+                        onChange={(e) =>
+                          setEditExtraPorts((prev) =>
+                            prev.map((p, idx) =>
+                              idx === i
+                                ? { ...p, container: e.target.value }
+                                : p,
+                            ),
+                          )
+                        }
+                        placeholder="Container"
+                        className="w-24 bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
+                      />
+                      <select
+                        value={ep.protocol || "tcp"}
+                        onChange={(e) =>
+                          setEditExtraPorts((prev) =>
+                            prev.map((p, idx) =>
+                              idx === i
+                                ? { ...p, protocol: e.target.value }
+                                : p,
+                            ),
+                          )
+                        }
+                        className="bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-vpn-primary"
+                      >
+                        <option value="tcp">TCP</option>
+                        <option value="udp">UDP</option>
+                      </select>
+                      <button
+                        onClick={() =>
+                          setEditExtraPorts((prev) =>
+                            prev.filter((_, idx) => idx !== i),
+                          )
+                        }
+                        className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                        title="Remove"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setEditExtraPorts((prev) => [
+                        ...prev,
+                        { host: "", container: "", protocol: "tcp" },
+                      ])
+                    }
+                    className="w-full py-2 border border-dashed border-vpn-border rounded-lg text-sm text-vpn-muted hover:text-vpn-primary hover:border-vpn-primary transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Port Mapping
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 p-6 border-t border-vpn-border">

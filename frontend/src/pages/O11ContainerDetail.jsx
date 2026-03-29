@@ -50,6 +50,7 @@ export default function O11ContainerDetail() {
   const [newNetworkMode, setNewNetworkMode] = useState("");
   const [networkModeLoading, setNetworkModeLoading] = useState(false);
   const [gluetunContainers, setGluetunContainers] = useState([]);
+  const [dockerNetworks, setDockerNetworks] = useState([]);
 
   const fetchContainer = useCallback(async () => {
     try {
@@ -81,6 +82,15 @@ export default function O11ContainerDetail() {
       setGluetunContainers(Array.isArray(res.data) ? res.data : []);
     } catch {
       setGluetunContainers([]);
+    }
+  }, []);
+
+  const fetchDockerNetworks = useCallback(async () => {
+    try {
+      const res = await api.get("/containers/networks");
+      setDockerNetworks(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setDockerNetworks([]);
     }
   }, []);
 
@@ -129,6 +139,7 @@ export default function O11ContainerDetail() {
 
   const openNetworkModal = () => {
     fetchGluetunContainers();
+    fetchDockerNetworks();
     setNewNetworkMode(container?.network_mode || "");
     setShowNetworkModal(true);
   };
@@ -696,6 +707,39 @@ export default function O11ContainerDetail() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Docker networks */}
+                  {dockerNetworks.filter(
+                    (n) => !["bridge", "host", "none"].includes(n.name),
+                  ).length > 0 && (
+                    <div>
+                      <p className="text-xs text-vpn-muted mb-1.5">
+                        Docker networks:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {dockerNetworks
+                          .filter(
+                            (n) => !["bridge", "host", "none"].includes(n.name),
+                          )
+                          .map((net) => (
+                            <button
+                              key={net.name}
+                              onClick={() => setNewNetworkMode(net.name)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                newNetworkMode === net.name
+                                  ? "bg-vpn-primary text-black"
+                                  : "bg-vpn-input text-vpn-text hover:bg-vpn-border"
+                              }`}
+                            >
+                              {net.name}
+                              <span className="text-[9px] ml-1 opacity-60">
+                                ({net.driver})
+                              </span>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Manual input */}
                   <input

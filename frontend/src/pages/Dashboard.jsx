@@ -75,8 +75,12 @@ export default function Dashboard() {
           unhealthy: 0,
           types: new Set(),
           countries: new Set(),
+          cities: new Set(),
           proxyCount: 0,
           clientCount: 0,
+          portForwardCount: 0,
+          ips: new Set(),
+          serverLocations: new Set(),
         };
       map[p].total++;
       if (c.vpn_type) map[p].types.add(c.vpn_type);
@@ -85,6 +89,17 @@ export default function Dashboard() {
       if (["exited", "dead", "removed"].includes(c.status)) map[p].stopped++;
       if (c.status === "unhealthy") map[p].unhealthy++;
       if (info?.country) map[p].countries.add(info.country);
+      if (info?.region) map[p].cities.add(info.region);
+      if (info?.public_ip) map[p].ips.add(info.public_ip);
+      if (info?.port_forwarded) map[p].portForwardCount++;
+      if (c.config?.SERVER_COUNTRIES)
+        c.config.SERVER_COUNTRIES.split(",").forEach((s) => {
+          if (s.trim()) map[p].serverLocations.add(s.trim());
+        });
+      if (c.config?.SERVER_CITIES)
+        c.config.SERVER_CITIES.split(",").forEach((s) => {
+          if (s.trim()) map[p].serverLocations.add(s.trim());
+        });
       if (
         c.config?.HTTPPROXY?.toLowerCase() === "on" ||
         c.config?.SHADOWSOCKS?.toLowerCase() === "on"
@@ -100,6 +115,9 @@ export default function Dashboard() {
         ...data,
         types: [...data.types],
         countries: [...data.countries],
+        cities: [...data.cities],
+        ips: [...data.ips],
+        serverLocations: [...data.serverLocations],
       }));
   }, [containers, vpnInfoMap, depsMap]);
 
@@ -114,6 +132,7 @@ export default function Dashboard() {
         return {
           id: c.id,
           name: c.name,
+          description: c.description,
           provider: c.vpn_provider,
           vpnType: c.vpn_type,
           status: c.status,
@@ -381,6 +400,18 @@ export default function Dashboard() {
                           {p.clientCount}
                         </span>
                       )}
+                      {p.portForwardCount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20">
+                          <ArrowUpDown className="w-2.5 h-2.5" />
+                          {p.portForwardCount} forwarded
+                        </span>
+                      )}
+                      {p.ips.length > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <Globe className="w-2.5 h-2.5" />
+                          {p.ips.length} {p.ips.length === 1 ? "IP" : "IPs"}
+                        </span>
+                      )}
                       {p.unhealthy > 0 && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-red-500/10 text-red-400 border border-red-500/20">
                           <HeartCrack className="w-2.5 h-2.5" />
@@ -394,6 +425,24 @@ export default function Dashboard() {
                         </span>
                       )}
                     </div>
+                    {/* Server locations */}
+                    {p.serverLocations.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap mt-2 pt-2 border-t border-vpn-border/30">
+                        {p.serverLocations.slice(0, 6).map((loc) => (
+                          <span
+                            key={loc}
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] bg-vpn-input/70 text-vpn-muted"
+                          >
+                            {loc}
+                          </span>
+                        ))}
+                        {p.serverLocations.length > 6 && (
+                          <span className="text-[9px] text-vpn-muted">
+                            +{p.serverLocations.length - 6} more
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -432,10 +481,17 @@ export default function Dashboard() {
                             : "bg-red-500"
                         }`}
                       />
-                      <span className="text-sm text-white font-semibold group-hover:text-vpn-primary transition-colors truncate">
-                        {conn.name}
-                      </span>
-                      <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm text-white font-semibold group-hover:text-vpn-primary transition-colors truncate block">
+                          {conn.name}
+                        </span>
+                        {conn.description && (
+                          <span className="text-[10px] text-vpn-muted truncate block">
+                            {conn.description}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 capitalize">
                           {conn.provider}
                         </span>

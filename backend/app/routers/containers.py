@@ -58,6 +58,10 @@ def discover_and_import(
                 existing.container_id = info["container_id"]
                 existing.status = info["status"]
                 db.commit()
+            # Update network_name if not yet set
+            if not existing.network_name and info.get("network_name"):
+                existing.network_name = info["network_name"]
+                db.commit()
             skipped += 1
             continue
 
@@ -69,6 +73,7 @@ def discover_and_import(
             port_http_proxy=info["port_http_proxy"],
             port_shadowsocks=info["port_shadowsocks"],
             port_control=info["port_control"],
+            network_name=info.get("network_name"),
             container_id=info["container_id"],
             status=info["status"],
             created_by=current_user.id,

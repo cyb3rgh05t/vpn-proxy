@@ -1362,6 +1362,14 @@ def discover_gluetun_containers() -> list[dict]:
             # Build config dict from VPN-related env vars (whitelist only)
             vpn_config = {k: v for k, v in env_vars.items() if k in ALLOWED_CONFIG_KEYS}
 
+            # Detect network (use first non-default network, or None)
+            networks = attrs.get("NetworkSettings", {}).get("Networks", {})
+            detected_network = None
+            for net_name in networks:
+                if net_name not in ("bridge", "host", "none"):
+                    detected_network = net_name
+                    break
+
             discovered.append(
                 {
                     "name": display_name,
@@ -1373,6 +1381,7 @@ def discover_gluetun_containers() -> list[dict]:
                     "port_http_proxy": port_http_proxy,
                     "port_shadowsocks": port_shadowsocks,
                     "port_control": port_control,
+                    "network_name": detected_network,
                     "status": container.status,
                 }
             )

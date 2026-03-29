@@ -162,11 +162,11 @@ export default function WorldMap({ vpnConnections = [] }) {
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{
-            scale: 90,
-            center: [10, 45],
+            scale: 55,
+            center: [10, 20],
           }}
           width={900}
-          height={200}
+          height={160}
           style={{ width: "100%", height: "auto" }}
         >
           <ZoomableGroup>

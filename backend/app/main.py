@@ -7,8 +7,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.database import engine, Base, SessionLocal
 from app.models.vpn_container import VPNContainer
+from app.models.api_key import APIKey
 from app.services import docker_service
-from app.routers import auth, containers, system
+from app.routers import auth, containers, system, api_keys as api_keys_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -148,6 +149,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(containers.router)
 app.include_router(system.router)
+app.include_router(api_keys_router.router)
 
 
 @app.get("/api/health")

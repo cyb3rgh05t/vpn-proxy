@@ -15,6 +15,11 @@ import {
   HardDrive,
   Wifi,
   WifiOff,
+  Key,
+  Copy,
+  Plus,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import api from "../services/api";
 
@@ -54,11 +59,20 @@ export default function Settings() {
   const [userSuccess, setUserSuccess] = useState("");
   const [userLoading, setUserLoading] = useState(false);
 
+  // API Keys
+  const [apiKeys, setApiKeys] = useState([]);
+  const [showCreateKey, setShowCreateKey] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [createdKey, setCreatedKey] = useState(null);
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+  const [keyCopied, setKeyCopied] = useState(false);
+
   useEffect(() => {
     if (user?.is_admin) {
       fetchUsers();
     }
     fetchDockerStatus();
+    fetchApiKeys();
   }, [user]);
 
   const fetchDockerStatus = async () => {
@@ -186,6 +200,50 @@ export default function Settings() {
     } catch (err) {
       setUserError(err.response?.data?.detail || "Failed to delete user");
     }
+  };
+
+  // API Key handlers
+  const fetchApiKeys = async () => {
+    try {
+      const res = await api.get("/api-keys");
+      setApiKeys(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCreateApiKey = async (e) => {
+    e.preventDefault();
+    setApiKeyLoading(true);
+    setCreatedKey(null);
+    try {
+      const res = await api.post("/api-keys", { name: newKeyName });
+      setCreatedKey(res.data);
+      toast.success("API key created");
+      setNewKeyName("");
+      fetchApiKeys();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to create API key");
+    } finally {
+      setApiKeyLoading(false);
+    }
+  };
+
+  const handleRevokeApiKey = async (keyId, keyName) => {
+    if (!window.confirm(`Revoke API key "${keyName}"?`)) return;
+    try {
+      await api.delete(`/api-keys/${keyId}`);
+      toast.success(`API key "${keyName}" revoked`);
+      fetchApiKeys();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to revoke API key");
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    setKeyCopied(true);
+    setTimeout(() => setKeyCopied(false), 2000);
   };
 
   const inputClass =
@@ -354,6 +412,153 @@ export default function Settings() {
             )}
           </div>
         ) : null}
+      </div>
+
+      {/* API Keys */}
+      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Key className="w-5 h-5 text-vpn-primary" />
+            <div>
+              <h2 className="text-lg font-semibold text-white">API Keys</h2>
+              <p className="text-xs text-vpn-muted">
+                Use API keys to access the API from external tools without JWT
+                login
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setShowCreateKey(!showCreateKey);
+              setCreatedKey(null);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-primary hover:bg-vpn-primary-hover text-black text-sm font-medium rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Key
+          </button>
+        </div>
+
+        {/* Created Key Banner (shown once after creation) */}
+        {createdKey && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
+              <p className="text-sm font-medium text-emerald-400">
+                API Key created — copy it now, it won't be shown again!
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-vpn-bg px-3 py-2 rounded-lg text-vpn-primary text-sm font-mono break-all select-all">
+                {createdKey.key}
+              </code>
+              <button
+                onClick={() => copyToClipboard(createdKey.key)}
+                className="p-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors shrink-0"
+                title="Copy to clipboard"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+            {keyCopied && (
+              <p className="text-xs text-emerald-400 mt-1">
+                Copied to clipboard!
+              </p>
+            )}
+            <div className="mt-3 bg-vpn-bg/50 rounded-lg p-3">
+              <p className="text-xs text-vpn-muted mb-1">Usage example:</p>
+              <code className="text-xs text-vpn-text font-mono break-all">
+                curl http://your-host:5000/api/containers -H "X-API-Key:{" "}
+                {createdKey.key}"
+              </code>
+            </div>
+          </div>
+        )}
+
+        {/* Create Key Form */}
+        {showCreateKey && !createdKey && (
+          <form
+            onSubmit={handleCreateApiKey}
+            className="bg-vpn-input rounded-xl p-4 mb-4 space-y-3"
+          >
+            <div>
+              <label className="block text-xs font-medium text-vpn-muted mb-1">
+                Key Name
+              </label>
+              <input
+                type="text"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                className={inputClass}
+                required
+                maxLength={100}
+                placeholder='e.g. "Homarr Dashboard" or "Monitoring"'
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCreateKey(false)}
+                className="px-4 py-2 bg-vpn-border hover:bg-vpn-muted/30 text-vpn-text text-sm rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={apiKeyLoading}
+                className="px-4 py-2 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 text-black text-sm font-medium rounded-lg transition-colors"
+              >
+                {apiKeyLoading ? "Creating..." : "Generate Key"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Key List */}
+        {apiKeys.length === 0 ? (
+          <div className="text-center py-6 text-vpn-muted text-sm">
+            No API keys yet. Create one to access the API from external tools.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {apiKeys.map((k) => (
+              <div
+                key={k.id}
+                className="flex items-center justify-between bg-vpn-input rounded-lg px-4 py-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-vpn-primary/20 text-vpn-primary">
+                    <Key className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-medium">{k.name}</p>
+                    <p className="text-xs text-vpn-muted font-mono">
+                      {k.key_preview}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full ${
+                      k.is_active
+                        ? "bg-emerald-500/10 text-emerald-400"
+                        : "bg-red-500/10 text-red-400"
+                    }`}
+                  >
+                    {k.is_active ? "Active" : "Revoked"}
+                  </span>
+                  <button
+                    onClick={() => handleRevokeApiKey(k.id, k.name)}
+                    className="p-2 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    title="Revoke key"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* User Management (admin only) */}

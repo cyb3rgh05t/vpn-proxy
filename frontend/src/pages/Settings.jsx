@@ -240,10 +240,26 @@ export default function Settings() {
     }
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    setKeyCopied(true);
-    setTimeout(() => setKeyCopied(false), 2000);
+  const copyToClipboard = async (text) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setKeyCopied(true);
+      toast.success("API key copied to clipboard");
+      setTimeout(() => setKeyCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy to clipboard");
+    }
   };
 
   const inputClass =
@@ -454,22 +470,24 @@ export default function Settings() {
               </code>
               <button
                 onClick={() => copyToClipboard(createdKey.key)}
-                className="p-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors shrink-0"
+                className={`p-2 rounded-lg transition-colors shrink-0 ${
+                  keyCopied
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "bg-vpn-input hover:bg-vpn-border text-vpn-text"
+                }`}
                 title="Copy to clipboard"
               >
-                <Copy className="w-4 h-4" />
+                {keyCopied ? (
+                  <CheckCircle className="w-4 h-4" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
               </button>
             </div>
-            {keyCopied && (
-              <p className="text-xs text-emerald-400 mt-1">
-                Copied to clipboard!
-              </p>
-            )}
             <div className="mt-3 bg-vpn-bg/50 rounded-lg p-3">
               <p className="text-xs text-vpn-muted mb-1">Usage example:</p>
               <code className="text-xs text-vpn-text font-mono break-all">
-                curl http://your-host:5000/api/containers -H "X-API-Key:{" "}
-                {createdKey.key}"
+                {`curl http://your-host:5000/api/containers -H "X-API-Key: ${createdKey.key}"`}
               </code>
             </div>
           </div>

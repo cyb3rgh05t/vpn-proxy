@@ -62,7 +62,12 @@ export function ContainerDataProvider({ children }) {
     if (containerData?.length && allDeps.length) {
       const nameToId = {};
       for (const c of containerData) {
-        if (c.name) nameToId[c.name] = c.id;
+        // Map both vpn-proxy name and docker_name to DB id
+        if (c.name) {
+          nameToId[c.name] = c.id;
+          nameToId[`gluetun-${c.name}`] = c.id;
+        }
+        if (c.docker_name) nameToId[c.docker_name] = c.id;
       }
       const map = {};
       for (const dep of allDeps) {

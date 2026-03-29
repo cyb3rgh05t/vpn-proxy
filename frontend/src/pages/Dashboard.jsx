@@ -233,7 +233,15 @@ export default function Dashboard() {
         c.image?.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
-  const StatCard = ({ label, value, icon: Icon, color, bg, active, onClick }) => (
+  const StatCard = ({
+    label,
+    value,
+    icon: Icon,
+    color,
+    bg,
+    active,
+    onClick,
+  }) => (
     <div
       onClick={onClick}
       className={`bg-vpn-card border rounded-xl p-4 flex items-center gap-3 cursor-pointer transition-all hover:border-vpn-muted ${
@@ -433,7 +441,10 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {providerStats.map((p) => (
-                  <div key={p.name} className="flex items-center justify-between">
+                  <div
+                    key={p.name}
+                    className="flex items-center justify-between"
+                  >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
                         <Shield className="w-4 h-4 text-purple-400" />

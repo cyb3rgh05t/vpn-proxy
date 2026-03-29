@@ -426,6 +426,13 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* World Map */}
+      {vpnConnections.length > 0 && (
+        <div className="mb-6">
+          <WorldMap vpnConnections={vpnConnections} />
+        </div>
+      )}
+
       {/* Provider Overview + VPN Connections */}
       {containers.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -574,13 +581,6 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {/* World Map */}
-      {vpnConnections.length > 0 && (
-        <div className="mb-6">
-          <WorldMap vpnConnections={vpnConnections} />
         </div>
       )}
 

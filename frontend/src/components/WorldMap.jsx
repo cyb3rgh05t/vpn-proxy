@@ -149,11 +149,11 @@ export default function WorldMap({ vpnConnections = [] }) {
   }, [vpnConnections]);
 
   return (
-    <div className="bg-vpn-card border border-vpn-border rounded-xl p-5 relative">
-      <div className="flex items-center gap-2 mb-3">
-        <Globe className="w-4 h-4 text-vpn-primary" />
-        <h3 className="text-sm font-semibold text-white">VPN Connection Map</h3>
-        <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full ml-auto">
+    <div className="bg-vpn-card border border-vpn-border rounded-xl p-4 relative">
+      <div className="flex items-center gap-2 mb-2">
+        <Globe className="w-3.5 h-3.5 text-vpn-primary" />
+        <h3 className="text-xs font-semibold text-white">VPN Connection Map</h3>
+        <span className="text-[10px] text-vpn-muted bg-vpn-input px-1.5 py-0.5 rounded-full ml-auto">
           {markers.length} {markers.length === 1 ? "location" : "locations"}
         </span>
       </div>
@@ -162,11 +162,11 @@ export default function WorldMap({ vpnConnections = [] }) {
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{
-            scale: 130,
-            center: [10, 30],
+            scale: 110,
+            center: [10, 35],
           }}
           width={900}
-          height={420}
+          height={340}
           style={{ width: "100%", height: "auto" }}
         >
           <ZoomableGroup>
@@ -199,38 +199,38 @@ export default function WorldMap({ vpnConnections = [] }) {
               >
                 {/* Outer pulse ring */}
                 <circle
-                  r={10}
+                  r={8}
                   fill="rgba(216, 237, 24, 0.15)"
                   className="animate-ping"
                   style={{ animationDuration: "2s" }}
                 />
                 {/* Middle glow */}
-                <circle r={6} fill="rgba(216, 237, 24, 0.25)" />
+                <circle r={5} fill="rgba(216, 237, 24, 0.25)" />
                 {/* Inner dot */}
                 <circle
-                  r={3.5}
+                  r={3}
                   fill="#d8ed18"
                   stroke="#030303"
-                  strokeWidth={1}
+                  strokeWidth={0.8}
                   className="cursor-pointer"
                 />
                 {/* Connection count badge */}
                 {m.connections.length > 1 && (
                   <>
                     <circle
-                      cx={7}
-                      cy={-7}
-                      r={6}
+                      cx={6}
+                      cy={-6}
+                      r={5}
                       fill="#030303"
                       stroke="#d8ed18"
-                      strokeWidth={0.8}
+                      strokeWidth={0.7}
                     />
                     <text
-                      x={7}
-                      y={-4.5}
+                      x={6}
+                      y={-3.8}
                       textAnchor="middle"
                       style={{
-                        fontSize: "7px",
+                        fontSize: "6px",
                         fill: "#d8ed18",
                         fontWeight: 700,
                       }}
@@ -247,10 +247,10 @@ export default function WorldMap({ vpnConnections = [] }) {
 
       {/* Tooltip */}
       {tooltip && (
-        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 bg-vpn-card border border-vpn-border rounded-lg shadow-xl p-3 min-w-[200px]">
-          <div className="flex items-center gap-2 mb-2">
-            <MapPin className="w-3.5 h-3.5 text-vpn-primary" />
-            <span className="text-sm font-semibold text-white">
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-10 bg-vpn-card border border-vpn-border rounded-lg shadow-xl p-2.5 min-w-[180px]">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <MapPin className="w-3 h-3 text-vpn-primary" />
+            <span className="text-xs font-semibold text-white">
               {tooltip.country}
             </span>
           </div>
@@ -281,7 +281,7 @@ export default function WorldMap({ vpnConnections = [] }) {
 
       {/* Legend */}
       {markers.length > 0 && (
-        <div className="flex items-center justify-center gap-4 mt-3 text-[10px] text-vpn-muted">
+        <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-vpn-muted">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-vpn-primary" />
             <span>Active VPN</span>

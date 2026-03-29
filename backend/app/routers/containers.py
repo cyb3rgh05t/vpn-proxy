@@ -129,6 +129,26 @@ def debug_dependents():
     return docker_service.list_all_docker_containers_debug()
 
 
+@router.post("/dependents/{container_name}/network-mode")
+def change_dependent_network_mode(
+    container_name: str,
+    body: dict = Body(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Change the network_mode of a container by recreating it."""
+    new_network_mode = body.get("network_mode", "").strip()
+    if not new_network_mode:
+        raise HTTPException(status_code=400, detail="network_mode is required")
+    try:
+        result = docker_service.change_container_network_mode(
+            container_name, new_network_mode
+        )
+        return result
+    except Exception as e:
+        logger.error("Failed to change network_mode for %s: %s", container_name, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/dependents/{container_name}/{action}")
 def control_any_dependent(
     container_name: str,
@@ -181,26 +201,6 @@ def get_dependent_logs(
         logs = docker_service.get_container_logs(container_name)
         return {"logs": logs}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/dependents/{container_name}/network-mode")
-def change_dependent_network_mode(
-    container_name: str,
-    body: dict = Body(...),
-    current_user: User = Depends(get_current_user),
-):
-    """Change the network_mode of a container by recreating it."""
-    new_network_mode = body.get("network_mode", "").strip()
-    if not new_network_mode:
-        raise HTTPException(status_code=400, detail="network_mode is required")
-    try:
-        result = docker_service.change_container_network_mode(
-            container_name, new_network_mode
-        )
-        return result
-    except Exception as e:
-        logger.error("Failed to change network_mode for %s: %s", container_name, e)
         raise HTTPException(status_code=500, detail=str(e))
 
 

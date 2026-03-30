@@ -400,22 +400,22 @@ export default function WorldMap({ vpnConnections = [] }) {
 
                   {/* Connection count badge */}
                   {connCount > 1 && (
-                    <g transform="translate(8, -10)">
+                    <g transform="translate(10, -12)">
                       <rect
-                        x={-7}
-                        y={-6}
-                        width={14}
-                        height={12}
+                        x={-8}
+                        y={-7}
+                        width={16}
+                        height={14}
                         rx={4}
                         fill="#0a0a0a"
                         stroke="#d8ed18"
-                        strokeWidth={0.6}
+                        strokeWidth={0.8}
                       />
                       <text
                         textAnchor="middle"
-                        y={2.5}
+                        y={3}
                         style={{
-                          fontSize: "7px",
+                          fontSize: "9px",
                           fill: "#d8ed18",
                           fontWeight: 700,
                           fontFamily: "monospace",

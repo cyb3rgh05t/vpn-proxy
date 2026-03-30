@@ -5,8 +5,18 @@ import {
   Geography,
   Marker,
   Line,
+  ZoomableGroup,
 } from "react-simple-maps";
-import { Globe, MapPin, Shield, Wifi, Server } from "lucide-react";
+import {
+  Globe,
+  MapPin,
+  Shield,
+  Wifi,
+  Server,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+} from "lucide-react";
 
 // Country name → [latitude, longitude] centroid mapping
 const COUNTRY_COORDS = {
@@ -127,6 +137,19 @@ const GEO_URL =
 export default function WorldMap({ vpnConnections = [] }) {
   const [activeMarker, setActiveMarker] = useState(null);
   const [hoveredCountry, setHoveredCountry] = useState(null);
+  const [position, setPosition] = useState({ coordinates: [10, 20], zoom: 1 });
+
+  const handleZoomIn = useCallback(() => {
+    setPosition((pos) => ({ ...pos, zoom: Math.min(pos.zoom * 1.5, 8) }));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setPosition((pos) => ({ ...pos, zoom: Math.max(pos.zoom / 1.5, 1) }));
+  }, []);
+
+  const handleReset = useCallback(() => {
+    setPosition({ coordinates: [10, 20], zoom: 1 });
+  }, []);
 
   // Group connections by country
   const markers = useMemo(() => {
@@ -253,16 +276,19 @@ export default function WorldMap({ vpnConnections = [] }) {
           <div className="absolute top-0 right-0 bottom-0 w-6 bg-gradient-to-l from-vpn-card/60 to-transparent" />
         </div>
 
-        <div className="bg-vpn-bg">
+        <div
+          className="bg-vpn-bg"
+          style={{ height: "160px", overflow: "hidden" }}
+        >
           <ComposableMap
             projection="geoNaturalEarth1"
             projectionConfig={{
               scale: 140,
-              center: [10, 20],
+              center: [0, 0],
             }}
             width={900}
-            height={220}
-            style={{ width: "100%", height: "auto" }}
+            height={360}
+            style={{ width: "100%", height: "100%" }}
           >
             {/* SVG Defs for gradients and filters */}
             <defs>
@@ -305,130 +331,165 @@ export default function WorldMap({ vpnConnections = [] }) {
             </defs>
 
             {/* Background grid */}
-            <rect width="900" height="220" fill="url(#gridPattern)" />
+            <rect width="900" height="360" fill="url(#gridPattern)" />
 
-            <Geographies geography={GEO_URL}>
-              {({ geographies }) =>
-                geographies.map((geo) => {
-                  const active = isCountryActive(geo);
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      fill={active ? "rgba(216, 237, 24, 0.08)" : "#080808"}
-                      stroke={active ? "rgba(216, 237, 24, 0.25)" : "#151515"}
-                      strokeWidth={active ? 0.6 : 0.25}
+            <ZoomableGroup
+              zoom={position.zoom}
+              center={position.coordinates}
+              onMoveEnd={setPosition}
+              minZoom={1}
+              maxZoom={8}
+            >
+              <Geographies geography={GEO_URL}>
+                {({ geographies }) =>
+                  geographies.map((geo) => {
+                    const active = isCountryActive(geo);
+                    return (
+                      <Geography
+                        key={geo.rsmKey}
+                        geography={geo}
+                        fill={active ? "rgba(216, 237, 24, 0.08)" : "#080808"}
+                        stroke={active ? "rgba(216, 237, 24, 0.25)" : "#151515"}
+                        strokeWidth={active ? 0.6 : 0.25}
+                        style={{
+                          default: { outline: "none" },
+                          hover: {
+                            fill: active
+                              ? "rgba(216, 237, 24, 0.12)"
+                              : "#0c0c0c",
+                            stroke: active
+                              ? "rgba(216, 237, 24, 0.4)"
+                              : "#1a1a1a",
+                            strokeWidth: active ? 0.8 : 0.4,
+                            outline: "none",
+                          },
+                          pressed: { outline: "none" },
+                        }}
+                      />
+                    );
+                  })
+                }
+              </Geographies>
+
+              {/* Connection markers */}
+              {markers.map((m) => {
+                const isActive = activeMarker === m.country;
+                const connCount = m.connections.length;
+
+                return (
+                  <Marker
+                    key={m.country}
+                    coordinates={m.coords}
+                    onMouseEnter={() => setActiveMarker(m.country)}
+                    onMouseLeave={() => setActiveMarker(null)}
+                  >
+                    {/* Outer radar sweep */}
+                    <circle
+                      r={isActive ? 22 : 16}
+                      fill={
+                        isActive ? "url(#markerGlowHover)" : "url(#markerGlow)"
+                      }
                       style={{
-                        default: { outline: "none" },
-                        hover: {
-                          fill: active ? "rgba(216, 237, 24, 0.12)" : "#0c0c0c",
-                          stroke: active
-                            ? "rgba(216, 237, 24, 0.4)"
-                            : "#1a1a1a",
-                          strokeWidth: active ? 0.8 : 0.4,
-                          outline: "none",
-                        },
-                        pressed: { outline: "none" },
+                        transition: "r 0.3s ease",
                       }}
                     />
-                  );
-                })
-              }
-            </Geographies>
 
-            {/* Connection markers */}
-            {markers.map((m) => {
-              const isActive = activeMarker === m.country;
-              const connCount = m.connections.length;
+                    {/* Pulse ring animation */}
+                    <circle
+                      r={12}
+                      fill="none"
+                      stroke="rgba(216, 237, 24, 0.2)"
+                      strokeWidth={0.5}
+                      className="animate-ping"
+                      style={{
+                        animationDuration: "3s",
+                        transformOrigin: "center",
+                      }}
+                    />
 
-              return (
-                <Marker
-                  key={m.country}
-                  coordinates={m.coords}
-                  onMouseEnter={() => setActiveMarker(m.country)}
-                  onMouseLeave={() => setActiveMarker(null)}
-                >
-                  {/* Outer radar sweep */}
-                  <circle
-                    r={isActive ? 22 : 16}
-                    fill={
-                      isActive ? "url(#markerGlowHover)" : "url(#markerGlow)"
-                    }
-                    style={{
-                      transition: "r 0.3s ease",
-                    }}
-                  />
+                    {/* Middle ring */}
+                    <circle
+                      r={isActive ? 7 : 5.5}
+                      fill="rgba(216, 237, 24, 0.08)"
+                      stroke="rgba(216, 237, 24, 0.3)"
+                      strokeWidth={0.5}
+                      style={{ transition: "r 0.2s ease" }}
+                    />
 
-                  {/* Pulse ring animation */}
-                  <circle
-                    r={12}
-                    fill="none"
-                    stroke="rgba(216, 237, 24, 0.2)"
-                    strokeWidth={0.5}
-                    className="animate-ping"
-                    style={{
-                      animationDuration: "3s",
-                      transformOrigin: "center",
-                    }}
-                  />
+                    {/* Core dot */}
+                    <circle
+                      r={isActive ? 4 : 3}
+                      fill="#d8ed18"
+                      filter="url(#glow)"
+                      className="cursor-pointer"
+                      style={{ transition: "r 0.2s ease" }}
+                    />
 
-                  {/* Middle ring */}
-                  <circle
-                    r={isActive ? 7 : 5.5}
-                    fill="rgba(216, 237, 24, 0.08)"
-                    stroke="rgba(216, 237, 24, 0.3)"
-                    strokeWidth={0.5}
-                    style={{ transition: "r 0.2s ease" }}
-                  />
+                    {/* Inner bright spot */}
+                    <circle
+                      r={1.2}
+                      fill="#fff"
+                      opacity={isActive ? 0.9 : 0.6}
+                      style={{ transition: "opacity 0.2s ease" }}
+                    />
 
-                  {/* Core dot */}
-                  <circle
-                    r={isActive ? 4 : 3}
-                    fill="#d8ed18"
-                    filter="url(#glow)"
-                    className="cursor-pointer"
-                    style={{ transition: "r 0.2s ease" }}
-                  />
-
-                  {/* Inner bright spot */}
-                  <circle
-                    r={1.2}
-                    fill="#fff"
-                    opacity={isActive ? 0.9 : 0.6}
-                    style={{ transition: "opacity 0.2s ease" }}
-                  />
-
-                  {/* Connection count badge */}
-                  {connCount > 1 && (
-                    <g transform="translate(10, -12)">
-                      <rect
-                        x={-8}
-                        y={-7}
-                        width={16}
-                        height={14}
-                        rx={4}
-                        fill="#0a0a0a"
-                        stroke="#d8ed18"
-                        strokeWidth={0.8}
-                      />
-                      <text
-                        textAnchor="middle"
-                        y={3}
-                        style={{
-                          fontSize: "9px",
-                          fill: "#d8ed18",
-                          fontWeight: 700,
-                          fontFamily: "monospace",
-                        }}
-                      >
-                        {connCount}
-                      </text>
-                    </g>
-                  )}
-                </Marker>
-              );
-            })}
+                    {/* Connection count badge */}
+                    {connCount > 1 && (
+                      <g transform="translate(10, -12)">
+                        <rect
+                          x={-8}
+                          y={-7}
+                          width={16}
+                          height={14}
+                          rx={4}
+                          fill="#0a0a0a"
+                          stroke="#d8ed18"
+                          strokeWidth={0.8}
+                        />
+                        <text
+                          textAnchor="middle"
+                          y={3}
+                          style={{
+                            fontSize: "9px",
+                            fill: "#d8ed18",
+                            fontWeight: 700,
+                            fontFamily: "monospace",
+                          }}
+                        >
+                          {connCount}
+                        </text>
+                      </g>
+                    )}
+                  </Marker>
+                );
+              })}
+            </ZoomableGroup>
           </ComposableMap>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="absolute bottom-3 right-3 z-20 flex flex-col gap-1">
+          <button
+            onClick={handleZoomIn}
+            className="w-7 h-7 flex items-center justify-center bg-vpn-card/90 border border-vpn-border rounded-md text-vpn-muted hover:text-vpn-primary hover:border-vpn-primary transition-all"
+            title="Zoom in"
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleZoomOut}
+            className="w-7 h-7 flex items-center justify-center bg-vpn-card/90 border border-vpn-border rounded-md text-vpn-muted hover:text-vpn-primary hover:border-vpn-primary transition-all"
+            title="Zoom out"
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleReset}
+            className="w-7 h-7 flex items-center justify-center bg-vpn-card/90 border border-vpn-border rounded-md text-vpn-muted hover:text-vpn-primary hover:border-vpn-primary transition-all"
+            title="Reset view"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {/* Tooltip Overlay */}

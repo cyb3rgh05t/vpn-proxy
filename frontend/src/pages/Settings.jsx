@@ -20,12 +20,18 @@ import {
   Plus,
   Eye,
   EyeOff,
+  Lock,
+  UserCog,
+  Users,
+  Wrench,
 } from "lucide-react";
 import api from "../services/api";
 
 export default function Settings() {
   const { user, refreshUser } = useAuth();
   const toast = useToast();
+
+  const [settingsTab, setSettingsTab] = useState("system");
 
   // Docker socket
   const [dockerStatus, setDockerStatus] = useState(null);
@@ -291,559 +297,606 @@ export default function Settings() {
         </p>
       </div>
 
-      {/* Docker Socket Connection */}
-      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Container className="w-5 h-5 text-vpn-primary" />
-            <h2 className="text-lg font-semibold text-white">
-              Docker Socket Connection
-            </h2>
-          </div>
+      {/* Tab Navigation */}
+      <div className="inline-flex gap-1 bg-vpn-card border border-vpn-border rounded-xl p-1">
+        {[
+          { id: "system", label: "System", icon: Wrench },
+          { id: "users", label: "User Management", icon: Users },
+        ].map(({ id, label, icon: Icon }) => (
           <button
-            onClick={testDockerConnection}
-            disabled={dockerTesting}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text text-sm rounded-lg transition-all active:scale-95 disabled:opacity-50"
+            key={id}
+            onClick={() => setSettingsTab(id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              settingsTab === id
+                ? "bg-vpn-primary text-black"
+                : "text-vpn-muted hover:text-vpn-primary"
+            }`}
           >
-            <RefreshCw
-              className={`w-4 h-4 ${dockerTesting ? "animate-spin" : ""}`}
-            />
-            {dockerTesting ? "Testing..." : "Test Connection"}
+            <Icon className="w-4 h-4" />
+            {label}
           </button>
-        </div>
+        ))}
+      </div>
 
-        {dockerLoading && !dockerStatus ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-vpn-primary"></div>
-          </div>
-        ) : dockerStatus ? (
-          <div className="space-y-4">
-            {/* Connection Status Banner */}
-            <div
-              className={`flex items-center gap-3 p-4 rounded-xl ${
-                dockerStatus.connected
-                  ? "bg-emerald-500/10 border border-emerald-500/30"
-                  : "bg-red-500/10 border border-red-500/30"
-              }`}
-            >
-              {dockerStatus.connected ? (
-                <Wifi className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-              ) : (
-                <WifiOff className="w-5 h-5 text-red-400 flex-shrink-0" />
-              )}
-              <div>
-                <p
-                  className={`text-sm font-medium ${
-                    dockerStatus.connected ? "text-emerald-400" : "text-red-400"
-                  }`}
-                >
-                  {dockerStatus.connected
-                    ? "Connected to Docker"
-                    : "Docker Connection Failed"}
-                </p>
-                {dockerStatus.error && (
-                  <p className="text-xs text-red-400/80 mt-0.5">
-                    {dockerStatus.error}
-                  </p>
-                )}
-                {dockerStatus.socket && (
-                  <p className="text-xs text-vpn-muted mt-0.5 font-mono">
-                    {dockerStatus.socket}
-                  </p>
-                )}
+      {/* System Tab */}
+      {settingsTab === "system" && (
+        <div className="space-y-6">
+          {/* Docker Socket Connection */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Container className="w-5 h-5 text-vpn-primary" />
+                <h2 className="text-lg font-semibold text-white">
+                  Docker Socket Connection
+                </h2>
               </div>
+              <button
+                onClick={testDockerConnection}
+                disabled={dockerTesting}
+                className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 text-vpn-primary ${dockerTesting ? "animate-spin" : ""}`}
+                />
+                {dockerTesting ? "Testing..." : "Test Connection"}
+              </button>
             </div>
 
-            {/* Docker Info Grid */}
-            {dockerStatus.connected && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="bg-vpn-input rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Server className="w-3.5 h-3.5 text-vpn-muted" />
-                    <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
-                      Version
+            {dockerLoading && !dockerStatus ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-vpn-primary"></div>
+              </div>
+            ) : dockerStatus ? (
+              <div className="space-y-4">
+                {/* Connection Status Banner */}
+                <div
+                  className={`flex items-center gap-3 p-4 rounded-xl ${
+                    dockerStatus.connected
+                      ? "bg-emerald-500/10 border border-emerald-500/30"
+                      : "bg-red-500/10 border border-red-500/30"
+                  }`}
+                >
+                  {dockerStatus.connected ? (
+                    <Wifi className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                  ) : (
+                    <WifiOff className="w-5 h-5 text-red-400 flex-shrink-0" />
+                  )}
+                  <div>
+                    <p
+                      className={`text-sm font-medium ${
+                        dockerStatus.connected
+                          ? "text-emerald-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {dockerStatus.connected
+                        ? "Connected to Docker"
+                        : "Docker Connection Failed"}
                     </p>
+                    {dockerStatus.error && (
+                      <p className="text-xs text-red-400/80 mt-0.5">
+                        {dockerStatus.error}
+                      </p>
+                    )}
+                    {dockerStatus.socket && (
+                      <p className="text-xs text-vpn-muted mt-0.5 font-mono">
+                        {dockerStatus.socket}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-white font-medium text-sm">
-                    {dockerStatus.server_version || "—"}
+                </div>
+
+                {/* Docker Info Grid */}
+                {dockerStatus.connected && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div className="bg-vpn-input rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Server className="w-3.5 h-3.5 text-vpn-muted" />
+                        <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                          Version
+                        </p>
+                      </div>
+                      <p className="text-white font-medium text-sm">
+                        {dockerStatus.server_version || "—"}
+                      </p>
+                    </div>
+                    <div className="bg-vpn-input rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Cpu className="w-3.5 h-3.5 text-vpn-muted" />
+                        <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                          API
+                        </p>
+                      </div>
+                      <p className="text-white font-medium text-sm">
+                        {dockerStatus.api_version || "—"}
+                      </p>
+                    </div>
+                    <div className="bg-vpn-input rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <HardDrive className="w-3.5 h-3.5 text-vpn-muted" />
+                        <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                          OS / Arch
+                        </p>
+                      </div>
+                      <p
+                        className="text-white font-medium text-sm truncate"
+                        title={`${dockerStatus.os || "—"} ${dockerStatus.arch || ""}`}
+                      >
+                        {dockerStatus.os || "—"}{" "}
+                        <span className="text-vpn-muted text-xs">
+                          {dockerStatus.arch || ""}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="bg-vpn-input rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Container className="w-3.5 h-3.5 text-vpn-muted" />
+                        <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                          Containers
+                        </p>
+                      </div>
+                      <p className="text-white font-medium text-sm">
+                        <span className="text-emerald-400">
+                          {dockerStatus.containers_running ?? 0}
+                        </span>
+                        <span className="text-vpn-muted text-xs">
+                          {" "}
+                          / {dockerStatus.containers_total ?? 0}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="bg-vpn-input rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <HardDrive className="w-3.5 h-3.5 text-vpn-muted" />
+                        <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                          Images
+                        </p>
+                      </div>
+                      <p className="text-white font-medium text-sm">
+                        {dockerStatus.images ?? 0}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          {/* API Keys */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Key className="w-5 h-5 text-vpn-primary" />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">API Keys</h2>
+                  <p className="text-xs text-vpn-muted">
+                    Use API keys to access the API from external tools without
+                    JWT login
                   </p>
                 </div>
-                <div className="bg-vpn-input rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Cpu className="w-3.5 h-3.5 text-vpn-muted" />
-                    <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
-                      API
-                    </p>
-                  </div>
-                  <p className="text-white font-medium text-sm">
-                    {dockerStatus.api_version || "—"}
+              </div>
+              <button
+                onClick={() => {
+                  setShowCreateKey(!showCreateKey);
+                  setCreatedKey(null);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm"
+              >
+                <Plus className="w-4 h-4 text-vpn-primary" />
+                New Key
+              </button>
+            </div>
+
+            {/* Created Key Banner (shown once after creation) */}
+            {createdKey && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <p className="text-sm font-medium text-emerald-400">
+                    API Key created — copy it now, it won't be shown again!
                   </p>
                 </div>
-                <div className="bg-vpn-input rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <HardDrive className="w-3.5 h-3.5 text-vpn-muted" />
-                    <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
-                      OS / Arch
-                    </p>
-                  </div>
-                  <p
-                    className="text-white font-medium text-sm truncate"
-                    title={`${dockerStatus.os || "—"} ${dockerStatus.arch || ""}`}
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-vpn-bg px-3 py-2 rounded-lg text-vpn-primary text-sm font-mono break-all select-all">
+                    {createdKey.key}
+                  </code>
+                  <button
+                    onClick={() => copyToClipboard(createdKey.key)}
+                    className={`p-2 rounded-lg transition-colors shrink-0 ${
+                      keyCopied
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "bg-vpn-input hover:bg-vpn-border text-vpn-text"
+                    }`}
+                    title="Copy to clipboard"
                   >
-                    {dockerStatus.os || "—"}{" "}
-                    <span className="text-vpn-muted text-xs">
-                      {dockerStatus.arch || ""}
-                    </span>
-                  </p>
+                    {keyCopied ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
                 </div>
-                <div className="bg-vpn-input rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Container className="w-3.5 h-3.5 text-vpn-muted" />
-                    <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
-                      Containers
-                    </p>
-                  </div>
-                  <p className="text-white font-medium text-sm">
-                    <span className="text-emerald-400">
-                      {dockerStatus.containers_running ?? 0}
-                    </span>
-                    <span className="text-vpn-muted text-xs">
-                      {" "}
-                      / {dockerStatus.containers_total ?? 0}
-                    </span>
-                  </p>
-                </div>
-                <div className="bg-vpn-input rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <HardDrive className="w-3.5 h-3.5 text-vpn-muted" />
-                    <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
-                      Images
-                    </p>
-                  </div>
-                  <p className="text-white font-medium text-sm">
-                    {dockerStatus.images ?? 0}
-                  </p>
+                <div className="mt-3 bg-vpn-bg/50 rounded-lg p-3">
+                  <p className="text-xs text-vpn-muted mb-1">Usage example:</p>
+                  <code className="text-xs text-vpn-text font-mono break-all">
+                    {`curl http://your-host:5000/api/containers -H "X-API-Key: ${createdKey.key}"`}
+                  </code>
                 </div>
               </div>
             )}
-          </div>
-        ) : null}
-      </div>
 
-      {/* API Keys */}
-      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Key className="w-5 h-5 text-vpn-primary" />
-            <div>
-              <h2 className="text-lg font-semibold text-white">API Keys</h2>
-              <p className="text-xs text-vpn-muted">
-                Use API keys to access the API from external tools without JWT
-                login
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              setShowCreateKey(!showCreateKey);
-              setCreatedKey(null);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-primary hover:bg-vpn-primary-hover text-black text-sm font-medium rounded-lg transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Key
-          </button>
-        </div>
-
-        {/* Created Key Banner (shown once after creation) */}
-        {createdKey && (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 mb-4">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="w-4 h-4 text-emerald-400" />
-              <p className="text-sm font-medium text-emerald-400">
-                API Key created — copy it now, it won't be shown again!
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 bg-vpn-bg px-3 py-2 rounded-lg text-vpn-primary text-sm font-mono break-all select-all">
-                {createdKey.key}
-              </code>
-              <button
-                onClick={() => copyToClipboard(createdKey.key)}
-                className={`p-2 rounded-lg transition-colors shrink-0 ${
-                  keyCopied
-                    ? "bg-emerald-500/20 text-emerald-400"
-                    : "bg-vpn-input hover:bg-vpn-border text-vpn-text"
-                }`}
-                title="Copy to clipboard"
+            {/* Create Key Form */}
+            {showCreateKey && !createdKey && (
+              <form
+                onSubmit={handleCreateApiKey}
+                className="bg-vpn-input rounded-xl p-4 mb-4 space-y-3"
               >
-                {keyCopied ? (
-                  <CheckCircle className="w-4 h-4" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-            <div className="mt-3 bg-vpn-bg/50 rounded-lg p-3">
-              <p className="text-xs text-vpn-muted mb-1">Usage example:</p>
-              <code className="text-xs text-vpn-text font-mono break-all">
-                {`curl http://your-host:5000/api/containers -H "X-API-Key: ${createdKey.key}"`}
-              </code>
-            </div>
-          </div>
-        )}
-
-        {/* Create Key Form */}
-        {showCreateKey && !createdKey && (
-          <form
-            onSubmit={handleCreateApiKey}
-            className="bg-vpn-input rounded-xl p-4 mb-4 space-y-3"
-          >
-            <div>
-              <label className="block text-xs font-medium text-vpn-muted mb-1">
-                Key Name
-              </label>
-              <input
-                type="text"
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-                className={inputClass}
-                required
-                maxLength={100}
-                placeholder='e.g. "Homarr Dashboard" or "Monitoring"'
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCreateKey(false)}
-                className="px-4 py-2 bg-vpn-border hover:bg-vpn-muted/30 text-vpn-text text-sm rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={apiKeyLoading}
-                className="px-4 py-2 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 text-black text-sm font-medium rounded-lg transition-colors"
-              >
-                {apiKeyLoading ? "Creating..." : "Generate Key"}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Key List */}
-        {apiKeys.length === 0 ? (
-          <div className="text-center py-6 text-vpn-muted text-sm">
-            No API keys yet. Create one to access the API from external tools.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {apiKeys.map((k) => (
-              <div
-                key={k.id}
-                className="flex items-center justify-between bg-vpn-input rounded-lg px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-vpn-primary/20 text-vpn-primary">
-                    <Key className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-white text-sm font-medium">{k.name}</p>
-                    <p className="text-xs text-vpn-muted font-mono">
-                      {k.key_preview}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${
-                      k.is_active
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "bg-red-500/10 text-red-400"
-                    }`}
-                  >
-                    {k.is_active ? "Active" : "Revoked"}
-                  </span>
-                  <button
-                    onClick={() => handleRevokeApiKey(k.id, k.name)}
-                    className="p-2 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                    title="Revoke key"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* User Management (admin only) */}
-      {user?.is_admin && (
-        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">
-              User Management
-            </h2>
-            <button
-              onClick={() => setShowCreateUser(!showCreateUser)}
-              className="flex items-center gap-2 px-4 py-2 bg-vpn-primary hover:bg-vpn-primary-hover text-black text-sm font-medium rounded-lg transition-colors"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add User
-            </button>
-          </div>
-
-          {userError && <Alert type="error" message={userError} />}
-          {userSuccess && <Alert type="success" message={userSuccess} />}
-
-          {/* Create User Form */}
-          {showCreateUser && (
-            <form
-              onSubmit={handleCreateUser}
-              className="bg-vpn-input rounded-xl p-4 mb-4 space-y-3"
-            >
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-vpn-muted mb-1">
-                    Username
+                    Key Name
                   </label>
                   <input
                     type="text"
-                    value={newUser.username}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, username: e.target.value })
-                    }
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
                     className={inputClass}
                     required
-                    minLength={3}
-                    maxLength={50}
-                    placeholder="Username"
+                    maxLength={100}
+                    placeholder='e.g. "Homarr Dashboard" or "Monitoring"'
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-vpn-muted mb-1">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    value={newUser.password}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, password: e.target.value })
-                    }
-                    className={inputClass}
-                    required
-                    minLength={6}
-                    placeholder="Password"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm text-vpn-text cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newUser.is_admin}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, is_admin: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded border-vpn-border bg-vpn-input accent-vpn-primary"
-                  />
-                  Administrator
-                </label>
-                <div className="flex gap-2">
+                <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowCreateUser(false)}
+                    onClick={() => setShowCreateKey(false)}
                     className="px-4 py-2 bg-vpn-border hover:bg-vpn-muted/30 text-vpn-text text-sm rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={userLoading}
-                    className="px-4 py-2 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 text-black text-sm font-medium rounded-lg transition-colors"
+                    disabled={apiKeyLoading}
+                    className="px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm disabled:cursor-not-allowed"
                   >
-                    {userLoading ? "Creating..." : "Create User"}
+                    {apiKeyLoading ? "Creating..." : "Generate Key"}
                   </button>
                 </div>
-              </div>
-            </form>
-          )}
+              </form>
+            )}
 
-          {/* User List */}
-          <div className="space-y-2">
-            {users.map((u) => (
-              <div
-                key={u.id}
-                className="flex items-center justify-between bg-vpn-input rounded-lg px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      u.is_admin
-                        ? "bg-vpn-primary/20 text-vpn-primary"
-                        : "bg-vpn-border text-vpn-muted"
-                    }`}
-                  >
-                    {u.is_admin ? (
-                      <Shield className="w-4 h-4" />
-                    ) : (
-                      <User className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-white text-sm font-medium">
-                      {u.username}
-                      {u.id === user.id && (
-                        <span className="ml-2 text-xs text-vpn-muted">
-                          (you)
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-vpn-muted">
-                      {u.is_admin ? "Administrator" : "User"}
-                    </p>
-                  </div>
-                </div>
-                {u.id !== user.id && (
-                  <button
-                    onClick={() => handleDeleteUser(u.id, u.username)}
-                    className="p-2 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                    title="Delete user"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
+            {/* Key List */}
+            {apiKeys.length === 0 ? (
+              <div className="text-center py-6 text-vpn-muted text-sm">
+                No API keys yet. Create one to access the API from external
+                tools.
               </div>
-            ))}
+            ) : (
+              <div className="space-y-2">
+                {apiKeys.map((k) => (
+                  <div
+                    key={k.id}
+                    className="flex items-center justify-between bg-vpn-input rounded-lg px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-vpn-primary/20 text-vpn-primary">
+                        <Key className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-white text-sm font-medium">
+                          {k.name}
+                        </p>
+                        <p className="text-xs text-vpn-muted font-mono">
+                          {k.key_preview}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${
+                          k.is_active
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : "bg-red-500/10 text-red-400"
+                        }`}
+                      >
+                        {k.is_active ? "Active" : "Revoked"}
+                      </span>
+                      <button
+                        onClick={() => handleRevokeApiKey(k.id, k.name)}
+                        className="p-2 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Revoke key"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Account Info */}
-      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Account</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-vpn-input rounded-lg p-4">
-            <p className="text-xs text-vpn-muted mb-1">Username</p>
-            <p className="text-white font-medium">{user?.username}</p>
+      {/* User Management Tab */}
+      {settingsTab === "users" && (
+        <div className="space-y-6">
+          {/* Account Info */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Account</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-vpn-input rounded-lg p-4">
+                <p className="text-xs text-vpn-muted mb-1">Username</p>
+                <p className="text-white font-medium">{user?.username}</p>
+              </div>
+              <div className="bg-vpn-input rounded-lg p-4">
+                <p className="text-xs text-vpn-muted mb-1">Role</p>
+                <p className="text-white font-medium">
+                  {user?.is_admin ? "Administrator" : "User"}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="bg-vpn-input rounded-lg p-4">
-            <p className="text-xs text-vpn-muted mb-1">Role</p>
-            <p className="text-white font-medium">
-              {user?.is_admin ? "Administrator" : "User"}
-            </p>
+
+          {/* User List (admin only) */}
+          {user?.is_admin ? (
+            <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">
+                  User Management
+                </h2>
+                <button
+                  onClick={() => setShowCreateUser(!showCreateUser)}
+                  className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm"
+                >
+                  <UserPlus className="w-4 h-4 text-vpn-primary" />
+                  Add User
+                </button>
+              </div>
+
+              {userError && <Alert type="error" message={userError} />}
+              {userSuccess && <Alert type="success" message={userSuccess} />}
+
+              {showCreateUser && (
+                <form
+                  onSubmit={handleCreateUser}
+                  className="bg-vpn-input rounded-xl p-4 mb-4 space-y-3"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-vpn-muted mb-1">
+                        Username
+                      </label>
+                      <input
+                        type="text"
+                        value={newUser.username}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, username: e.target.value })
+                        }
+                        className={inputClass}
+                        required
+                        minLength={3}
+                        maxLength={50}
+                        placeholder="Username"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-vpn-muted mb-1">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        value={newUser.password}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, password: e.target.value })
+                        }
+                        className={inputClass}
+                        required
+                        minLength={6}
+                        placeholder="Password"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-sm text-vpn-text cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newUser.is_admin}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, is_admin: e.target.checked })
+                        }
+                        className="w-4 h-4 rounded border-vpn-border bg-vpn-input accent-vpn-primary"
+                      />
+                      Administrator
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateUser(false)}
+                        className="px-4 py-2 bg-vpn-border hover:bg-vpn-muted/30 text-vpn-text text-sm rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={userLoading}
+                        className="px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm disabled:cursor-not-allowed"
+                      >
+                        {userLoading ? "Creating..." : "Create User"}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              <div className="space-y-2">
+                {users.map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between bg-vpn-input rounded-lg px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          u.is_admin
+                            ? "bg-vpn-primary/20 text-vpn-primary"
+                            : "bg-vpn-border text-vpn-muted"
+                        }`}
+                      >
+                        {u.is_admin ? (
+                          <Shield className="w-4 h-4" />
+                        ) : (
+                          <User className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-white text-sm font-medium">
+                          {u.username}
+                          {u.id === user.id && (
+                            <span className="ml-2 text-xs text-vpn-muted">
+                              (you)
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-vpn-muted">
+                          {u.is_admin ? "Administrator" : "User"}
+                        </p>
+                      </div>
+                    </div>
+                    {u.id !== user.id && (
+                      <button
+                        onClick={() => handleDeleteUser(u.id, u.username)}
+                        className="p-2 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Delete user"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6 text-center">
+              <Users className="w-10 h-10 text-vpn-muted mx-auto mb-3 opacity-30" />
+              <p className="text-vpn-muted text-sm">
+                Only administrators can manage users.
+              </p>
+            </div>
+          )}
+
+          {/* Change Username */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">
+              Change Username
+            </h2>
+            {usernameError && <Alert type="error" message={usernameError} />}
+            {usernameSuccess && (
+              <Alert type="success" message={usernameSuccess} />
+            )}
+            <form onSubmit={handleChangeUsername} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                  New Username
+                </label>
+                <input
+                  type="text"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  className={inputClass}
+                  required
+                  minLength={3}
+                  maxLength={50}
+                  placeholder="Enter new username"
+                  autoComplete="username"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  value={usernamePassword}
+                  onChange={(e) => setUsernamePassword(e.target.value)}
+                  className={inputClass}
+                  required
+                  placeholder="Enter your password to confirm"
+                  autoComplete="current-password"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={usernameLoading}
+                className="flex items-center gap-2 px-6 py-2.5 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 text-vpn-text font-medium rounded-lg transition-all shadow-sm disabled:cursor-not-allowed"
+              >
+                <UserCog className="w-4 h-4 text-vpn-primary" />
+                {usernameLoading ? "Saving..." : "Change Username"}
+              </button>
+            </form>
+          </div>
+
+          {/* Change Password */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">
+              Change Password
+            </h2>
+            {passwordError && <Alert type="error" message={passwordError} />}
+            {passwordSuccess && (
+              <Alert type="success" message={passwordSuccess} />
+            )}
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className={inputClass}
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className={inputClass}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={inputClass}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="flex items-center gap-2 px-6 py-2.5 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 text-vpn-text font-medium rounded-lg transition-all shadow-sm disabled:cursor-not-allowed"
+              >
+                <Lock className="w-4 h-4 text-vpn-primary" />
+                {passwordLoading ? "Saving..." : "Change Password"}
+              </button>
+            </form>
           </div>
         </div>
-      </div>
-
-      {/* Change Username */}
-      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">
-          Change Username
-        </h2>
-        {usernameError && <Alert type="error" message={usernameError} />}
-        {usernameSuccess && <Alert type="success" message={usernameSuccess} />}
-        <form onSubmit={handleChangeUsername} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-              New Username
-            </label>
-            <input
-              type="text"
-              value={newUsername}
-              onChange={(e) => setNewUsername(e.target.value)}
-              className={inputClass}
-              required
-              minLength={3}
-              maxLength={50}
-              placeholder="Enter new username"
-              autoComplete="username"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              value={usernamePassword}
-              onChange={(e) => setUsernamePassword(e.target.value)}
-              className={inputClass}
-              required
-              placeholder="Enter your password to confirm"
-              autoComplete="current-password"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={usernameLoading}
-            className="px-6 py-2.5 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 text-black font-medium rounded-lg transition-colors"
-          >
-            {usernameLoading ? "Saving..." : "Change Username"}
-          </button>
-        </form>
-      </div>
-
-      {/* Change Password */}
-      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">
-          Change Password
-        </h2>
-        {passwordError && <Alert type="error" message={passwordError} />}
-        {passwordSuccess && <Alert type="success" message={passwordSuccess} />}
-        <form onSubmit={handleChangePassword} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-              Current Password
-            </label>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className={inputClass}
-              required
-              autoComplete="current-password"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-              New Password
-            </label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className={inputClass}
-              required
-              minLength={6}
-              autoComplete="new-password"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-              Confirm New Password
-            </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className={inputClass}
-              required
-              minLength={6}
-              autoComplete="new-password"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={passwordLoading}
-            className="px-6 py-2.5 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 text-black font-medium rounded-lg transition-colors"
-          >
-            {passwordLoading ? "Saving..." : "Change Password"}
-          </button>
-        </form>
-      </div>
+      )}
     </div>
   );
 }

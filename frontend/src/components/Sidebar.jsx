@@ -34,8 +34,8 @@ export default function Sidebar() {
   const linkClass = ({ isActive }) =>
     `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
       isActive
-        ? "bg-vpn-primary/20 text-vpn-primary border-r-2 border-vpn-primary"
-        : "text-vpn-muted hover:bg-vpn-input hover:text-white"
+        ? "bg-vpn-primary text-black font-semibold"
+        : "text-vpn-muted hover:text-vpn-primary"
     }`;
 
   const sidebarContent = (

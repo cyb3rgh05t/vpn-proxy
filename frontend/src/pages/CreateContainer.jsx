@@ -9,6 +9,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import api from "../services/api";
+import CustomDropdown from "../components/CustomDropdown";
 
 const WHITELISTED_KEYS = new Set([
   "PGID",
@@ -268,20 +269,18 @@ export default function CreateContainer() {
             </div>
             <div>
               <label className={labelClass}>Docker Network</label>
-              <select
+              <CustomDropdown
                 value={form.network_name}
-                onChange={(e) =>
-                  setForm({ ...form, network_name: e.target.value })
-                }
-                className={inputClass}
-              >
-                <option value="">Default (bridge)</option>
-                {networks.map((n) => (
-                  <option key={n.name} value={n.name}>
-                    {n.name} ({n.driver})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setForm({ ...form, network_name: val })}
+                placeholder="Default (bridge)"
+                options={[
+                  { value: "", label: "Default (bridge)" },
+                  ...networks.map((n) => ({
+                    value: n.name,
+                    label: `${n.name} (${n.driver})`,
+                  })),
+                ]}
+              />
               <p className="text-xs text-vpn-muted mt-1">
                 Select an existing Docker network for this container
               </p>
@@ -297,21 +296,18 @@ export default function CreateContainer() {
           <div className="space-y-4">
             <div>
               <label className={labelClass}>Provider</label>
-              <select
+              <CustomDropdown
                 value={form.vpn_provider}
-                onChange={(e) =>
-                  setForm({ ...form, vpn_provider: e.target.value })
-                }
-                className={inputClass}
+                onChange={(val) => {
+                  setForm({ ...form, vpn_provider: val });
+                }}
+                placeholder="Select a provider..."
                 required
-              >
-                <option value="">Select a provider...</option>
-                {providers.map((p) => (
-                  <option key={p.key} value={p.key}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                options={providers.map((p) => ({
+                  value: p.key,
+                  label: p.name,
+                }))}
+              />
             </div>
 
             {providerDetails && (
@@ -425,9 +421,9 @@ export default function CreateContainer() {
               <button
                 type="button"
                 onClick={addExtraPort}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 text-vpn-primary" />
                 Add Port
               </button>
             </div>
@@ -469,16 +465,15 @@ export default function CreateContainer() {
                       max="65535"
                     />
                   </div>
-                  <select
+                  <CustomDropdown
                     value={port.protocol}
-                    onChange={(e) =>
-                      updateExtraPort(index, "protocol", e.target.value)
-                    }
-                    className="px-3 py-2.5 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-vpn-primary"
-                  >
-                    <option value="tcp">TCP</option>
-                    <option value="udp">UDP</option>
-                  </select>
+                    onChange={(val) => updateExtraPort(index, "protocol", val)}
+                    className="w-24"
+                    options={[
+                      { value: "tcp", label: "TCP" },
+                      { value: "udp", label: "UDP" },
+                    ]}
+                  />
                   <button
                     type="button"
                     onClick={() => removeExtraPort(index)}
@@ -707,14 +702,20 @@ export default function CreateContainer() {
         )}
 
         {/* Submit */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3 bg-vpn-primary hover:bg-vpn-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-          {loading ? "Creating Container..." : "Create Container"}
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2.5 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 disabled:cursor-not-allowed text-vpn-text font-medium rounded-lg transition-all shadow-sm flex items-center gap-2"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 text-vpn-primary animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4 text-vpn-primary" />
+            )}
+            {loading ? "Creating Container..." : "Create Container"}
+          </button>
+        </div>
       </form>
     </div>
   );

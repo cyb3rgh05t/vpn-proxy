@@ -253,15 +253,15 @@ export default function WorldMap({ vpnConnections = [] }) {
           <div className="absolute top-0 right-0 bottom-0 w-6 bg-gradient-to-l from-vpn-card/60 to-transparent" />
         </div>
 
-        <div className="bg-[#050510]">
+        <div className="bg-vpn-bg">
           <ComposableMap
             projection="geoNaturalEarth1"
             projectionConfig={{
-              scale: 120,
+              scale: 105,
               center: [10, 10],
             }}
-            width={960}
-            height={420}
+            width={700}
+            height={300}
             style={{ width: "100%", height: "auto" }}
           >
             {/* SVG Defs for gradients and filters */}
@@ -298,14 +298,14 @@ export default function WorldMap({ vpnConnections = [] }) {
                 <path
                   d="M 20 0 L 0 0 0 20"
                   fill="none"
-                  stroke="rgba(216, 237, 24, 0.03)"
+                  stroke="rgba(216, 237, 24, 0.015)"
                   strokeWidth="0.5"
                 />
               </pattern>
             </defs>
 
             {/* Background grid */}
-            <rect width="960" height="420" fill="url(#gridPattern)" />
+            <rect width="700" height="300" fill="url(#gridPattern)" />
 
             <Geographies geography={GEO_URL}>
               {({ geographies }) =>
@@ -315,17 +315,17 @@ export default function WorldMap({ vpnConnections = [] }) {
                     <Geography
                       key={geo.rsmKey}
                       geography={geo}
-                      fill={active ? "rgba(216, 237, 24, 0.12)" : "#0d0d1a"}
-                      stroke={active ? "rgba(216, 237, 24, 0.35)" : "#1a1a2e"}
-                      strokeWidth={active ? 0.8 : 0.3}
+                      fill={active ? "rgba(216, 237, 24, 0.08)" : "#080808"}
+                      stroke={active ? "rgba(216, 237, 24, 0.25)" : "#151515"}
+                      strokeWidth={active ? 0.6 : 0.25}
                       style={{
                         default: { outline: "none" },
                         hover: {
-                          fill: active ? "rgba(216, 237, 24, 0.18)" : "#111125",
+                          fill: active ? "rgba(216, 237, 24, 0.12)" : "#0c0c0c",
                           stroke: active
-                            ? "rgba(216, 237, 24, 0.5)"
-                            : "#252540",
-                          strokeWidth: active ? 1 : 0.5,
+                            ? "rgba(216, 237, 24, 0.4)"
+                            : "#1a1a1a",
+                          strokeWidth: active ? 0.8 : 0.4,
                           outline: "none",
                         },
                         pressed: { outline: "none" },
@@ -497,7 +497,7 @@ export default function WorldMap({ vpnConnections = [] }) {
       </div>
 
       {/* Bottom Stats Bar */}
-      <div className="px-5 py-2.5 border-t border-vpn-border/50 bg-vpn-bg/30">
+      <div className="px-4 py-2 border-t border-vpn-border/50 bg-vpn-bg/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {markers.slice(0, 6).map((m) => (

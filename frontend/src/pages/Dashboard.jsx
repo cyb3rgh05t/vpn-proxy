@@ -198,10 +198,10 @@ export default function Dashboard() {
               }
             }}
             disabled={discovering}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Search
-              className={`w-4 h-4 ${discovering ? "animate-spin" : ""}`}
+              className={`w-4 h-4 text-vpn-primary ${discovering ? "animate-spin" : ""}`}
             />
             Discover
           </button>
@@ -212,18 +212,18 @@ export default function Dashboard() {
               setRefreshing(false);
             }}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw
-              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+              className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
             />
             Refresh
           </button>
           <button
             onClick={() => navigate("/create")}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-primary hover:bg-vpn-primary-hover text-black rounded-lg transition-all active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
           >
-            <PlusCircle className="w-4 h-4" />
+            <PlusCircle className="w-4 h-4 text-vpn-primary" />
             New Container
           </button>
         </div>

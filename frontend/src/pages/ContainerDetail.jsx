@@ -19,6 +19,7 @@ import {
   Plus,
 } from "lucide-react";
 import api from "../services/api";
+import CustomDropdown from "../components/CustomDropdown";
 import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../context/ToastContext";
 
@@ -281,10 +282,10 @@ export default function ContainerDetail() {
               setRefreshing(false);
             }}
             disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg text-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg text-sm transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw
-              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+              className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
             />
             Refresh
           </button>
@@ -292,10 +293,10 @@ export default function ContainerDetail() {
             <button
               onClick={() => handleAction("start")}
               disabled={!!actionLoading}
-              className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-emerald-400 text-vpn-text rounded-lg text-sm transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Play
-                className={`w-4 h-4 ${actionLoading === "start" ? "animate-pulse" : ""}`}
+                className={`w-4 h-4 text-emerald-400 ${actionLoading === "start" ? "animate-pulse" : ""}`}
               />
               Start
             </button>
@@ -304,10 +305,10 @@ export default function ContainerDetail() {
             <button
               onClick={() => handleAction("stop")}
               disabled={!!actionLoading}
-              className="flex items-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-amber-400 text-vpn-text rounded-lg text-sm transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Square
-                className={`w-4 h-4 ${actionLoading === "stop" ? "animate-pulse" : ""}`}
+                className={`w-4 h-4 text-amber-400 ${actionLoading === "stop" ? "animate-pulse" : ""}`}
               />
               Stop
             </button>
@@ -315,32 +316,32 @@ export default function ContainerDetail() {
           <button
             onClick={() => handleAction("restart")}
             disabled={!!actionLoading}
-            className="flex items-center gap-2 px-3 py-2 bg-vpn-primary/20 hover:bg-vpn-primary text-vpn-primary hover:text-black rounded-lg text-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg text-sm transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RotateCcw
-              className={`w-4 h-4 ${actionLoading === "restart" ? "animate-spin" : ""}`}
+              className={`w-4 h-4 text-vpn-primary ${actionLoading === "restart" ? "animate-spin" : ""}`}
             />
             Restart
           </button>
           <button
             onClick={handleExportCompose}
-            className="flex items-center gap-2 px-3 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg text-sm transition-all active:scale-95"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg text-sm transition-all shadow-sm"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-4 h-4 text-vpn-primary" />
             Export Compose
           </button>
           <button
             onClick={handleEditConfig}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white rounded-lg text-sm transition-all active:scale-95"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-blue-400 text-vpn-text rounded-lg text-sm transition-all shadow-sm"
           >
-            <Pencil className="w-4 h-4" />
+            <Pencil className="w-4 h-4 text-blue-400" />
             Edit & Redeploy
           </button>
           <button
             onClick={handleDelete}
-            className="flex items-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg text-sm transition-all active:scale-95 ml-auto"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-red-400 text-vpn-text rounded-lg text-sm transition-all shadow-sm ml-auto"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4 text-red-400" />
             Delete
           </button>
         </div>
@@ -638,9 +639,9 @@ export default function ContainerDetail() {
               </div>
               <button
                 onClick={fetchLogs}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
               >
-                <RefreshCw className="w-3 h-3" />
+                <RefreshCw className="w-3 h-3 text-vpn-primary" />
                 Refresh
               </button>
             </div>
@@ -751,22 +752,21 @@ export default function ContainerDetail() {
                         placeholder="Container"
                         className="w-24 bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
                       />
-                      <select
+                      <CustomDropdown
                         value={ep.protocol || "tcp"}
-                        onChange={(e) =>
+                        onChange={(val) =>
                           setEditExtraPorts((prev) =>
                             prev.map((p, idx) =>
-                              idx === i
-                                ? { ...p, protocol: e.target.value }
-                                : p,
+                              idx === i ? { ...p, protocol: val } : p,
                             ),
                           )
                         }
-                        className="bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-vpn-primary"
-                      >
-                        <option value="tcp">TCP</option>
-                        <option value="udp">UDP</option>
-                      </select>
+                        className="w-24"
+                        options={[
+                          { value: "tcp", label: "TCP" },
+                          { value: "udp", label: "UDP" },
+                        ]}
+                      />
                       <button
                         onClick={() =>
                           setEditExtraPorts((prev) =>
@@ -799,17 +799,17 @@ export default function ContainerDetail() {
             <div className="flex items-center justify-end gap-3 p-6 border-t border-vpn-border">
               <button
                 onClick={() => setEditingConfig(false)}
-                className="px-4 py-2 rounded-lg text-sm text-vpn-muted hover:text-white hover:bg-vpn-input transition-colors"
+                className="px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-muted text-vpn-text rounded-lg text-sm transition-all shadow-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRedeploy}
                 disabled={redeploying}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-blue-400 text-vpn-text rounded-lg text-sm font-medium transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Rocket
-                  className={`w-4 h-4 ${redeploying ? "animate-pulse" : ""}`}
+                  className={`w-4 h-4 text-blue-400 ${redeploying ? "animate-pulse" : ""}`}
                 />
                 {redeploying ? "Redeploying..." : "Save & Redeploy"}
               </button>

@@ -295,10 +295,10 @@ export default function O11() {
             setRefreshing(false);
           }}
           disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-all active:scale-95 disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RefreshCw
-            className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+            className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
           />
           Refresh
         </button>

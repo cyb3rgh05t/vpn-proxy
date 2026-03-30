@@ -278,7 +278,7 @@ export default function WorldMap({ vpnConnections = [] }) {
 
         <div
           className="bg-vpn-bg"
-          style={{ height: "360px", overflow: "hidden" }}
+          style={{ height: "425px", overflow: "hidden" }}
         >
           <ComposableMap
             projection="geoNaturalEarth1"

@@ -257,11 +257,11 @@ export default function WorldMap({ vpnConnections = [] }) {
           <ComposableMap
             projection="geoNaturalEarth1"
             projectionConfig={{
-              scale: 105,
-              center: [10, 10],
+              scale: 140,
+              center: [10, 20],
             }}
-            width={700}
-            height={300}
+            width={900}
+            height={220}
             style={{ width: "100%", height: "auto" }}
           >
             {/* SVG Defs for gradients and filters */}
@@ -305,7 +305,7 @@ export default function WorldMap({ vpnConnections = [] }) {
             </defs>
 
             {/* Background grid */}
-            <rect width="700" height="300" fill="url(#gridPattern)" />
+            <rect width="900" height="220" fill="url(#gridPattern)" />
 
             <Geographies geography={GEO_URL}>
               {({ geographies }) =>

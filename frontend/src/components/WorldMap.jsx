@@ -1,12 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   ComposableMap,
   Geographies,
   Geography,
   Marker,
-  ZoomableGroup,
+  Line,
 } from "react-simple-maps";
-import { Globe, MapPin } from "lucide-react";
+import { Globe, MapPin, Shield, Wifi, Server } from "lucide-react";
 
 // Country name → [latitude, longitude] centroid mapping
 const COUNTRY_COORDS = {
@@ -125,9 +125,10 @@ const GEO_URL =
   "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 export default function WorldMap({ vpnConnections = [] }) {
-  const [tooltip, setTooltip] = useState(null);
+  const [activeMarker, setActiveMarker] = useState(null);
+  const [hoveredCountry, setHoveredCountry] = useState(null);
 
-  // Group connections by country (deduplicate overlapping markers)
+  // Group connections by country
   const markers = useMemo(() => {
     const byCountry = {};
     for (const conn of vpnConnections) {
@@ -139,7 +140,7 @@ export default function WorldMap({ vpnConnections = [] }) {
       if (!byCountry[key]) {
         byCountry[key] = {
           country,
-          coords: [coords[1], coords[0]], // [lng, lat] for react-simple-maps
+          coords: [coords[1], coords[0]],
           connections: [],
         };
       }
@@ -148,148 +149,395 @@ export default function WorldMap({ vpnConnections = [] }) {
     return Object.values(byCountry);
   }, [vpnConnections]);
 
+  // Set of active country names for highlighting
+  const activeCountries = useMemo(() => {
+    const set = new Set();
+    markers.forEach((m) => {
+      set.add(m.country);
+      // Add common name variants
+      if (m.country === "United States") set.add("United States of America");
+      if (m.country === "US" || m.country === "USA")
+        set.add("United States of America");
+      if (m.country === "UK" || m.country === "United Kingdom")
+        set.add("United Kingdom");
+      if (m.country === "Czech Republic") set.add("Czechia");
+      if (m.country === "Czechia") set.add("Czech Republic");
+      if (m.country === "Russia") set.add("Russian Federation");
+      if (m.country === "Türkiye") set.add("Turkey");
+    });
+    return set;
+  }, [markers]);
+
+  const isCountryActive = useCallback(
+    (geo) => {
+      const name = geo.properties?.name || geo.properties?.NAME || "";
+      return activeCountries.has(name);
+    },
+    [activeCountries],
+  );
+
+  // Total unique IPs
+  const uniqueIps = useMemo(() => {
+    const ips = new Set();
+    vpnConnections.forEach((c) => c.publicIp && ips.add(c.publicIp));
+    return ips.size;
+  }, [vpnConnections]);
+
+  if (markers.length === 0) {
+    return (
+      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Globe className="w-4 h-4 text-vpn-primary" />
+          <h3 className="text-sm font-semibold text-white">
+            VPN Connection Map
+          </h3>
+        </div>
+        <div className="flex flex-col items-center justify-center py-8 text-vpn-muted">
+          <Globe className="w-10 h-10 mb-3 opacity-30" />
+          <p className="text-sm">No active VPN connections</p>
+          <p className="text-xs mt-1 opacity-60">
+            Start a container to see connections on the map
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-vpn-card border border-vpn-border rounded-xl p-4 relative">
-      <div className="flex items-center gap-2 mb-2">
-        <Globe className="w-3.5 h-3.5 text-vpn-primary" />
-        <h3 className="text-xs font-semibold text-white">VPN Connection Map</h3>
-        <span className="text-[10px] text-vpn-muted bg-vpn-input px-1.5 py-0.5 rounded-full ml-auto">
-          {markers.length} {markers.length === 1 ? "location" : "locations"}
-        </span>
+    <div className="bg-vpn-card border border-vpn-border rounded-2xl overflow-hidden">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-vpn-border/50">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-vpn-primary/10 flex items-center justify-center">
+            <Globe className="w-3.5 h-3.5 text-vpn-primary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white leading-none">
+              VPN Connection Map
+            </h3>
+            <p className="text-[10px] text-vpn-muted mt-0.5">
+              Real-time connection overview
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-vpn-bg/80 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] text-vpn-muted font-medium">
+              {markers.length} {markers.length === 1 ? "location" : "locations"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-vpn-bg/80 rounded-full">
+            <Shield className="w-2.5 h-2.5 text-vpn-primary" />
+            <span className="text-[10px] text-vpn-muted font-medium">
+              {uniqueIps} {uniqueIps === 1 ? "IP" : "IPs"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-vpn-bg/80 rounded-full">
+            <Server className="w-2.5 h-2.5 text-vpn-muted" />
+            <span className="text-[10px] text-vpn-muted font-medium">
+              {vpnConnections.length}{" "}
+              {vpnConnections.length === 1 ? "tunnel" : "tunnels"}
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-lg overflow-hidden bg-vpn-bg/50 border border-vpn-border/50">
-        <ComposableMap
-          projection="geoMercator"
-          projectionConfig={{
-            scale: 55,
-            center: [10, 20],
-          }}
-          width={900}
-          height={160}
-          style={{ width: "100%", height: "auto" }}
-        >
-          <ZoomableGroup>
+      {/* Map */}
+      <div className="relative">
+        {/* Gradient overlays for depth */}
+        <div className="absolute inset-0 pointer-events-none z-10">
+          <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-vpn-card/80 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-vpn-card/80 to-transparent" />
+          <div className="absolute top-0 left-0 bottom-0 w-6 bg-gradient-to-r from-vpn-card/60 to-transparent" />
+          <div className="absolute top-0 right-0 bottom-0 w-6 bg-gradient-to-l from-vpn-card/60 to-transparent" />
+        </div>
+
+        <div className="bg-[#050510]">
+          <ComposableMap
+            projection="geoNaturalEarth1"
+            projectionConfig={{
+              scale: 120,
+              center: [10, 10],
+            }}
+            width={960}
+            height={420}
+            style={{ width: "100%", height: "auto" }}
+          >
+            {/* SVG Defs for gradients and filters */}
+            <defs>
+              <radialGradient id="markerGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#d8ed18" stopOpacity="0.6" />
+                <stop offset="50%" stopColor="#d8ed18" stopOpacity="0.15" />
+                <stop offset="100%" stopColor="#d8ed18" stopOpacity="0" />
+              </radialGradient>
+              <radialGradient id="markerGlowHover" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#d8ed18" stopOpacity="0.8" />
+                <stop offset="50%" stopColor="#d8ed18" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="#d8ed18" stopOpacity="0" />
+              </radialGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#d8ed18" stopOpacity="0" />
+                <stop offset="50%" stopColor="#d8ed18" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#d8ed18" stopOpacity="0" />
+              </linearGradient>
+              {/* Grid pattern */}
+              <pattern
+                id="gridPattern"
+                width="20"
+                height="20"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M 20 0 L 0 0 0 20"
+                  fill="none"
+                  stroke="rgba(216, 237, 24, 0.03)"
+                  strokeWidth="0.5"
+                />
+              </pattern>
+            </defs>
+
+            {/* Background grid */}
+            <rect width="960" height="420" fill="url(#gridPattern)" />
+
             <Geographies geography={GEO_URL}>
               {({ geographies }) =>
-                geographies.map((geo) => (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    fill="#1a1a2e"
-                    stroke="#2a2a3e"
-                    strokeWidth={0.5}
-                    style={{
-                      default: { outline: "none" },
-                      hover: { fill: "#252540", outline: "none" },
-                      pressed: { outline: "none" },
-                    }}
-                  />
-                ))
+                geographies.map((geo) => {
+                  const active = isCountryActive(geo);
+                  return (
+                    <Geography
+                      key={geo.rsmKey}
+                      geography={geo}
+                      fill={active ? "rgba(216, 237, 24, 0.12)" : "#0d0d1a"}
+                      stroke={active ? "rgba(216, 237, 24, 0.35)" : "#1a1a2e"}
+                      strokeWidth={active ? 0.8 : 0.3}
+                      style={{
+                        default: { outline: "none" },
+                        hover: {
+                          fill: active ? "rgba(216, 237, 24, 0.18)" : "#111125",
+                          stroke: active
+                            ? "rgba(216, 237, 24, 0.5)"
+                            : "#252540",
+                          strokeWidth: active ? 1 : 0.5,
+                          outline: "none",
+                        },
+                        pressed: { outline: "none" },
+                      }}
+                    />
+                  );
+                })
               }
             </Geographies>
 
             {/* Connection markers */}
-            {markers.map((m) => (
-              <Marker
-                key={m.country}
-                coordinates={m.coords}
-                onMouseEnter={() => setTooltip(m)}
-                onMouseLeave={() => setTooltip(null)}
-              >
-                {/* Outer pulse ring */}
-                <circle
-                  r={8}
-                  fill="rgba(216, 237, 24, 0.15)"
-                  className="animate-ping"
-                  style={{ animationDuration: "2s" }}
-                />
-                {/* Middle glow */}
-                <circle r={5} fill="rgba(216, 237, 24, 0.25)" />
-                {/* Inner dot */}
-                <circle
-                  r={3}
-                  fill="#d8ed18"
-                  stroke="#030303"
-                  strokeWidth={0.8}
-                  className="cursor-pointer"
-                />
-                {/* Connection count badge */}
-                {m.connections.length > 1 && (
-                  <>
-                    <circle
-                      cx={6}
-                      cy={-6}
-                      r={5}
-                      fill="#030303"
-                      stroke="#d8ed18"
-                      strokeWidth={0.7}
-                    />
-                    <text
-                      x={6}
-                      y={-3.8}
-                      textAnchor="middle"
-                      style={{
-                        fontSize: "6px",
-                        fill: "#d8ed18",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {m.connections.length}
-                    </text>
-                  </>
-                )}
-              </Marker>
-            ))}
-          </ZoomableGroup>
-        </ComposableMap>
+            {markers.map((m) => {
+              const isActive = activeMarker === m.country;
+              const connCount = m.connections.length;
+
+              return (
+                <Marker
+                  key={m.country}
+                  coordinates={m.coords}
+                  onMouseEnter={() => setActiveMarker(m.country)}
+                  onMouseLeave={() => setActiveMarker(null)}
+                >
+                  {/* Outer radar sweep */}
+                  <circle
+                    r={isActive ? 22 : 16}
+                    fill={
+                      isActive ? "url(#markerGlowHover)" : "url(#markerGlow)"
+                    }
+                    style={{
+                      transition: "r 0.3s ease",
+                    }}
+                  />
+
+                  {/* Pulse ring animation */}
+                  <circle
+                    r={12}
+                    fill="none"
+                    stroke="rgba(216, 237, 24, 0.2)"
+                    strokeWidth={0.5}
+                    className="animate-ping"
+                    style={{
+                      animationDuration: "3s",
+                      transformOrigin: "center",
+                    }}
+                  />
+
+                  {/* Middle ring */}
+                  <circle
+                    r={isActive ? 7 : 5.5}
+                    fill="rgba(216, 237, 24, 0.08)"
+                    stroke="rgba(216, 237, 24, 0.3)"
+                    strokeWidth={0.5}
+                    style={{ transition: "r 0.2s ease" }}
+                  />
+
+                  {/* Core dot */}
+                  <circle
+                    r={isActive ? 4 : 3}
+                    fill="#d8ed18"
+                    filter="url(#glow)"
+                    className="cursor-pointer"
+                    style={{ transition: "r 0.2s ease" }}
+                  />
+
+                  {/* Inner bright spot */}
+                  <circle
+                    r={1.2}
+                    fill="#fff"
+                    opacity={isActive ? 0.9 : 0.6}
+                    style={{ transition: "opacity 0.2s ease" }}
+                  />
+
+                  {/* Connection count badge */}
+                  {connCount > 1 && (
+                    <g transform="translate(8, -10)">
+                      <rect
+                        x={-7}
+                        y={-6}
+                        width={14}
+                        height={12}
+                        rx={4}
+                        fill="#0a0a0a"
+                        stroke="#d8ed18"
+                        strokeWidth={0.6}
+                      />
+                      <text
+                        textAnchor="middle"
+                        y={2.5}
+                        style={{
+                          fontSize: "7px",
+                          fill: "#d8ed18",
+                          fontWeight: 700,
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        {connCount}
+                      </text>
+                    </g>
+                  )}
+                </Marker>
+              );
+            })}
+          </ComposableMap>
+        </div>
+
+        {/* Tooltip Overlay */}
+        {activeMarker && (
+          <div className="absolute top-4 right-4 z-20">
+            {markers
+              .filter((m) => m.country === activeMarker)
+              .map((m) => (
+                <div
+                  key={m.country}
+                  className="bg-vpn-card/95 backdrop-blur-md border border-vpn-border rounded-xl shadow-2xl shadow-black/40 overflow-hidden min-w-[220px]"
+                >
+                  {/* Tooltip header */}
+                  <div className="px-3.5 py-2.5 bg-vpn-primary/5 border-b border-vpn-border/50">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-vpn-primary" />
+                      <span className="text-sm font-semibold text-white">
+                        {m.country}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-vpn-muted mt-0.5 ml-5.5">
+                      {m.connections.length}{" "}
+                      {m.connections.length === 1
+                        ? "connection"
+                        : "connections"}
+                    </p>
+                  </div>
+
+                  {/* Connection list */}
+                  <div className="p-2.5 space-y-1.5 max-h-[200px] overflow-y-auto">
+                    {m.connections.map((conn) => (
+                      <div
+                        key={conn.id}
+                        className="flex items-center gap-2.5 px-2.5 py-2 bg-vpn-bg/50 rounded-lg"
+                      >
+                        <div className="relative flex-shrink-0">
+                          <span
+                            className={`block w-2 h-2 rounded-full ${
+                              conn.vpnStatus === "running"
+                                ? "bg-emerald-400"
+                                : "bg-red-400"
+                            }`}
+                          />
+                          {conn.vpnStatus === "running" && (
+                            <span className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-400 animate-ping opacity-40" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-white truncate leading-none">
+                            {conn.name}
+                          </p>
+                          <p className="text-[10px] text-vpn-muted mt-0.5 capitalize">
+                            {conn.provider} · {conn.vpnType || "—"}
+                          </p>
+                        </div>
+                        <span className="text-[11px] text-vpn-primary font-mono flex-shrink-0">
+                          {conn.publicIp || "—"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
       </div>
 
-      {/* Tooltip */}
-      {tooltip && (
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-10 bg-vpn-card border border-vpn-border rounded-lg shadow-xl p-2.5 min-w-[180px]">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <MapPin className="w-3 h-3 text-vpn-primary" />
-            <span className="text-xs font-semibold text-white">
-              {tooltip.country}
-            </span>
-          </div>
-          <div className="space-y-1.5">
-            {tooltip.connections.map((conn) => (
-              <div
-                key={conn.id}
-                className="flex items-center justify-between gap-4 text-xs"
+      {/* Bottom Stats Bar */}
+      <div className="px-5 py-2.5 border-t border-vpn-border/50 bg-vpn-bg/30">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {markers.slice(0, 6).map((m) => (
+              <button
+                key={m.country}
+                onMouseEnter={() => setActiveMarker(m.country)}
+                onMouseLeave={() => setActiveMarker(null)}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
+                  activeMarker === m.country
+                    ? "bg-vpn-primary/10 text-vpn-primary"
+                    : "text-vpn-muted hover:text-vpn-text hover:bg-vpn-input"
+                }`}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                      conn.vpnStatus === "running"
-                        ? "bg-emerald-400"
-                        : "bg-red-400"
-                    }`}
-                  />
-                  <span className="text-vpn-text truncate">{conn.name}</span>
-                </div>
-                <span className="text-vpn-primary font-mono flex-shrink-0">
-                  {conn.publicIp || "—"}
-                </span>
-              </div>
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    activeMarker === m.country
+                      ? "bg-vpn-primary"
+                      : "bg-vpn-muted"
+                  }`}
+                />
+                <span className="font-medium">{m.country}</span>
+                {m.connections.length > 1 && (
+                  <span className="text-[9px] opacity-60">
+                    ×{m.connections.length}
+                  </span>
+                )}
+              </button>
             ))}
+            {markers.length > 6 && (
+              <span className="text-[10px] text-vpn-muted">
+                +{markers.length - 6} more
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-vpn-muted">
+            <Wifi className="w-3 h-3 text-emerald-400" />
+            <span>All tunnels secured</span>
           </div>
         </div>
-      )}
-
-      {/* Legend */}
-      {markers.length > 0 && (
-        <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-vpn-muted">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-vpn-primary" />
-            <span>Active VPN</span>
-          </div>
-          <span className="text-vpn-border">|</span>
-          <span>Hover markers for details</span>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

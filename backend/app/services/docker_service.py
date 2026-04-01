@@ -76,8 +76,12 @@ ALLOWED_CONFIG_KEYS = {
 
 
 def filter_config(config: dict) -> dict:
-    """Filter config dict to only include whitelisted env var keys."""
-    return {k: v for k, v in config.items() if k in ALLOWED_CONFIG_KEYS}
+    """Filter config dict to include all whitelisted env var keys, showing empty for unset ones."""
+    result = {k: "" for k in ALLOWED_CONFIG_KEYS}
+    for k, v in config.items():
+        if k in ALLOWED_CONFIG_KEYS:
+            result[k] = v or ""
+    return result
 
 
 def _get_client():

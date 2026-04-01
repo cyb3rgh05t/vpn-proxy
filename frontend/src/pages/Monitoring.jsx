@@ -114,7 +114,9 @@ function NetworkUsageGrid({
                 className={`inline-flex items-center gap-1.5 text-sm font-bold ${row.mbps > 0 ? "text-green-400" : "text-red-400"}`}
               >
                 <Gauge className="w-3.5 h-3.5" />
-                {row.mbpsFormatted || "—"}
+                {row.mbpsFormatted
+                  ? row.mbpsFormatted.replace("Mbps", " Mbps")
+                  : "—"}
               </span>
             </div>
 
@@ -340,7 +342,9 @@ export default function Monitoring() {
             Bandwidth In
           </div>
           <p className="text-2xl font-bold text-green-400">
-            {monitorData?.TotalBwIn || "—"}
+            {monitorData?.TotalBwIn
+              ? monitorData.TotalBwIn.replace("Mbps", " Mbps")
+              : "—"}
           </p>
         </div>
         <div className="bg-vpn-card border border-vpn-border rounded-xl p-4">
@@ -349,7 +353,9 @@ export default function Monitoring() {
             Bandwidth Out
           </div>
           <p className="text-2xl font-bold text-blue-400">
-            {monitorData?.TotalBwOut || "—"}
+            {monitorData?.TotalBwOut
+              ? monitorData.TotalBwOut.replace("Mbps", " Mbps")
+              : "—"}
           </p>
         </div>
         <div className="bg-vpn-card border border-vpn-border rounded-xl p-4">
@@ -539,7 +545,7 @@ export default function Monitoring() {
                               const parts = (r.Bw || "").split("/");
                               return (
                                 <span className="font-medium text-green-400">
-                                  {parts[0] || "—"}
+                                  {parts[0] ? `${parts[0]} Mbps` : "—"}
                                 </span>
                               );
                             })()}
@@ -549,7 +555,9 @@ export default function Monitoring() {
                               const parts = (r.Bw || "").split("/");
                               return (
                                 <span className="font-medium text-blue-400">
-                                  {parts[1] || "—"}
+                                  {parts[1]
+                                    ? parts[1].replace("Mbps", " Mbps")
+                                    : "—"}
                                 </span>
                               );
                             })()}

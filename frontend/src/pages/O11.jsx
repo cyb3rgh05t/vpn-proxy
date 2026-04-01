@@ -359,7 +359,10 @@ export default function O11() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">O11 Overview</h1>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+            <Boxes className="w-7 h-7 text-vpn-primary" />
+            O11 Overview
+          </h1>
           <p className="text-vpn-muted mt-1">Your o11 Pro containers</p>
         </div>
         <button

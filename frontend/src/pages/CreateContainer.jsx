@@ -10,6 +10,7 @@ import {
   Upload,
   File,
   X,
+  PlusCircle,
 } from "lucide-react";
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
@@ -271,7 +272,8 @@ export default function CreateContainer() {
         Back to Dashboard
       </button>
 
-      <h1 className="text-2xl font-bold text-white mb-2">
+      <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
+        <PlusCircle className="w-7 h-7 text-vpn-primary" />
         Create VPN Container
       </h1>
       <p className="text-vpn-muted mb-6">

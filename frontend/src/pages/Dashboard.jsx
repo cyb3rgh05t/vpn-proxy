@@ -19,6 +19,7 @@ import {
   MapPin,
   Users,
   ChevronRight,
+  LayoutDashboard,
 } from "lucide-react";
 import api from "../services/api";
 import WorldMap from "../components/WorldMap";
@@ -178,7 +179,10 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+            <LayoutDashboard className="w-7 h-7 text-vpn-primary" />
+            Dashboard
+          </h1>
           <p className="text-vpn-muted mt-1">
             Manage your Gluetun VPN containers
           </p>

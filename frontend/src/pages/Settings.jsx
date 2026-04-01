@@ -26,6 +26,7 @@ import {
   Users,
   Wrench,
   Activity,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import api from "../services/api";
 
@@ -362,7 +363,10 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white mb-2">Settings</h1>
+        <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
+          <SettingsIcon className="w-7 h-7 text-vpn-primary" />
+          Settings
+        </h1>
         <p className="text-vpn-muted">
           Manage your account and system settings
         </p>

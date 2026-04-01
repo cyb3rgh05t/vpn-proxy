@@ -121,7 +121,10 @@ export default function VpnProxy() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">VPN-PROXY</h1>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+            <Shield className="w-7 h-7 text-vpn-primary" />
+            VPN-PROXY
+          </h1>
           <p className="text-vpn-muted mt-1">
             All managed Gluetun VPN containers
           </p>

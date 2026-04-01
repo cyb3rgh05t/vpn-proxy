@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Activity,
   RefreshCw,
@@ -7,7 +7,6 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Search,
-  Radio,
   Wifi,
   AlertTriangle,
   Tv,
@@ -36,10 +35,9 @@ function bwColorClass(color) {
   }
 }
 
-function NetworkUsageTable({ usage }) {
-  const [expandedRows, setExpandedRows] = useState({});
+function NetworkUsageGrid({ usage }) {
+  const [expandedCards, setExpandedCards] = useState({});
 
-  // Flatten all proxy entries across categories into table rows
   const rows = [];
   for (const cat of CATEGORIES) {
     const proxy = usage[cat]?.Proxy || {};
@@ -48,13 +46,15 @@ function NetworkUsageTable({ usage }) {
         category: cat,
         url,
         streams: info?.Streams || [],
+        maxStreams: info?.MaxStreams || 0,
         mbps: info?.Mbps || 0,
         mbpsFormatted: info?.MbpsFormatted || "",
       });
     }
   }
 
-  const toggleRow = (key) => setExpandedRows((p) => ({ ...p, [key]: !p[key] }));
+  const toggleCard = (key) =>
+    setExpandedCards((p) => ({ ...p, [key]: !p[key] }));
 
   const catColors = {
     Script: "text-blue-400 bg-blue-400/10 border-blue-400/30",
@@ -72,95 +72,92 @@ function NetworkUsageTable({ usage }) {
   }
 
   return (
-    <div className="bg-vpn-card border border-vpn-border rounded-xl overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-vpn-border bg-vpn-input/30">
-              <th className="px-4 py-3 text-left text-vpn-muted font-medium w-28">
-                Category
-              </th>
-              <th className="px-4 py-3 text-left text-vpn-muted font-medium">
-                Proxy URL
-              </th>
-              <th className="px-4 py-3 text-center text-vpn-muted font-medium w-24">
-                Streams
-              </th>
-              <th className="px-4 py-3 text-right text-vpn-muted font-medium w-28">
-                Bandwidth
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const rowKey = `${row.category}-${row.url}`;
-              const expanded = expandedRows[rowKey];
-              const streamCount = row.streams.length;
-              return (
-                <Fragment key={rowKey}>
-                  <tr
-                    className="border-b border-vpn-border/50 hover:bg-white/[0.02] transition-colors cursor-pointer"
-                    onClick={() => streamCount > 0 && toggleRow(rowKey)}
-                  >
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${catColors[row.category]}`}
-                      >
-                        {row.category}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-vpn-primary font-mono text-xs">
-                        {row.url}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center gap-1.5">
-                        {streamCount > 0 &&
-                          (expanded ? (
-                            <ChevronUp className="w-3.5 h-3.5 text-vpn-muted" />
-                          ) : (
-                            <ChevronDown className="w-3.5 h-3.5 text-vpn-muted" />
-                          ))}
-                        <span className="bg-vpn-primary/15 text-vpn-primary text-xs font-bold px-2 py-0.5 rounded-full min-w-[24px]">
-                          {streamCount}
-                        </span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {row.mbpsFormatted ? (
-                        <span
-                          className={`font-medium text-xs ${row.mbps > 0 ? "text-green-400" : "text-red-400"}`}
-                        >
-                          {row.mbpsFormatted}
-                        </span>
-                      ) : (
-                        <span className="text-vpn-muted text-xs">—</span>
-                      )}
-                    </td>
-                  </tr>
-                  {expanded && streamCount > 0 && (
-                    <tr className="border-b border-vpn-border/30">
-                      <td colSpan={4} className="px-6 py-3 bg-vpn-input/20">
-                        <div className="flex flex-wrap gap-2">
-                          {row.streams.map((s, i) => (
-                            <span
-                              key={i}
-                              className="text-xs text-vpn-text bg-vpn-input px-2.5 py-1 rounded border border-vpn-border/50"
-                            >
-                              {s}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {rows.map((row) => {
+        const key = `${row.category}-${row.url}`;
+        const expanded = expandedCards[key];
+        const streamCount = row.streams.length;
+        return (
+          <div
+            key={key}
+            className="bg-vpn-card border border-vpn-border rounded-xl p-4 hover:border-vpn-primary/30 transition-colors"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${catColors[row.category]}`}
+              >
+                {row.category}
+              </span>
+              {row.mbpsFormatted ? (
+                <span
+                  className={`text-sm font-bold ${row.mbps > 0 ? "text-green-400" : "text-red-400"}`}
+                >
+                  {row.mbpsFormatted}
+                </span>
+              ) : (
+                <span className="text-vpn-muted text-sm">—</span>
+              )}
+            </div>
+
+            <p
+              className="text-vpn-primary font-mono text-xs truncate mb-3"
+              title={row.url}
+            >
+              {row.url}
+            </p>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div>
+                  <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                    Streams
+                  </p>
+                  <p className="text-sm font-bold text-white">{streamCount}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                    Max
+                  </p>
+                  <p className="text-sm font-bold text-white">
+                    {row.maxStreams}
+                  </p>
+                </div>
+              </div>
+              {streamCount > 0 && (
+                <button
+                  onClick={() => toggleCard(key)}
+                  className="flex items-center gap-1 text-xs text-vpn-muted hover:text-vpn-primary transition-colors"
+                >
+                  {expanded ? (
+                    <>
+                      Hide <ChevronUp className="w-3.5 h-3.5" />
+                    </>
+                  ) : (
+                    <>
+                      Show <ChevronDown className="w-3.5 h-3.5" />
+                    </>
                   )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                </button>
+              )}
+            </div>
+
+            {expanded && streamCount > 0 && (
+              <div className="mt-3 pt-3 border-t border-vpn-border/50">
+                <div className="flex flex-wrap gap-1.5">
+                  {row.streams.map((s, i) => (
+                    <span
+                      key={i}
+                      className="text-xs text-vpn-text bg-vpn-input px-2 py-1 rounded border border-vpn-border/50"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -279,31 +276,16 @@ export default function Monitoring() {
           <Activity className="w-7 h-7 text-vpn-primary" />
           Monitoring
         </h1>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              autoRefresh
-                ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                : "bg-vpn-input text-vpn-muted border border-vpn-border"
-            }`}
-          >
-            <Radio
-              className={`w-4 h-4 inline mr-1.5 ${autoRefresh ? "animate-pulse" : ""}`}
-            />
-            Live
-          </button>
-          <button
-            onClick={() => fetchData()}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-input border border-vpn-border text-vpn-text rounded-lg hover:border-vpn-primary/50 transition-colors"
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </button>
-        </div>
+        <button
+          onClick={() => fetchData()}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RefreshCw
+            className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
+          />
+          Refresh
+        </button>
       </div>
 
       {/* System Stats */}
@@ -395,7 +377,7 @@ export default function Monitoring() {
                 />
               </div>
             </div>
-            <NetworkUsageTable usage={usage} />
+            <NetworkUsageGrid usage={usage} />
           </div>
         )}
 

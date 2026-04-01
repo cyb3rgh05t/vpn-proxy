@@ -767,7 +767,9 @@ export default function ContainerDetail() {
                     <input
                       type="number"
                       value={editHttpPort}
-                      onChange={(e) => setEditHttpPort(parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setEditHttpPort(parseInt(e.target.value) || 0)
+                      }
                       className="w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
                       min="1024"
                       max="65535"
@@ -780,7 +782,9 @@ export default function ContainerDetail() {
                     <input
                       type="number"
                       value={editShadowsocksPort}
-                      onChange={(e) => setEditShadowsocksPort(parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setEditShadowsocksPort(parseInt(e.target.value) || 0)
+                      }
                       className="w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
                       min="1024"
                       max="65535"

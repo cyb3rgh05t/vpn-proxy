@@ -163,7 +163,7 @@ function NetworkUsageGrid({
                       title={`Restart ${match.name}`}
                     >
                       <RotateCcw
-                        className={`w-3 h-3 ${restartingIp === ip ? "animate-spin" : ""}`}
+                        className={`w-3 h-3 text-vpn-primary ${restartingIp === ip ? "animate-spin" : ""}`}
                       />
                       {match.name}
                     </button>

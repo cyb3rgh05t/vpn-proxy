@@ -375,6 +375,7 @@ def get_container(
             status_info = docker_service.get_container_status(c.container_id)
             data.status = status_info["status"]
             data.docker_name = status_info.get("docker_name")
+            data.ip_address = status_info.get("ip_address")
             # If container was removed/replaced, try to find it by name/label
             if status_info["status"] in ("removed", "error"):
                 found = docker_service.find_container_by_name(c.name)

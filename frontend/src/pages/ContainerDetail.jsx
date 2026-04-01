@@ -19,6 +19,8 @@ import {
   Plus,
   Upload,
   File,
+  Copy,
+  Check,
 } from "lucide-react";
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
@@ -53,6 +55,32 @@ export default function ContainerDetail() {
   const [configFiles, setConfigFiles] = useState([]);
   const [uploadingConfig, setUploadingConfig] = useState(false);
   const configFileInputRef = useRef(null);
+  const [copiedUrl, setCopiedUrl] = useState(null);
+
+  const copyToClipboard = useCallback(
+    (url) => {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        setCopiedUrl(url);
+        toast.success("URL copied!");
+        setTimeout(() => setCopiedUrl(null), 2000);
+      } catch {
+        toast.error("Failed to copy URL");
+      }
+    },
+    [toast],
+  );
 
   const fetchContainer = useCallback(async () => {
     try {
@@ -500,15 +528,76 @@ export default function ContainerDetail() {
               <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
                 Ports & Network
               </h3>
+              {/* Proxy URLs */}
+              {container.config?.HTTPPROXY?.toLowerCase() === "on" && (() => {
+                const internalPort = container.port_http_proxy || 8888;
+                const user = container.config?.HTTPPROXY_USER;
+                const pass = container.config?.HTTPPROXY_PASSWORD;
+                const auth = user && pass ? `${user}:${pass}@` : "";
+                const authDisplay = user && pass ? `${user}:***@` : "";
+                const ip = container.ip_address || "<ip>";
+                const internalUrl = `http://${auth}${ip}:${internalPort}`;
+                const proxyMapping = container.extra_ports?.find(
+                  (ep) => parseInt(ep.container) === internalPort
+                );
+                const externalPort = proxyMapping ? parseInt(proxyMapping.host) : null;
+                const serverIp = window.location.hostname;
+                const externalUrl = externalPort
+                  ? `http://${auth}${serverIp}:${externalPort}`
+                  : null;
+
+                return (
+                  <div className="bg-vpn-input rounded-lg p-4 mb-4 space-y-2">
+                    <p className="text-xs text-vpn-muted mb-1 flex items-center gap-1.5">
+                      HTTP Proxy
+                      <span className="text-emerald-400 text-[10px]">● enabled</span>
+                    </p>
+                    <div
+                      className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/int"
+                      onClick={() => copyToClipboard(internalUrl)}
+                    >
+                      <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
+                        Internal
+                      </span>
+                      <p className="text-xs text-emerald-400/80 font-mono truncate flex-1">
+                        http://{authDisplay}{ip}:{internalPort}
+                      </p>
+                      {copiedUrl === internalUrl ? (
+                        <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
+                      )}
+                    </div>
+                    {externalUrl && (
+                      <div
+                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ext"
+                        onClick={() => copyToClipboard(externalUrl)}
+                      >
+                        <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
+                          External
+                        </span>
+                        <p className="text-xs text-blue-400/80 font-mono truncate flex-1">
+                          http://{authDisplay}{serverIp}:{externalPort}
+                        </p>
+                        {copiedUrl === externalUrl ? (
+                          <Check className="w-3 h-3 text-blue-400 shrink-0" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-vpn-input rounded-lg p-4">
-                  <p className="text-xs text-vpn-muted mb-1">HTTP Proxy</p>
+                  <p className="text-xs text-vpn-muted mb-1">HTTP Proxy Port</p>
                   <p className="text-lg font-mono text-white">
                     :{container.port_http_proxy}
                   </p>
                   <p className="text-[10px] text-vpn-muted mt-0.5">
                     {container.config?.HTTPPROXY?.toLowerCase() === "on" ? (
-                      <span className="text-emerald-400">● enabled</span>
+                      <span className="text-emerald-400">● internal</span>
                     ) : (
                       <span className="text-vpn-muted/50">○ disabled</span>
                     )}
@@ -825,7 +914,7 @@ export default function ContainerDetail() {
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
                     <label className="text-xs text-vpn-muted font-mono block mb-1">
-                      HTTP Proxy Port
+                      Internal Proxy Port
                     </label>
                     <input
                       type="number"

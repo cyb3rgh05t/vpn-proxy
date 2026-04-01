@@ -230,41 +230,75 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
 
       {/* Ports & Network */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        {container.config?.HTTPPROXY?.toLowerCase() === "on" && (
-          <div
-            className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 cursor-pointer hover:border-emerald-500/30 transition-colors group/proxy"
-            onClick={(e) => {
-              e.stopPropagation();
-              const user = container.config?.HTTPPROXY_USER;
-              const pass = container.config?.HTTPPROXY_PASSWORD;
-              const auth = user && pass ? `${user}:${pass}@` : "";
-              const ip = container.ip_address || "<ip>";
-              const url = `http://${auth}${ip}:${container.port_http_proxy}`;
-              copyToClipboard(url);
-            }}
-            title="Click to copy proxy URL"
-          >
-            <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5 flex items-center gap-1">
-              HTTP Proxy
-              {copiedUrl?.includes(`:${container.port_http_proxy}`) ? (
-                <Check className="w-2.5 h-2.5 text-emerald-400" />
-              ) : (
-                <Copy className="w-2.5 h-2.5 opacity-0 group-hover/proxy:opacity-100 transition-opacity" />
-              )}
-            </p>
-            <p className="text-sm text-vpn-text font-mono">
-              :{container.port_http_proxy}
-            </p>
-            {container.ip_address && (
-              <p className="text-[9px] text-emerald-400/70 font-mono mt-0.5 truncate">
-                {container.config?.HTTPPROXY_USER &&
-                container.config?.HTTPPROXY_PASSWORD
-                  ? `http://${container.config.HTTPPROXY_USER}:***@${container.ip_address}:${container.port_http_proxy}`
-                  : `http://${container.ip_address}:${container.port_http_proxy}`}
+        {container.config?.HTTPPROXY?.toLowerCase() === "on" && (() => {
+          const internalPort = container.port_http_proxy || 8888;
+          const user = container.config?.HTTPPROXY_USER;
+          const pass = container.config?.HTTPPROXY_PASSWORD;
+          const auth = user && pass ? `${user}:${pass}@` : "";
+          const authDisplay = user && pass ? `${user}:***@` : "";
+          const ip = container.ip_address || "<ip>";
+          const internalUrl = `http://${auth}${ip}:${internalPort}`;
+          const proxyMapping = container.extra_ports?.find(
+            (ep) => parseInt(ep.container) === internalPort
+          );
+          const externalPort = proxyMapping ? parseInt(proxyMapping.host) : null;
+          const serverIp = window.location.hostname;
+          const externalUrl = externalPort
+            ? `http://${auth}${serverIp}:${externalPort}`
+            : null;
+
+          return (
+            <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2 space-y-1.5">
+              <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+                HTTP Proxy
               </p>
-            )}
-          </div>
-        )}
+              {/* Internal URL */}
+              <div
+                className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/int"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(internalUrl);
+                }}
+                title="Click to copy internal proxy URL"
+              >
+                <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                  Internal
+                </span>
+                <p className="text-[9px] text-emerald-400/70 font-mono truncate flex-1">
+                  http://{authDisplay}{ip}:{internalPort}
+                </p>
+                {copiedUrl === internalUrl ? (
+                  <Check className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                ) : (
+                  <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
+                )}
+              </div>
+              {/* External URL - only if mapped */}
+              {externalUrl && (
+                <div
+                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/ext"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyToClipboard(externalUrl);
+                  }}
+                  title="Click to copy external proxy URL"
+                >
+                  <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                    External
+                  </span>
+                  <p className="text-[9px] text-blue-400/70 font-mono truncate flex-1">
+                    http://{authDisplay}{serverIp}:{externalPort}
+                  </p>
+                  {copiedUrl === externalUrl ? (
+                    <Check className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+                  ) : (
+                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {container.config?.SHADOWSOCKS?.toLowerCase() === "on" && (
           <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
             <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">

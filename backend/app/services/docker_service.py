@@ -149,13 +149,11 @@ def create_container(
     except Exception as e:
         logger.warning("Cannot list %s: %s", gluetun_data, e)
 
-    # Build port mappings - only expose services that are enabled
+    # Build port mappings
+    # HTTP proxy is NOT auto-exported; use extra_ports for external access
     ports = {}
-    httpproxy_enabled = str(config.get("HTTPPROXY", "off")).lower() == "on"
     shadowsocks_enabled = str(config.get("SHADOWSOCKS", "off")).lower() == "on"
 
-    if httpproxy_enabled and port_http_proxy > 0:
-        ports["8888/tcp"] = port_http_proxy
     if shadowsocks_enabled and port_shadowsocks > 0:
         ports["8388/tcp"] = port_shadowsocks
         ports["8388/udp"] = port_shadowsocks
@@ -1257,12 +1255,10 @@ def generate_compose_yaml(
         if value:
             env_vars[key] = str(value)
 
-    # Build port list - only expose enabled services
+    # Build port list
+    # HTTP proxy is NOT auto-exported; use extra_ports for external access
     port_list: list[str] = []
-    httpproxy_enabled = str(config.get("HTTPPROXY", "off")).lower() == "on"
     shadowsocks_enabled = str(config.get("SHADOWSOCKS", "off")).lower() == "on"
-    if httpproxy_enabled and port_http_proxy > 0:
-        port_list.append(f"{port_http_proxy}:8888")
     if shadowsocks_enabled and port_shadowsocks > 0:
         port_list.append(f"{port_shadowsocks}:8388/tcp")
         port_list.append(f"{port_shadowsocks}:8388/udp")

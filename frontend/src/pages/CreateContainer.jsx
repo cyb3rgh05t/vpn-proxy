@@ -91,7 +91,7 @@ export default function CreateContainer() {
   const [extraPorts, setExtraPorts] = useState([]);
   const [envVarCategories, setEnvVarCategories] = useState({});
   const [advancedFields, setAdvancedFields] = useState({});
-  const [gluetunFields, setGluetunFields] = useState({});
+  const [gluetunFields, setGluetunFields] = useState({ TZ: "Europe/Berlin" });
   const [openCategories, setOpenCategories] = useState({});
   const [openGluetunCategories, setOpenGluetunCategories] = useState({});
   const [showAdvanced, setShowAdvanced] = useState(false);

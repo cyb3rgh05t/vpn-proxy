@@ -413,6 +413,8 @@ def delete_container(
 
     if c.container_id:
         try:
+            # Stop dependent containers before removing VPN container
+            docker_service.stop_dependents(c.container_id)
             docker_service.remove_container(c.container_id)
         except Exception as e:
             raise HTTPException(
@@ -508,6 +510,21 @@ def redeploy_container(
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
 
+    # Check if name is being changed and validate uniqueness
+    old_name = c.name
+    new_name = req.name
+    if new_name and new_name != old_name:
+        existing = (
+            db.query(VPNContainer)
+            .filter(VPNContainer.name == new_name, VPNContainer.id != container_id)
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Container with name '{new_name}' already exists",
+            )
+
     # Apply updates from request to DB record
     for field, value in req.model_dump(exclude_none=True).items():
         setattr(c, field, value)
@@ -516,7 +533,7 @@ def redeploy_container(
 
     try:
         new_id = docker_service.redeploy_container(
-            name=c.name,
+            name=old_name,
             old_container_id=c.container_id,
             vpn_provider=c.vpn_provider,
             vpn_type=c.vpn_type,
@@ -525,6 +542,7 @@ def redeploy_container(
             port_shadowsocks=c.port_shadowsocks,
             extra_ports=c.extra_ports if c.extra_ports else None,
             network_name=c.network_name,
+            new_name=new_name if new_name and new_name != old_name else None,
         )
         c.container_id = new_id
         c.status = "running"

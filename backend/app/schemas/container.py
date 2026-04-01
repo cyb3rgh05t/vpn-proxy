@@ -35,6 +35,7 @@ class ContainerCreate(BaseModel):
 
 
 class ContainerUpdate(BaseModel):
+    name: Optional[str] = None
     vpn_provider: Optional[str] = None
     vpn_type: Optional[str] = None
     config: Optional[dict] = None
@@ -43,6 +44,20 @@ class ContainerUpdate(BaseModel):
     extra_ports: Optional[list[dict]] = None
     description: Optional[str] = None
     network_name: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip().lower()
+        if not v or len(v) < 2 or len(v) > 50:
+            raise ValueError("Name must be 2-50 characters")
+        if not re.match(r"^[a-z0-9][a-z0-9_-]*$", v):
+            raise ValueError(
+                "Name must start with alphanumeric and contain only lowercase letters, numbers, hyphens, underscores"
+            )
+        return v
 
 
 class ContainerResponse(BaseModel):

@@ -42,6 +42,7 @@ export default function ContainerDetail() {
   const [editingConfig, setEditingConfig] = useState(false);
   const [editConfig, setEditConfig] = useState({});
   const [editExtraPorts, setEditExtraPorts] = useState([]);
+  const [editName, setEditName] = useState("");
   const [redeploying, setRedeploying] = useState(false);
 
   const fetchContainer = useCallback(async () => {
@@ -176,22 +177,26 @@ export default function ContainerDetail() {
   const handleEditConfig = () => {
     setEditConfig({ ...(container.config || {}) });
     setEditExtraPorts((container.extra_ports || []).map((ep) => ({ ...ep })));
+    setEditName(container.name || "");
     setEditingConfig(true);
   };
 
   const handleRedeploy = async () => {
-    if (
-      !confirm(
-        "Redeploy this container? Dependents will be restarted automatically.",
-      )
-    )
-      return;
+    const nameChanged = editName && editName !== container.name;
+    const confirmMsg = nameChanged
+      ? `Redeploy and rename container to "${editName}"? Dependents will be restarted automatically.`
+      : "Redeploy this container? Dependents will be restarted automatically.";
+    if (!confirm(confirmMsg)) return;
     setRedeploying(true);
     try {
-      const res = await api.post(`/containers/${id}/redeploy`, {
+      const payload = {
         config: editConfig,
         extra_ports: editExtraPorts.filter((ep) => ep.host && ep.container),
-      });
+      };
+      if (nameChanged) {
+        payload.name = editName;
+      }
+      const res = await api.post(`/containers/${id}/redeploy`, payload);
       toast.success(res.data?.message || "Container redeployed");
       setEditingConfig(false);
       fetchContainer();
@@ -669,6 +674,34 @@ export default function ContainerDetail() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-3">
+              {/* Container Name */}
+              <div>
+                <label className="text-xs text-vpn-muted font-mono block mb-1">
+                  Container Name
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) =>
+                    setEditName(
+                      e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""),
+                    )
+                  }
+                  placeholder="container-name"
+                  className={`w-full bg-vpn-input border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary ${
+                    editName && editName !== container.name
+                      ? "border-amber-500"
+                      : "border-vpn-border"
+                  }`}
+                />
+                {editName && editName !== container.name && (
+                  <p className="text-xs text-amber-400 mt-1">
+                    Container will be renamed from "{container.name}" to "
+                    {editName}"
+                  </p>
+                )}
+              </div>
+
               {Object.entries(editConfig).map(([key, value]) => (
                 <div key={key} className="flex gap-3 items-start">
                   <div className="flex-1 min-w-0">

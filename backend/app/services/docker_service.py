@@ -248,11 +248,15 @@ def redeploy_container(
     port_shadowsocks: int = 8388,
     extra_ports: list[dict] | None = None,
     network_name: str | None = None,
+    new_name: str | None = None,
 ) -> str:
     """Redeploy a Gluetun container with updated config.
-    Stops dependents, removes old container, creates new one with same name, restarts dependents.
+    Stops dependents, removes old container, creates new one, restarts dependents.
+    If new_name is provided, the container is renamed (new Docker name + data dir).
     Returns new container_id.
     """
+    deploy_name = new_name if new_name else name
+
     # 1. Stop dependent containers
     stopped_deps = stop_dependents(old_container_id)
     logger.info("Stopped %d dependents before redeploy of %s", len(stopped_deps), name)
@@ -261,9 +265,17 @@ def redeploy_container(
     remove_container(old_container_id)
     logger.info("Removed old container %s for redeploy", old_container_id[:12])
 
-    # 3. Create new container with same name but updated config
+    # 3. Rename data directory if name changed
+    if new_name and new_name != name:
+        old_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
+        new_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", new_name)
+        if os.path.exists(old_data) and not os.path.exists(new_data):
+            os.rename(old_data, new_data)
+            logger.info("Renamed data dir %s -> %s", old_data, new_data)
+
+    # 4. Create new container with (possibly new) name and updated config
     new_id = create_container(
-        name=name,
+        name=deploy_name,
         vpn_provider=vpn_provider,
         vpn_type=vpn_type,
         config=config,
@@ -272,9 +284,9 @@ def redeploy_container(
         extra_ports=extra_ports,
         network_name=network_name,
     )
-    logger.info("Created new container %s for %s", new_id[:12], name)
+    logger.info("Created new container %s for %s", new_id[:12], deploy_name)
 
-    # 4. Restart dependent containers (they reference by name, so they reconnect)
+    # 5. Restart dependent containers (they reference by name, so they reconnect)
     if stopped_deps:
         started = start_dependents(new_id)
         logger.info("Restarted %d dependents after redeploy", len(started))

@@ -10,6 +10,7 @@ import CreateContainer from "./pages/CreateContainer";
 import ContainerDetail from "./pages/ContainerDetail";
 import O11ContainerDetail from "./pages/O11ContainerDetail";
 import Settings from "./pages/Settings";
+import Monitoring from "./pages/Monitoring";
 
 function App() {
   const { user, loading } = useAuth();
@@ -33,6 +34,7 @@ function App() {
           <Route path="/create" element={<CreateContainer />} />
           <Route path="/containers/:id" element={<ContainerDetail />} />
           <Route path="/o11/:name" element={<O11ContainerDetail />} />
+          <Route path="/monitoring" element={<Monitoring />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>

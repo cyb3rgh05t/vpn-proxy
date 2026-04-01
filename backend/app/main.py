@@ -8,8 +8,16 @@ from fastapi.responses import FileResponse
 from app.database import engine, Base, SessionLocal
 from app.models.vpn_container import VPNContainer
 from app.models.api_key import APIKey
+from app.models.app_settings import AppSettings
 from app.services import docker_service
-from app.routers import auth, containers, system, api_keys as api_keys_router
+from app.routers import (
+    auth,
+    containers,
+    system,
+    api_keys as api_keys_router,
+    monitoring,
+    settings as settings_router,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -150,6 +158,8 @@ app.include_router(auth.router)
 app.include_router(containers.router)
 app.include_router(system.router)
 app.include_router(api_keys_router.router)
+app.include_router(monitoring.router)
+app.include_router(settings_router.router)
 
 
 @app.get("/api/health")

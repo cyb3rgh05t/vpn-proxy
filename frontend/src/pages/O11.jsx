@@ -18,6 +18,8 @@ import {
   MapPin,
   ArrowUpDown,
   Search,
+  Network,
+  HardDrive,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -251,6 +253,45 @@ export default function O11() {
             <Shield className="w-3.5 h-3.5 text-vpn-muted" />
             <span className="text-xs text-vpn-muted">No VPN connection</span>
           </div>
+        </div>
+      )}
+
+      {/* Ports & Network */}
+      {(Object.keys(dep.ports || {}).length > 0 || dep.network_mode) && (
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {Object.entries(dep.ports || {}).map(([internal, host]) => (
+            <div
+              key={internal}
+              className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50"
+            >
+              <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+                {internal}
+              </p>
+              <p className="text-sm text-vpn-text font-mono">:{host || "—"}</p>
+            </div>
+          ))}
+          {dep.network_mode &&
+            !dep.network_mode.startsWith("container:") &&
+            dep.network_mode !== "default" && (
+              <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
+                <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+                  Network
+                </p>
+                <p className="text-sm text-vpn-text truncate">
+                  {dep.network_mode}
+                </p>
+              </div>
+            )}
+          {dep.mounts_count > 0 && (
+            <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
+              <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+                Volumes
+              </p>
+              <p className="text-sm text-vpn-text">
+                {dep.mounts_count} mount{dep.mounts_count !== 1 ? "s" : ""}
+              </p>
+            </div>
+          )}
         </div>
       )}
 

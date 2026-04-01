@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     DATA_DIR: str = "./data"
     HOST_DATA_DIR: str = ""  # Host-side path for DATA_DIR when running in Docker
 
+    # O11 Monitoring Panel
+    O11_URL: str = ""  # e.g. http://50.7.224.34:7000
+    O11_USERNAME: str = ""
+    O11_PASSWORD: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

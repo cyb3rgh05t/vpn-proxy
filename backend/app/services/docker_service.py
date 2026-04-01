@@ -861,6 +861,20 @@ def list_all_docker_containers() -> list[dict]:
                 ):
                     docker_status = health_status
 
+                # Port bindings
+                port_bindings = c.attrs.get("HostConfig", {}).get("PortBindings") or {}
+                ports = {}
+                for port_key, bindings in port_bindings.items():
+                    if bindings:
+                        ports[port_key] = bindings[0].get("HostPort", "")
+
+                # Network info
+                c_network_mode = network_mode
+                hostname = c.attrs.get("Config", {}).get("Hostname", "")
+
+                # Mounts count
+                binds = c.attrs.get("HostConfig", {}).get("Binds") or []
+
                 result.append(
                     {
                         "name": cname,
@@ -873,6 +887,10 @@ def list_all_docker_containers() -> list[dict]:
                             else c.attrs.get("Config", {}).get("Image", "unknown")
                         ),
                         "vpn_parent": vpn_parent,
+                        "ports": ports,
+                        "network_mode": c_network_mode,
+                        "hostname": hostname,
+                        "mounts_count": len(binds),
                     }
                 )
             except Exception:

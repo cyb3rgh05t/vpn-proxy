@@ -25,6 +25,7 @@ import {
   UserCog,
   Users,
   Wrench,
+  Activity,
 } from "lucide-react";
 import api from "../services/api";
 
@@ -75,13 +76,69 @@ export default function Settings() {
   const [apiKeyLoading, setApiKeyLoading] = useState(false);
   const [keyCopied, setKeyCopied] = useState(false);
 
+  // O11 Monitoring
+  const [o11Settings, setO11Settings] = useState({
+    o11_url: "",
+    o11_username: "",
+    o11_password: "",
+  });
+  const [o11Loading, setO11Loading] = useState(false);
+  const [o11Testing, setO11Testing] = useState(false);
+  const [o11Configured, setO11Configured] = useState(false);
+  const [showO11Password, setShowO11Password] = useState(false);
+
   useEffect(() => {
     if (user?.is_admin) {
       fetchUsers();
     }
     fetchDockerStatus();
     fetchApiKeys();
+    fetchO11Settings();
   }, [user]);
+
+  const fetchO11Settings = async () => {
+    try {
+      const res = await api.get("/settings/o11");
+      setO11Settings({
+        o11_url: res.data.o11_url || "",
+        o11_username: res.data.o11_username || "",
+        o11_password: res.data.o11_password || "",
+      });
+      setO11Configured(res.data.configured);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSaveO11 = async (e) => {
+    e.preventDefault();
+    setO11Loading(true);
+    try {
+      await api.put("/settings/o11", o11Settings);
+      toast.success("O11 settings saved");
+      fetchO11Settings();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to save O11 settings");
+    } finally {
+      setO11Loading(false);
+    }
+  };
+
+  const handleTestO11 = async () => {
+    setO11Testing(true);
+    try {
+      const res = await api.post("/settings/o11/test");
+      if (res.data.success) {
+        toast.success("O11 connection successful");
+      } else {
+        toast.error(res.data.error || "O11 connection failed");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "O11 connection test failed");
+    } finally {
+      setO11Testing(false);
+    }
+  };
 
   const fetchDockerStatus = async () => {
     setDockerLoading(true);
@@ -627,10 +684,120 @@ export default function Settings() {
               </div>
             )}
           </div>
+
+          {/* O11 Monitoring Connection */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Activity className="w-5 h-5 text-vpn-primary" />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">
+                    O11 Monitoring
+                  </h2>
+                  <p className="text-xs text-vpn-muted">
+                    Connect to your O11 panel for stream monitoring
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {o11Configured && (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-400">
+                    <Wifi className="w-3 h-3" />
+                    Configured
+                  </span>
+                )}
+                <button
+                  onClick={handleTestO11}
+                  disabled={o11Testing || !o11Settings.o11_url}
+                  className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 text-vpn-primary ${o11Testing ? "animate-spin" : ""}`}
+                  />
+                  {o11Testing ? "Testing..." : "Test"}
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveO11} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                  O11 URL
+                </label>
+                <input
+                  type="url"
+                  value={o11Settings.o11_url}
+                  onChange={(e) =>
+                    setO11Settings({ ...o11Settings, o11_url: e.target.value })
+                  }
+                  placeholder="http://50.7.224.34:7000"
+                  className={inputClass}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={o11Settings.o11_username}
+                    onChange={(e) =>
+                      setO11Settings({
+                        ...o11Settings,
+                        o11_username: e.target.value,
+                      })
+                    }
+                    placeholder="Username"
+                    className={inputClass}
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showO11Password ? "text" : "password"}
+                      value={o11Settings.o11_password}
+                      onChange={(e) =>
+                        setO11Settings({
+                          ...o11Settings,
+                          o11_password: e.target.value,
+                        })
+                      }
+                      placeholder="Password"
+                      className={`${inputClass} pr-10`}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowO11Password(!showO11Password)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-vpn-muted hover:text-vpn-text"
+                    >
+                      {showO11Password ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={o11Loading}
+                  className="px-6 py-2.5 bg-vpn-primary text-black rounded-lg font-semibold hover:bg-vpn-primary-hover transition-colors disabled:opacity-50"
+                >
+                  {o11Loading ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
-
-      {/* User Management Tab */}
       {settingsTab === "users" && (
         <div className="space-y-6">
           {/* Account Info */}

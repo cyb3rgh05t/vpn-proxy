@@ -425,9 +425,21 @@ export default function O11ContainerDetail() {
             <div>
               <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
                 <Network className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-                Network
+                Ports & Network
               </h3>
-              <div className="bg-vpn-input rounded-lg divide-y divide-vpn-border">
+              <div className="grid grid-cols-3 gap-4">
+                {Object.entries(container.ports || {}).map(
+                  ([internal, host]) => (
+                    <div key={internal} className="bg-vpn-input rounded-lg p-4">
+                      <p className="text-xs text-vpn-muted mb-1">{internal}</p>
+                      <p className="text-lg font-mono text-white">
+                        :{host || "—"}
+                      </p>
+                    </div>
+                  ),
+                )}
+              </div>
+              <div className="bg-vpn-input rounded-lg divide-y divide-vpn-border mt-3">
                 <div className="flex justify-between px-4 py-3">
                   <span className="text-sm text-vpn-muted">Network Mode</span>
                   <span className="text-sm text-white font-mono">
@@ -457,25 +469,6 @@ export default function O11ContainerDetail() {
                 )}
               </div>
             </div>
-
-            {/* Ports */}
-            {Object.keys(container.ports || {}).length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
-                  Port Mappings
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {Object.entries(container.ports).map(([internal, host]) => (
-                    <div key={internal} className="bg-vpn-input rounded-lg p-3">
-                      <p className="text-xs text-vpn-muted mb-1">{internal}</p>
-                      <p className="text-sm font-mono text-white">
-                        :{host || "—"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Mounts */}
             {container.mounts?.length > 0 && (

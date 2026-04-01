@@ -5,6 +5,7 @@ import {
   Play,
   Square,
   RotateCcw,
+  Trash2,
   RefreshCw,
   Terminal,
   Network,
@@ -134,6 +135,18 @@ export default function O11ContainerDetail() {
       toast.error(err.response?.data?.detail || `Failed to ${action}`);
     } finally {
       setActionLoading("");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete container "${name}"? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/containers/dependents/${encodeURIComponent(name)}`);
+      toast.success(`Container "${name}" deleted`);
+      refreshO11Containers();
+      navigate("/o11");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to delete container");
     }
   };
 
@@ -270,6 +283,13 @@ export default function O11ContainerDetail() {
           >
             <Network className="w-4 h-4" />
             Change Network Mode
+          </button>
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg text-sm transition-all active:scale-95"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
           </button>
         </div>
       </div>

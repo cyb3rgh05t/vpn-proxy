@@ -43,6 +43,8 @@ export default function ContainerDetail() {
   const [editConfig, setEditConfig] = useState({});
   const [editExtraPorts, setEditExtraPorts] = useState([]);
   const [editName, setEditName] = useState("");
+  const [editHttpPort, setEditHttpPort] = useState(8888);
+  const [editShadowsocksPort, setEditShadowsocksPort] = useState(8388);
   const [redeploying, setRedeploying] = useState(false);
 
   const fetchContainer = useCallback(async () => {
@@ -178,6 +180,8 @@ export default function ContainerDetail() {
     setEditConfig({ ...(container.config || {}) });
     setEditExtraPorts((container.extra_ports || []).map((ep) => ({ ...ep })));
     setEditName(container.name || "");
+    setEditHttpPort(container.port_http_proxy || 8888);
+    setEditShadowsocksPort(container.port_shadowsocks || 8388);
     setEditingConfig(true);
   };
 
@@ -192,6 +196,8 @@ export default function ContainerDetail() {
       const payload = {
         config: editConfig,
         extra_ports: editExtraPorts.filter((ep) => ep.host && ep.container),
+        port_http_proxy: editHttpPort,
+        port_shadowsocks: editShadowsocksPort,
       };
       if (nameChanged) {
         payload.name = editName;
@@ -751,7 +757,42 @@ export default function ContainerDetail() {
               {/* Port Mappings */}
               <div className="pt-4 border-t border-vpn-border">
                 <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
-                  Port Mappings
+                  Access Ports
+                </h3>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="text-xs text-vpn-muted font-mono block mb-1">
+                      HTTP Proxy Port
+                    </label>
+                    <input
+                      type="number"
+                      value={editHttpPort}
+                      onChange={(e) => setEditHttpPort(parseInt(e.target.value) || 0)}
+                      className="w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
+                      min="1024"
+                      max="65535"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-vpn-muted font-mono block mb-1">
+                      Shadowsocks Port
+                    </label>
+                    <input
+                      type="number"
+                      value={editShadowsocksPort}
+                      onChange={(e) => setEditShadowsocksPort(parseInt(e.target.value) || 0)}
+                      className="w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
+                      min="1024"
+                      max="65535"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Extra Port Mappings */}
+              <div className="pt-4 border-t border-vpn-border">
+                <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
+                  Extra Port Mappings
                 </h3>
                 <div className="space-y-2">
                   {editExtraPorts.map((ep, i) => (

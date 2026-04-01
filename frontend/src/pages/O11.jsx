@@ -6,6 +6,7 @@ import {
   Play,
   Square,
   RotateCcw,
+  Trash2,
   Shield,
   AlertTriangle,
   Box,
@@ -63,6 +64,20 @@ export default function O11() {
       refreshO11Containers();
     } catch (err) {
       toast.error(err.response?.data?.detail || `Failed to ${action} ${name}`);
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleDelete = async (name) => {
+    if (!confirm(`Delete container "${name}"? This cannot be undone.`)) return;
+    setActionLoading(`${name}-delete`);
+    try {
+      await api.delete(`/containers/dependents/${name}`);
+      toast.success(`Container "${name}" deleted`);
+      refreshO11Containers();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || `Failed to delete ${name}`);
     } finally {
       setActionLoading("");
     }
@@ -275,6 +290,16 @@ export default function O11() {
         >
           <RotateCcw
             className={`w-4 h-4 ${actionLoading === `${dep.name}-restart` ? "animate-spin" : ""}`}
+          />
+        </button>
+        <button
+          onClick={() => handleDelete(dep.name)}
+          disabled={!!actionLoading}
+          className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-all active:scale-90 disabled:opacity-50 ml-auto"
+          title="Delete"
+        >
+          <Trash2
+            className={`w-4 h-4 ${actionLoading === `${dep.name}-delete` ? "animate-pulse" : ""}`}
           />
         </button>
       </div>

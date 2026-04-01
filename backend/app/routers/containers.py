@@ -149,6 +149,23 @@ def change_dependent_network_mode(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/dependents/{container_name}")
+def delete_dependent(
+    container_name: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Delete (remove) a dependent Docker container by name."""
+    all_containers = docker_service.list_all_docker_containers()
+    if not any(d["name"] == container_name for d in all_containers):
+        raise HTTPException(status_code=404, detail="Container not found")
+    try:
+        docker_service.remove_container(container_name)
+        return {"message": f"Container {container_name} deleted"}
+    except Exception as e:
+        logger.error("Failed to delete container %s: %s", container_name, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/dependents/{container_name}/{action}")
 def control_any_dependent(
     container_name: str,

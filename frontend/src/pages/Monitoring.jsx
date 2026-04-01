@@ -48,8 +48,8 @@ function NetworkUsageTable({ usage }) {
         category: cat,
         url,
         streams: info?.Streams || [],
-        bw: info?.Bw || "",
-        bwColor: info?.BwColor,
+        mbps: info?.Mbps || 0,
+        mbpsFormatted: info?.MbpsFormatted || "",
       });
     }
   }
@@ -128,11 +128,9 @@ function NetworkUsageTable({ usage }) {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {row.bw ? (
-                        <span
-                          className={`font-medium text-xs ${bwColorClass(row.bwColor)}`}
-                        >
-                          {row.bw}
+                      {row.mbpsFormatted ? (
+                        <span className="font-medium text-xs text-green-400">
+                          {row.mbpsFormatted}
                         </span>
                       ) : (
                         <span className="text-vpn-muted text-xs">—</span>

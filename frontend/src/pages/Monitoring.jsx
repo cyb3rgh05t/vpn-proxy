@@ -129,7 +129,9 @@ function NetworkUsageTable({ usage }) {
                     </td>
                     <td className="px-4 py-3 text-right">
                       {row.mbpsFormatted ? (
-                        <span className="font-medium text-xs text-green-400">
+                        <span
+                          className={`font-medium text-xs ${row.mbps > 0 ? "text-green-400" : "text-red-400"}`}
+                        >
                           {row.mbpsFormatted}
                         </span>
                       ) : (
@@ -173,6 +175,7 @@ export default function Monitoring() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [providerId, setProviderId] = useState("demagentatv");
+  const [tab, setTab] = useState("network");
   const intervalRef = useRef(null);
 
   const fetchData = useCallback(
@@ -345,116 +348,137 @@ export default function Monitoring() {
         </div>
       </div>
 
-      {/* Network Usage - Proxy View */}
+      {/* Tabs */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Wifi className="w-5 h-5 text-vpn-primary" />
+        <div className="flex items-center gap-1 border-b border-vpn-border">
+          <button
+            onClick={() => setTab("network")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              tab === "network"
+                ? "border-vpn-primary text-vpn-primary"
+                : "border-transparent text-vpn-muted hover:text-vpn-text"
+            }`}
+          >
+            <Wifi className="w-4 h-4" />
             Network Usage
-          </h2>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
-              <input
-                type="text"
-                placeholder="Provider ID..."
-                value={providerId}
-                onChange={(e) => setProviderId(e.target.value)}
-                onBlur={() => fetchData()}
-                onKeyDown={(e) => e.key === "Enter" && fetchData()}
-                className="w-48 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted text-sm focus:outline-none focus:border-vpn-primary/50"
-              />
-            </div>
-          </div>
-        </div>
-
-        <NetworkUsageTable usage={usage} />
-      </div>
-
-      {/* Active Streams Table */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <MonitorPlay className="w-5 h-5 text-vpn-primary" />
-              Active Streams
-            </h2>
-            <span className="px-2.5 py-0.5 bg-vpn-primary/10 text-vpn-primary text-sm font-medium rounded-full">
-              {filteredReaders.length}
+          </button>
+          <button
+            onClick={() => setTab("streams")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              tab === "streams"
+                ? "border-vpn-primary text-vpn-primary"
+                : "border-transparent text-vpn-muted hover:text-vpn-text"
+            }`}
+          >
+            <MonitorPlay className="w-4 h-4" />
+            Active Streams
+            <span className="px-1.5 py-0.5 bg-vpn-primary/10 text-vpn-primary text-xs font-bold rounded-full">
+              {readers.length}
             </span>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
-            <input
-              type="text"
-              placeholder="Search streams..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full sm:w-64 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted focus:outline-none focus:border-vpn-primary/50"
-            />
-          </div>
+          </button>
         </div>
 
-        {filteredReaders.length === 0 ? (
-          <div className="bg-vpn-card border border-vpn-border rounded-xl p-8 text-center">
-            <Tv className="w-10 h-10 text-vpn-muted mx-auto mb-3" />
-            <p className="text-vpn-muted">
-              {readers.length === 0
-                ? "No active streams"
-                : "No streams match your search"}
-            </p>
-          </div>
-        ) : (
-          <div className="bg-vpn-card border border-vpn-border rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-vpn-border text-vpn-muted text-left">
-                    <th className="px-4 py-3 font-medium">Stream</th>
-                    <th className="px-4 py-3 font-medium">Provider</th>
-                    <th className="px-4 py-3 font-medium">Quality</th>
-                    <th className="px-4 py-3 font-medium">Bandwidth</th>
-                    <th className="px-4 py-3 font-medium">Uptime</th>
-                    <th className="px-4 py-3 font-medium">Errors</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredReaders.map((r, i) => (
-                    <tr
-                      key={`${r.StreamName}-${r.User}-${i}`}
-                      className="border-b border-vpn-border/50 hover:bg-white/[0.02] transition-colors"
-                    >
-                      <td className="px-4 py-3 text-white font-medium">
-                        {r.StreamName}
-                      </td>
-                      <td className="px-4 py-3 text-vpn-muted">
-                        {r.ProviderName}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 bg-vpn-primary/10 text-vpn-primary text-xs font-medium rounded">
-                          {r.Quality}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`font-medium ${bwColorClass(r.BwColor)}`}
-                        >
-                          {r.Bw}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-vpn-text">{r.Uptime}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`font-medium ${bwColorClass(r.ErrorsColor)}`}
-                        >
-                          {r.Errors}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        {/* Network Usage Tab */}
+        {tab === "network" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-end">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
+                <input
+                  type="text"
+                  placeholder="Provider ID..."
+                  value={providerId}
+                  onChange={(e) => setProviderId(e.target.value)}
+                  onBlur={() => fetchData()}
+                  onKeyDown={(e) => e.key === "Enter" && fetchData()}
+                  className="w-48 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted text-sm focus:outline-none focus:border-vpn-primary/50"
+                />
+              </div>
             </div>
+            <NetworkUsageTable usage={usage} />
+          </div>
+        )}
+
+        {/* Active Streams Tab */}
+        {tab === "streams" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-end">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
+                <input
+                  type="text"
+                  placeholder="Search streams..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full sm:w-64 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted focus:outline-none focus:border-vpn-primary/50"
+                />
+              </div>
+            </div>
+
+            {filteredReaders.length === 0 ? (
+              <div className="bg-vpn-card border border-vpn-border rounded-xl p-8 text-center">
+                <Tv className="w-10 h-10 text-vpn-muted mx-auto mb-3" />
+                <p className="text-vpn-muted">
+                  {readers.length === 0
+                    ? "No active streams"
+                    : "No streams match your search"}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-vpn-card border border-vpn-border rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-vpn-border text-vpn-muted text-left">
+                        <th className="px-4 py-3 font-medium">Stream</th>
+                        <th className="px-4 py-3 font-medium">Provider</th>
+                        <th className="px-4 py-3 font-medium">Quality</th>
+                        <th className="px-4 py-3 font-medium">Bandwidth</th>
+                        <th className="px-4 py-3 font-medium">Uptime</th>
+                        <th className="px-4 py-3 font-medium">Errors</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredReaders.map((r, i) => (
+                        <tr
+                          key={`${r.StreamName}-${r.User}-${i}`}
+                          className="border-b border-vpn-border/50 hover:bg-white/[0.02] transition-colors"
+                        >
+                          <td className="px-4 py-3 text-white font-medium">
+                            {r.StreamName}
+                          </td>
+                          <td className="px-4 py-3 text-vpn-muted">
+                            {r.ProviderName}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 bg-vpn-primary/10 text-vpn-primary text-xs font-medium rounded">
+                              {r.Quality}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`font-medium ${bwColorClass(r.BwColor)}`}
+                            >
+                              {r.Bw}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-vpn-text">
+                            {r.Uptime}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`font-medium ${bwColorClass(r.ErrorsColor)}`}
+                            >
+                              {r.Errors}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

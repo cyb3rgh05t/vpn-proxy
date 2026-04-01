@@ -19,10 +19,12 @@ import {
 import StatusBadge from "./StatusBadge";
 import api from "../services/api";
 import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 
 export default function ContainerCard({ container, vpnInfo, onRefresh }) {
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const [dependents, setDependents] = useState([]);
   const [actionLoading, setActionLoading] = useState("");
   const [copiedUrl, setCopiedUrl] = useState(null);
@@ -85,10 +87,13 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
 
   const handleDelete = async (e) => {
     e.stopPropagation();
-    if (
-      !confirm(`Delete container "${container.name}"? This cannot be undone.`)
-    )
-      return;
+    const ok = await confirm({
+      title: "Delete Container",
+      message: `Delete container "${container.name}"? This cannot be undone.`,
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await api.delete(`/containers/${container.id}`);
       toast.success(`Container "${container.name}" deleted`);

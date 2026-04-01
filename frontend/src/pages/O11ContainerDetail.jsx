@@ -27,12 +27,14 @@ import {
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 import { useContainerData } from "../context/ContainerDataContext";
 
 export default function O11ContainerDetail() {
   const { name } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const {
     containers: managedContainers,
     vpnInfoMap,
@@ -139,7 +141,13 @@ export default function O11ContainerDetail() {
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete container "${name}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: "Delete Container",
+      message: `Delete container "${name}"? This cannot be undone.`,
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await api.delete(`/containers/dependents/${encodeURIComponent(name)}`);
       toast.success(`Container "${name}" deleted`);

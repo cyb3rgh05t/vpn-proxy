@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 import {
   AlertCircle,
   CheckCircle,
@@ -30,6 +31,7 @@ import api from "../services/api";
 export default function Settings() {
   const { user, refreshUser } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [settingsTab, setSettingsTab] = useState("system");
 
@@ -198,7 +200,13 @@ export default function Settings() {
   };
 
   const handleDeleteUser = async (userId, username) => {
-    if (!window.confirm(`Delete user "${username}"?`)) return;
+    const ok = await confirm({
+      title: "Delete User",
+      message: `Delete user "${username}"?`,
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await api.delete(`/auth/users/${userId}`);
       toast.success(`User "${username}" deleted`);
@@ -236,7 +244,13 @@ export default function Settings() {
   };
 
   const handleRevokeApiKey = async (keyId, keyName) => {
-    if (!window.confirm(`Revoke API key "${keyName}"?`)) return;
+    const ok = await confirm({
+      title: "Revoke API Key",
+      message: `Revoke API key "${keyName}"? This cannot be undone.`,
+      confirmText: "Revoke",
+      variant: "warning",
+    });
+    if (!ok) return;
     try {
       await api.delete(`/api-keys/${keyId}`);
       toast.success(`API key "${keyName}" revoked`);

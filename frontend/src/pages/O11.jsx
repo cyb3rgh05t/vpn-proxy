@@ -22,11 +22,13 @@ import {
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 import { useContainerData } from "../context/ContainerDataContext";
 
 export default function O11() {
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const {
     o11Containers: containers,
     containers: managedContainers,
@@ -70,7 +72,13 @@ export default function O11() {
   };
 
   const handleDelete = async (name) => {
-    if (!confirm(`Delete container "${name}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: "Delete Container",
+      message: `Delete container "${name}"? This cannot be undone.`,
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!ok) return;
     setActionLoading(`${name}-delete`);
     try {
       await api.delete(`/containers/dependents/${name}`);

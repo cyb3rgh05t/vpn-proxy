@@ -22,11 +22,13 @@ import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
 import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 
 export default function ContainerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const [container, setContainer] = useState(null);
   const [logs, setLogs] = useState("");
   const [loading, setLoading] = useState(true);
@@ -151,7 +153,13 @@ export default function ContainerDetail() {
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete "${container.name}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: "Delete Container",
+      message: `Delete "${container.name}"? This cannot be undone.`,
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await api.delete(`/containers/${id}`);
       toast.success(`Container deleted`);
@@ -190,7 +198,13 @@ export default function ContainerDetail() {
     const confirmMsg = nameChanged
       ? `Redeploy and rename container to "${editName}"? Dependents will be restarted automatically.`
       : "Redeploy this container? Dependents will be restarted automatically.";
-    if (!confirm(confirmMsg)) return;
+    const ok = await confirm({
+      title: nameChanged ? "Rename & Redeploy" : "Redeploy Container",
+      message: confirmMsg,
+      confirmText: nameChanged ? "Rename & Redeploy" : "Redeploy",
+      variant: "info",
+    });
+    if (!ok) return;
     setRedeploying(true);
     try {
       const payload = {

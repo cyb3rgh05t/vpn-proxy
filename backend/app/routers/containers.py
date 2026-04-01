@@ -341,11 +341,22 @@ def create_container(
             detail=f"Failed to create Docker container: {e}",
         )
 
+    # Read actual Docker env vars to store the full config (including auto-set vars
+    # like VPN_SERVICE_PROVIDER, VPN_TYPE, HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE, etc.)
+    full_config = dict(req.config)
+    try:
+        live_env = docker_service._get_container_env(container_id)
+        for k, v in live_env.items():
+            if k in docker_service.ALLOWED_CONFIG_KEYS:
+                full_config[k] = v
+    except Exception:
+        pass
+
     vpn_container = VPNContainer(
         name=req.name,
         vpn_provider=req.vpn_provider,
         vpn_type=req.vpn_type,
-        config=req.config,
+        config=full_config,
         port_http_proxy=req.port_http_proxy,
         port_shadowsocks=req.port_shadowsocks,
         extra_ports=req.extra_ports,
@@ -392,6 +403,31 @@ def get_container(
                     # Restart dependents so they reconnect to new container
                     if found["status"] == "running" and old_id != found["container_id"]:
                         docker_service.restart_dependents(found["container_id"])
+
+            # Sync config from actual Docker env vars into DB
+            # This ensures auto-set vars (VPN_SERVICE_PROVIDER, VPN_TYPE, etc.)
+            # are persisted and shown for all providers, not just discovered ones
+            active_id = c.container_id
+            if active_id and data.status not in ("removed", "error"):
+                live_env = docker_service._get_container_env(active_id)
+                live_config = {
+                    k: v
+                    for k, v in live_env.items()
+                    if k in docker_service.ALLOWED_CONFIG_KEYS
+                }
+                db_config = dict(c.config or {})
+                if live_config != {
+                    k: v
+                    for k, v in db_config.items()
+                    if k in docker_service.ALLOWED_CONFIG_KEYS
+                }:
+                    merged = {**db_config, **live_config}
+                    c.config = merged
+                    db.commit()
+                    data = ContainerResponse.model_validate(c)
+                    data.status = status_info["status"]
+                    data.docker_name = status_info.get("docker_name")
+                    data.ip_address = status_info.get("ip_address")
         except Exception:
             data.status = "unknown"
     return data
@@ -564,6 +600,16 @@ def redeploy_container(
         )
         c.container_id = new_id
         c.status = "running"
+        # Sync config from new Docker container env vars
+        try:
+            live_env = docker_service._get_container_env(new_id)
+            merged = dict(c.config or {})
+            for k, v in live_env.items():
+                if k in docker_service.ALLOWED_CONFIG_KEYS:
+                    merged[k] = v
+            c.config = merged
+        except Exception:
+            pass
         db.commit()
         return {"message": "Container redeployed successfully", "container_id": new_id}
     except Exception as e:

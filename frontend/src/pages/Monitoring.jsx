@@ -439,7 +439,8 @@ export default function Monitoring() {
                         <th className="px-4 py-3 font-medium">Stream</th>
                         <th className="px-4 py-3 font-medium">Provider</th>
                         <th className="px-4 py-3 font-medium">Quality</th>
-                        <th className="px-4 py-3 font-medium">Bandwidth</th>
+                        <th className="px-4 py-3 font-medium">↓ Down</th>
+                        <th className="px-4 py-3 font-medium">↑ Up</th>
                         <th className="px-4 py-3 font-medium">Uptime</th>
                         <th className="px-4 py-3 font-medium">Errors</th>
                       </tr>
@@ -462,11 +463,24 @@ export default function Monitoring() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <span
-                              className={`font-medium ${bwColorClass(r.BwColor)}`}
-                            >
-                              {r.Bw}
-                            </span>
+                            {(() => {
+                              const parts = (r.Bw || "").split("/");
+                              return (
+                                <span className="font-medium text-green-400">
+                                  {parts[0] || "—"}
+                                </span>
+                              );
+                            })()}
+                          </td>
+                          <td className="px-4 py-3">
+                            {(() => {
+                              const parts = (r.Bw || "").split("/");
+                              return (
+                                <span className="font-medium text-blue-400">
+                                  {parts[1] || "—"}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="px-4 py-3 text-vpn-text">
                             {r.Uptime}

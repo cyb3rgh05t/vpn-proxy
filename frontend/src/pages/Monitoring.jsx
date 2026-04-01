@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import {
   Activity,
   RefreshCw,
@@ -36,95 +36,131 @@ function bwColorClass(color) {
   }
 }
 
-function ProxyCard({ url, streams, expanded, onToggle }) {
-  const streamCount = streams?.length || 0;
-  return (
-    <div className="bg-vpn-bg-dark border border-vpn-border rounded-lg overflow-hidden">
-      {/* Proxy URL bar */}
-      <div className="bg-vpn-primary px-4 py-2 flex items-center justify-center">
-        <span className="text-black text-sm font-mono font-semibold truncate">
-          {url}
-        </span>
+function NetworkUsageTable({ usage }) {
+  const [expandedRows, setExpandedRows] = useState({});
+
+  // Flatten all proxy entries across categories into table rows
+  const rows = [];
+  for (const cat of CATEGORIES) {
+    const proxy = usage[cat]?.Proxy || {};
+    for (const [url, info] of Object.entries(proxy)) {
+      rows.push({
+        category: cat,
+        url,
+        streams: info?.Streams || [],
+        bw: info?.Bw || "",
+        bwColor: info?.BwColor,
+      });
+    }
+  }
+
+  const toggleRow = (key) => setExpandedRows((p) => ({ ...p, [key]: !p[key] }));
+
+  const catColors = {
+    Script: "text-blue-400 bg-blue-400/10 border-blue-400/30",
+    Manifest: "text-purple-400 bg-purple-400/10 border-purple-400/30",
+    Media: "text-amber-400 bg-amber-400/10 border-amber-400/30",
+  };
+
+  if (rows.length === 0) {
+    return (
+      <div className="bg-vpn-card border border-vpn-border rounded-xl p-8 text-center">
+        <Wifi className="w-10 h-10 text-vpn-muted mx-auto mb-3" />
+        <p className="text-vpn-muted">No proxy data available</p>
       </div>
-      {/* Streams toggle */}
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-2 bg-vpn-card border-b border-vpn-border hover:bg-vpn-input transition-colors"
-      >
-        <span className="flex items-center gap-2 text-sm text-vpn-text">
-          Streams{" "}
-          <span className="bg-vpn-primary/20 text-vpn-primary text-xs font-bold px-1.5 py-0.5 rounded">
-            {streamCount}
-          </span>
-        </span>
-        {expanded ? (
-          <ChevronUp className="w-4 h-4 text-vpn-muted" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-vpn-muted" />
-        )}
-      </button>
-      {/* Stream list */}
-      {expanded && streamCount > 0 && (
-        <div className="px-4 py-3 flex flex-wrap gap-3">
-          {streams.map((s, i) => (
-            <span
-              key={i}
-              className="text-sm text-vpn-text bg-vpn-input px-3 py-1 rounded"
-            >
-              {s}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CategoryColumn({ label, data }) {
-  const [expandedProxies, setExpandedProxies] = useState({});
-  const proxy = data?.Proxy || {};
-  const proxyEntries = Object.entries(proxy);
-
-  const toggleProxy = (url) =>
-    setExpandedProxies((p) => ({ ...p, [url]: !p[url] }));
-
-  // Calculate total bandwidth for this category
-  // (streams per proxy not available in data, just show proxy count)
+    );
+  }
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-center text-sm font-bold text-vpn-primary tracking-wider uppercase border-b border-vpn-primary/30 pb-2">
-        {label}
-      </h3>
-      {proxyEntries.length === 0 ? (
-        <div className="text-center py-6 text-vpn-muted text-sm">
-          No proxies
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {proxyEntries.map(([url, info]) => {
-            const streams = info?.Streams || [];
-            return (
-              <div key={url} className="space-y-1">
-                <ProxyCard
-                  url={url}
-                  streams={streams}
-                  expanded={expandedProxies[url] ?? true}
-                  onToggle={() => toggleProxy(url)}
-                />
-                {info?.Bw && (
-                  <div className="flex items-center justify-end gap-1.5 text-xs text-vpn-muted pr-1">
-                    <Activity className="w-3 h-3" />
-                    <span className={bwColorClass(info?.BwColor)}>
-                      {info.Bw}
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+    <div className="bg-vpn-card border border-vpn-border rounded-xl overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-vpn-border bg-vpn-input/30">
+              <th className="px-4 py-3 text-left text-vpn-muted font-medium w-28">
+                Category
+              </th>
+              <th className="px-4 py-3 text-left text-vpn-muted font-medium">
+                Proxy URL
+              </th>
+              <th className="px-4 py-3 text-center text-vpn-muted font-medium w-24">
+                Streams
+              </th>
+              <th className="px-4 py-3 text-right text-vpn-muted font-medium w-28">
+                Bandwidth
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const rowKey = `${row.category}-${row.url}`;
+              const expanded = expandedRows[rowKey];
+              const streamCount = row.streams.length;
+              return (
+                <Fragment key={rowKey}>
+                  <tr
+                    className="border-b border-vpn-border/50 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                    onClick={() => streamCount > 0 && toggleRow(rowKey)}
+                  >
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${catColors[row.category]}`}
+                      >
+                        {row.category}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-vpn-primary font-mono text-xs">
+                        {row.url}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1.5">
+                        {streamCount > 0 &&
+                          (expanded ? (
+                            <ChevronUp className="w-3.5 h-3.5 text-vpn-muted" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5 text-vpn-muted" />
+                          ))}
+                        <span className="bg-vpn-primary/15 text-vpn-primary text-xs font-bold px-2 py-0.5 rounded-full min-w-[24px]">
+                          {streamCount}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {row.bw ? (
+                        <span
+                          className={`font-medium text-xs ${bwColorClass(row.bwColor)}`}
+                        >
+                          {row.bw}
+                        </span>
+                      ) : (
+                        <span className="text-vpn-muted text-xs">—</span>
+                      )}
+                    </td>
+                  </tr>
+                  {expanded && streamCount > 0 && (
+                    <tr className="border-b border-vpn-border/30">
+                      <td colSpan={4} className="px-6 py-3 bg-vpn-input/20">
+                        <div className="flex flex-wrap gap-2">
+                          {row.streams.map((s, i) => (
+                            <span
+                              key={i}
+                              className="text-xs text-vpn-text bg-vpn-input px-2.5 py-1 rounded border border-vpn-border/50"
+                            >
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -334,12 +370,7 @@ export default function Monitoring() {
           </div>
         </div>
 
-        {/* Three-column proxy grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {CATEGORIES.map((cat) => (
-            <CategoryColumn key={cat} label={cat} data={usage[cat]} />
-          ))}
-        </div>
+        <NetworkUsageTable usage={usage} />
       </div>
 
       {/* Active Streams Table */}

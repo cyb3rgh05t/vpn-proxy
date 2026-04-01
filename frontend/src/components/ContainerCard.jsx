@@ -230,75 +230,80 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
 
       {/* Ports & Network */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        {container.config?.HTTPPROXY?.toLowerCase() === "on" && (() => {
-          const internalPort = container.port_http_proxy || 8888;
-          const user = container.config?.HTTPPROXY_USER;
-          const pass = container.config?.HTTPPROXY_PASSWORD;
-          const auth = user && pass ? `${user}:${pass}@` : "";
-          const authDisplay = user && pass ? `${user}:***@` : "";
-          const ip = container.ip_address || "<ip>";
-          const internalUrl = `http://${auth}${ip}:${internalPort}`;
-          const proxyMapping = container.extra_ports?.find(
-            (ep) => parseInt(ep.container) === internalPort
-          );
-          const externalPort = proxyMapping ? parseInt(proxyMapping.host) : null;
-          const serverIp = window.location.hostname;
-          const externalUrl = externalPort
-            ? `http://${auth}${serverIp}:${externalPort}`
-            : null;
+        {container.config?.HTTPPROXY?.toLowerCase() === "on" &&
+          (() => {
+            const internalPort = container.port_http_proxy || 8888;
+            const user = container.config?.HTTPPROXY_USER;
+            const pass = container.config?.HTTPPROXY_PASSWORD;
+            const auth = user && pass ? `${user}:${pass}@` : "";
+            const authDisplay = user && pass ? `${user}:***@` : "";
+            const ip = container.ip_address || "<ip>";
+            const internalUrl = `http://${auth}${ip}:${internalPort}`;
+            const proxyMapping = container.extra_ports?.find(
+              (ep) => parseInt(ep.container) === internalPort,
+            );
+            const externalPort = proxyMapping
+              ? parseInt(proxyMapping.host)
+              : null;
+            const serverIp = window.location.hostname;
+            const externalUrl = externalPort
+              ? `http://${auth}${serverIp}:${externalPort}`
+              : null;
 
-          return (
-            <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2 space-y-1.5">
-              <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
-                HTTP Proxy
-              </p>
-              {/* Internal URL */}
-              <div
-                className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/int"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  copyToClipboard(internalUrl);
-                }}
-                title="Click to copy internal proxy URL"
-              >
-                <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
-                  Internal
-                </span>
-                <p className="text-[9px] text-emerald-400/70 font-mono truncate flex-1">
-                  http://{authDisplay}{ip}:{internalPort}
+            return (
+              <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2 space-y-1.5">
+                <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+                  HTTP Proxy
                 </p>
-                {copiedUrl === internalUrl ? (
-                  <Check className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
-                ) : (
-                  <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
-                )}
-              </div>
-              {/* External URL - only if mapped */}
-              {externalUrl && (
+                {/* Internal URL */}
                 <div
-                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/ext"
+                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/int"
                   onClick={(e) => {
                     e.stopPropagation();
-                    copyToClipboard(externalUrl);
+                    copyToClipboard(internalUrl);
                   }}
-                  title="Click to copy external proxy URL"
+                  title="Click to copy internal proxy URL"
                 >
                   <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
-                    External
+                    Internal
                   </span>
-                  <p className="text-[9px] text-blue-400/70 font-mono truncate flex-1">
-                    http://{authDisplay}{serverIp}:{externalPort}
+                  <p className="text-[9px] text-emerald-400/70 font-mono truncate flex-1">
+                    http://{authDisplay}
+                    {ip}:{internalPort}
                   </p>
-                  {copiedUrl === externalUrl ? (
-                    <Check className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+                  {copiedUrl === internalUrl ? (
+                    <Check className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
                   ) : (
-                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
+                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
                   )}
                 </div>
-              )}
-            </div>
-          );
-        })()}
+                {/* External URL - only if mapped */}
+                {externalUrl && (
+                  <div
+                    className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/ext"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyToClipboard(externalUrl);
+                    }}
+                    title="Click to copy external proxy URL"
+                  >
+                    <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                      External
+                    </span>
+                    <p className="text-[9px] text-blue-400/70 font-mono truncate flex-1">
+                      http://{authDisplay}
+                      {serverIp}:{externalPort}
+                    </p>
+                    {copiedUrl === externalUrl ? (
+                      <Check className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+                    ) : (
+                      <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         {container.config?.SHADOWSOCKS?.toLowerCase() === "on" && (
           <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
             <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">

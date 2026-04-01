@@ -15,7 +15,7 @@ O11_KEYS = ("o11_url", "o11_username", "o11_password")
 
 def _get_setting(db: Session, key: str) -> str:
     row = db.query(AppSettings).filter(AppSettings.key == key).first()
-    return row.value if row else ""
+    return (row.value or "") if row else ""
 
 
 def _set_setting(db: Session, key: str, value: str):

@@ -244,10 +244,10 @@ export default function O11ContainerDetail() {
               setRefreshing(false);
             }}
             disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-2 bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg text-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg text-sm transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw
-              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+              className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
             />
             Refresh
           </button>
@@ -255,10 +255,10 @@ export default function O11ContainerDetail() {
             <button
               onClick={() => handleAction("start")}
               disabled={!!actionLoading}
-              className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-emerald-400 text-vpn-text rounded-lg text-sm transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Play
-                className={`w-4 h-4 ${actionLoading === "start" ? "animate-pulse" : ""}`}
+                className={`w-4 h-4 text-emerald-400 ${actionLoading === "start" ? "animate-pulse" : ""}`}
               />
               Start
             </button>
@@ -267,10 +267,10 @@ export default function O11ContainerDetail() {
             <button
               onClick={() => handleAction("stop")}
               disabled={!!actionLoading}
-              className="flex items-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-amber-400 text-vpn-text rounded-lg text-sm transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Square
-                className={`w-4 h-4 ${actionLoading === "stop" ? "animate-pulse" : ""}`}
+                className={`w-4 h-4 text-amber-400 ${actionLoading === "stop" ? "animate-pulse" : ""}`}
               />
               Stop
             </button>
@@ -278,25 +278,25 @@ export default function O11ContainerDetail() {
           <button
             onClick={() => handleAction("restart")}
             disabled={!!actionLoading}
-            className="flex items-center gap-2 px-3 py-2 bg-vpn-primary/20 hover:bg-vpn-primary text-vpn-primary hover:text-black rounded-lg text-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg text-sm transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RotateCcw
-              className={`w-4 h-4 ${actionLoading === "restart" ? "animate-spin" : ""}`}
+              className={`w-4 h-4 text-vpn-primary ${actionLoading === "restart" ? "animate-spin" : ""}`}
             />
             Restart
           </button>
           <button
             onClick={openNetworkModal}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white rounded-lg text-sm transition-all active:scale-95 ml-auto"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-blue-400 text-vpn-text rounded-lg text-sm transition-all shadow-sm ml-auto"
           >
-            <Network className="w-4 h-4" />
+            <Network className="w-4 h-4 text-blue-400" />
             Change Network Mode
           </button>
           <button
             onClick={handleDelete}
-            className="flex items-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg text-sm transition-all active:scale-95"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-red-400 text-vpn-text rounded-lg text-sm transition-all shadow-sm"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4 text-red-400" />
             Delete
           </button>
         </div>
@@ -628,13 +628,13 @@ export default function O11ContainerDetail() {
               </div>
               <button
                 onClick={fetchLogs}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-vpn-input hover:bg-vpn-border text-vpn-text rounded-lg transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
               >
-                <RefreshCw className="w-3 h-3" />
+                <RefreshCw className="w-3 h-3 text-vpn-primary" />
                 Refresh
               </button>
             </div>
-            <pre className="bg-vpn-bg text-vpn-text text-xs font-mono p-4 rounded-lg overflow-auto max-h-[500px] whitespace-pre-wrap">
+            <pre className="bg-vpn-bg-dark text-vpn-text text-xs font-mono p-4 rounded-lg overflow-auto max-h-[500px] whitespace-pre-wrap">
               {logs || "No logs available."}
             </pre>
           </div>
@@ -784,7 +784,7 @@ export default function O11ContainerDetail() {
             <div className="flex items-center justify-end gap-3 p-6 border-t border-vpn-border">
               <button
                 onClick={() => setShowNetworkModal(false)}
-                className="px-4 py-2 rounded-lg text-sm text-vpn-muted hover:text-white hover:bg-vpn-input transition-colors"
+                className="px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-muted text-vpn-text rounded-lg text-sm transition-all shadow-sm"
               >
                 Cancel
               </button>
@@ -795,10 +795,10 @@ export default function O11ContainerDetail() {
                   !newNetworkMode.trim() ||
                   newNetworkMode === container.network_mode
                 }
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-blue-400 text-vpn-text rounded-lg text-sm font-medium transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save
-                  className={`w-4 h-4 ${networkModeLoading ? "animate-pulse" : ""}`}
+                  className={`w-4 h-4 text-blue-400 ${networkModeLoading ? "animate-pulse" : ""}`}
                 />
                 {networkModeLoading ? "Applying..." : "Apply & Recreate"}
               </button>

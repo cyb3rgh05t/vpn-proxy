@@ -1,6 +1,6 @@
 import logging
 import os
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from app.config import settings
@@ -740,3 +740,149 @@ def control_dependent(
         return {"message": f"Container {docker_name} {action}ed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+ALLOWED_CONFIG_EXTENSIONS = {".ovpn", ".conf", ".key", ".crt", ".pem", ".txt", ".cfg"}
+MAX_CONFIG_SIZE = 1 * 1024 * 1024  # 1 MB
+
+
+@router.post("/{container_id}/upload-config")
+async def upload_vpn_config(
+    container_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a VPN config file to the container's gluetun data directory."""
+    c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Container not found")
+
+    # Validate filename
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+    filename = os.path.basename(file.filename)
+    _, ext = os.path.splitext(filename)
+    if ext.lower() not in ALLOWED_CONFIG_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_CONFIG_EXTENSIONS))}",
+        )
+
+    # Read and validate size
+    content = await file.read()
+    if len(content) > MAX_CONFIG_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 1 MB)")
+
+    # Save to data/gluetun/{name}/
+    gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", c.name)
+    os.makedirs(gluetun_data, exist_ok=True)
+    dest = os.path.join(gluetun_data, filename)
+    with open(dest, "wb") as f:
+        f.write(content)
+
+    logger.info("Uploaded config file '%s' for container '%s'", filename, c.name)
+    return {
+        "message": f"Uploaded {filename}",
+        "filename": filename,
+        "path": f"/gluetun/{filename}",
+    }
+
+
+@router.get("/{container_id}/config-files")
+def list_config_files(
+    container_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List VPN config files in the container's gluetun data directory."""
+    c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Container not found")
+
+    gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", c.name)
+    if not os.path.isdir(gluetun_data):
+        return []
+
+    files = []
+    for fname in os.listdir(gluetun_data):
+        fpath = os.path.join(gluetun_data, fname)
+        if os.path.isfile(fpath):
+            _, ext = os.path.splitext(fname)
+            if ext.lower() in ALLOWED_CONFIG_EXTENSIONS:
+                files.append(
+                    {
+                        "name": fname,
+                        "size": os.path.getsize(fpath),
+                        "path": f"/gluetun/{fname}",
+                    }
+                )
+    return files
+
+
+@router.delete("/{container_id}/config-files/{filename}")
+def delete_config_file(
+    container_id: int,
+    filename: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a VPN config file from the container's gluetun data directory."""
+    c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Container not found")
+
+    # Prevent path traversal
+    safe_name = os.path.basename(filename)
+    gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", c.name)
+    fpath = os.path.join(gluetun_data, safe_name)
+
+    if not os.path.isfile(fpath):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    os.remove(fpath)
+    logger.info("Deleted config file '%s' for container '%s'", safe_name, c.name)
+    return {"message": f"Deleted {safe_name}"}
+
+
+@router.post("/upload-config-by-name/{name}")
+async def upload_vpn_config_by_name(
+    name: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a VPN config file by container name (for pre-creation uploads)."""
+    # Validate name
+    import re
+
+    if not re.match(r"^[a-z0-9_-]+$", name):
+        raise HTTPException(status_code=400, detail="Invalid container name")
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+    filename = os.path.basename(file.filename)
+    _, ext = os.path.splitext(filename)
+    if ext.lower() not in ALLOWED_CONFIG_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_CONFIG_EXTENSIONS))}",
+        )
+
+    content = await file.read()
+    if len(content) > MAX_CONFIG_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 1 MB)")
+
+    gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
+    os.makedirs(gluetun_data, exist_ok=True)
+    dest = os.path.join(gluetun_data, filename)
+    with open(dest, "wb") as f:
+        f.write(content)
+
+    logger.info(
+        "Uploaded config file '%s' for name '%s' (pre-creation)", filename, name
+    )
+    return {
+        "message": f"Uploaded {filename}",
+        "filename": filename,
+        "path": f"/gluetun/{filename}",
+    }

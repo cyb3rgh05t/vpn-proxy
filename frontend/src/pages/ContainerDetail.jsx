@@ -17,6 +17,8 @@ import {
   X,
   Save,
   Plus,
+  Upload,
+  File,
 } from "lucide-react";
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
@@ -48,6 +50,9 @@ export default function ContainerDetail() {
   const [editHttpPort, setEditHttpPort] = useState(8888);
   const [editShadowsocksPort, setEditShadowsocksPort] = useState(8388);
   const [redeploying, setRedeploying] = useState(false);
+  const [configFiles, setConfigFiles] = useState([]);
+  const [uploadingConfig, setUploadingConfig] = useState(false);
+  const configFileInputRef = useRef(null);
 
   const fetchContainer = useCallback(async () => {
     try {
@@ -191,6 +196,50 @@ export default function ContainerDetail() {
     setEditHttpPort(container.port_http_proxy || 8888);
     setEditShadowsocksPort(container.port_shadowsocks || 8388);
     setEditingConfig(true);
+    fetchConfigFiles();
+  };
+
+  const fetchConfigFiles = async () => {
+    try {
+      const res = await api.get(`/containers/${id}/config-files`);
+      setConfigFiles(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setConfigFiles([]);
+    }
+  };
+
+  const handleConfigUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setUploadingConfig(true);
+    try {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        await api.post(`/containers/${id}/upload-config`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+      toast.success("Config file(s) uploaded");
+      fetchConfigFiles();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to upload file");
+    } finally {
+      setUploadingConfig(false);
+      if (configFileInputRef.current) configFileInputRef.current.value = "";
+    }
+  };
+
+  const handleConfigFileDelete = async (filename) => {
+    try {
+      await api.delete(
+        `/containers/${id}/config-files/${encodeURIComponent(filename)}`,
+      );
+      toast.success(`Deleted ${filename}`);
+      fetchConfigFiles();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to delete file");
+    }
   };
 
   const handleRedeploy = async () => {
@@ -885,6 +934,67 @@ export default function ContainerDetail() {
                     Add Port Mapping
                   </button>
                 </div>
+              </div>
+
+              {/* VPN Config Files */}
+              <div className="pt-4 border-t border-vpn-border">
+                <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
+                  VPN Config Files
+                </h3>
+                <p className="text-xs text-vpn-muted mb-3">
+                  Upload OpenVPN or WireGuard config files. Stored in{" "}
+                  <span className="font-mono text-vpn-primary/70">
+                    /gluetun/
+                  </span>{" "}
+                  inside the container.
+                </p>
+                <input
+                  ref={configFileInputRef}
+                  type="file"
+                  accept=".ovpn,.conf,.key,.crt,.pem,.txt,.cfg"
+                  onChange={handleConfigUpload}
+                  className="hidden"
+                  multiple
+                />
+                <button
+                  type="button"
+                  onClick={() => configFileInputRef.current?.click()}
+                  disabled={uploadingConfig}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-vpn-border hover:border-vpn-primary rounded-xl text-sm text-vpn-muted hover:text-vpn-primary transition-all disabled:opacity-50"
+                >
+                  {uploadingConfig ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  {uploadingConfig ? "Uploading..." : "Upload config files"}
+                </button>
+                {configFiles.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {configFiles.map((f) => (
+                      <div
+                        key={f.name}
+                        className="flex items-center justify-between bg-vpn-input rounded-lg px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <File className="w-4 h-4 text-vpn-primary flex-shrink-0" />
+                          <span className="text-sm text-white truncate">
+                            {f.name}
+                          </span>
+                          <span className="text-xs text-vpn-muted font-mono flex-shrink-0">
+                            {f.path}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleConfigFileDelete(f.name)}
+                          className="p-1 text-vpn-muted hover:text-red-400 transition-colors flex-shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -7,6 +7,9 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
+  Upload,
+  File,
+  X,
 } from "lucide-react";
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
@@ -92,6 +95,9 @@ export default function CreateContainer() {
   const [openGluetunCategories, setOpenGluetunCategories] = useState({});
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [networks, setNetworks] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     api
@@ -163,6 +169,36 @@ export default function CreateContainer() {
 
   const toggleGluetunCategory = (cat) => {
     setOpenGluetunCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
+  };
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !form.name.trim()) return;
+    setUploading(true);
+    try {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await api.post(
+          `/containers/upload-config-by-name/${encodeURIComponent(form.name.trim())}`,
+          formData,
+          { headers: { "Content-Type": "multipart/form-data" } },
+        );
+        setUploadedFiles((prev) => [
+          ...prev,
+          { name: res.data.filename, path: res.data.path },
+        ]);
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to upload file");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeUploadedFile = (fileName) => {
+    setUploadedFiles((prev) => prev.filter((f) => f.name !== fileName));
   };
 
   const handleSubmit = async (e) => {
@@ -371,6 +407,79 @@ export default function CreateContainer() {
             </div>
           </div>
         )}
+
+        {/* Card: VPN Config Files */}
+        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-1">
+            VPN Config Files
+          </h2>
+          <p className="text-xs text-vpn-muted mb-4">
+            Upload OpenVPN (.ovpn) or WireGuard (.conf) config files. Files are
+            stored in{" "}
+            <span className="font-mono text-vpn-primary/70">/gluetun/</span>{" "}
+            inside the container.
+          </p>
+
+          {!form.name.trim() ? (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+              <p className="text-xs text-amber-400">
+                Enter a container name above before uploading config files.
+              </p>
+            </div>
+          ) : (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".ovpn,.conf,.key,.crt,.pem,.txt,.cfg"
+                onChange={handleFileUpload}
+                className="hidden"
+                multiple
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-vpn-border hover:border-vpn-primary rounded-xl text-sm text-vpn-muted hover:text-vpn-primary transition-all disabled:opacity-50"
+              >
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                {uploading ? "Uploading..." : "Click to upload config files"}
+              </button>
+
+              {uploadedFiles.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {uploadedFiles.map((f) => (
+                    <div
+                      key={f.name}
+                      className="flex items-center justify-between bg-vpn-input rounded-lg px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <File className="w-4 h-4 text-vpn-primary flex-shrink-0" />
+                        <span className="text-sm text-white truncate">
+                          {f.name}
+                        </span>
+                        <span className="text-xs text-vpn-muted font-mono flex-shrink-0">
+                          {f.path}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeUploadedFile(f.name)}
+                        className="p-1 text-vpn-muted hover:text-red-400 transition-colors flex-shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         {/* Card: Access Ports */}
         <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">

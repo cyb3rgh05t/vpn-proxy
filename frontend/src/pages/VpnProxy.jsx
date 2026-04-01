@@ -51,6 +51,7 @@ export default function VpnProxy() {
   const [discovering, setDiscovering] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
+  const [providerFilter, setProviderFilter] = useState("all");
 
   const running = containers.filter((c) =>
     ["running", "healthy"].includes(c.status),
@@ -95,9 +96,15 @@ export default function VpnProxy() {
     return true;
   };
 
+  const providers = [
+    ...new Set(containers.map((c) => c.vpn_provider).filter(Boolean)),
+  ].sort();
+
   const filteredContainers = containers.filter(
     (c) =>
       matchesFilter(c.status) &&
+      (providerFilter === "all" ||
+        c.vpn_provider?.toLowerCase() === providerFilter.toLowerCase()) &&
       (searchQuery === "" ||
         c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.vpn_provider?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -211,6 +218,46 @@ export default function VpnProxy() {
           className="w-full pl-10 pr-4 py-2.5 bg-vpn-card border border-vpn-border rounded-lg text-sm text-vpn-text placeholder-vpn-muted focus:outline-none focus:border-vpn-primary transition-colors"
         />
       </div>
+
+      {/* Provider Tabs */}
+      {providers.length > 1 && (
+        <div className="bg-vpn-card border border-vpn-border rounded-lg p-2 overflow-x-auto mb-6">
+          <div className="flex gap-2 min-w-max">
+            {["all", ...providers].map((prov) => {
+              const count =
+                prov === "all"
+                  ? containers.filter((c) => matchesFilter(c.status)).length
+                  : containers.filter(
+                      (c) =>
+                        matchesFilter(c.status) &&
+                        c.vpn_provider?.toLowerCase() === prov.toLowerCase(),
+                    ).length;
+              return (
+                <button
+                  key={prov}
+                  onClick={() => setProviderFilter(prov)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
+                    providerFilter === prov
+                      ? "bg-vpn-primary text-black shadow-md"
+                      : "bg-vpn-input/50 text-vpn-muted hover:bg-vpn-primary/20 hover:text-vpn-primary"
+                  }`}
+                >
+                  {prov === "all" ? "All" : prov}
+                  <span
+                    className={`ml-2 text-xs ${
+                      providerFilter === prov
+                        ? "text-black/70"
+                        : "text-vpn-muted"
+                    }`}
+                  >
+                    ({count})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Container Grid */}
       {loading ? (

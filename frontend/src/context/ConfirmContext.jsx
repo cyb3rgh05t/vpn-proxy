@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useCallback, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
 import { AlertTriangle, Trash2, Rocket, X } from "lucide-react";
 
 const ConfirmContext = createContext();
@@ -8,22 +14,19 @@ const variantConfig = {
     icon: Trash2,
     iconColor: "text-red-400",
     iconBg: "bg-red-500/10",
-    buttonClass:
-      "bg-red-600 hover:bg-red-700 text-white",
+    buttonClass: "bg-red-600 hover:bg-red-700 text-white",
   },
   warning: {
     icon: AlertTriangle,
     iconColor: "text-amber-400",
     iconBg: "bg-amber-500/10",
-    buttonClass:
-      "bg-amber-600 hover:bg-amber-700 text-white",
+    buttonClass: "bg-amber-600 hover:bg-amber-700 text-white",
   },
   info: {
     icon: Rocket,
     iconColor: "text-blue-400",
     iconBg: "bg-blue-500/10",
-    buttonClass:
-      "bg-blue-600 hover:bg-blue-700 text-white",
+    buttonClass: "bg-blue-600 hover:bg-blue-700 text-white",
   },
 };
 
@@ -38,9 +41,7 @@ function ConfirmDialog({ dialog, onConfirm, onCancel }) {
       <div className="bg-vpn-card border border-vpn-border rounded-2xl w-full max-w-md shadow-2xl animate-toast-in">
         <div className="p-6">
           <div className="flex items-start gap-4">
-            <div
-              className={`p-3 rounded-xl ${variant.iconBg} flex-shrink-0`}
-            >
+            <div className={`p-3 rounded-xl ${variant.iconBg} flex-shrink-0`}>
               <Icon className={`w-6 h-6 ${variant.iconColor}`} />
             </div>
             <div className="flex-1 min-w-0">
@@ -123,7 +124,6 @@ export function ConfirmProvider({ children }) {
 
 export function useConfirm() {
   const ctx = useContext(ConfirmContext);
-  if (!ctx)
-    throw new Error("useConfirm must be used within ConfirmProvider");
+  if (!ctx) throw new Error("useConfirm must be used within ConfirmProvider");
   return ctx;
 }

@@ -11,8 +11,9 @@ import {
   AlertTriangle,
   Tv,
   MonitorPlay,
-  ChevronDown,
-  ChevronUp,
+  Gauge,
+  Copy,
+  Check,
 } from "lucide-react";
 import api from "../services/api";
 import { useToast } from "../context/ToastContext";
@@ -35,11 +36,12 @@ function bwColorClass(color) {
   }
 }
 
-function NetworkUsageGrid({ usage }) {
-  const [expandedCards, setExpandedCards] = useState({});
+function NetworkUsageGrid({ usage, category }) {
+  const [copiedUrl, setCopiedUrl] = useState(null);
 
+  const categories = category === "all" ? CATEGORIES : [category];
   const rows = [];
-  for (const cat of CATEGORIES) {
+  for (const cat of categories) {
     const proxy = usage[cat]?.Proxy || {};
     for (const [url, info] of Object.entries(proxy)) {
       rows.push({
@@ -53,8 +55,11 @@ function NetworkUsageGrid({ usage }) {
     }
   }
 
-  const toggleCard = (key) =>
-    setExpandedCards((p) => ({ ...p, [key]: !p[key] }));
+  const copyUrl = (url) => {
+    navigator.clipboard.writeText(url);
+    setCopiedUrl(url);
+    setTimeout(() => setCopiedUrl(null), 2000);
+  };
 
   const catColors = {
     Script: "text-blue-400 bg-blue-400/10 border-blue-400/30",
@@ -75,7 +80,6 @@ function NetworkUsageGrid({ usage }) {
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {rows.map((row) => {
         const key = `${row.category}-${row.url}`;
-        const expanded = expandedCards[key];
         const streamCount = row.streams.length;
         return (
           <div
@@ -88,61 +92,46 @@ function NetworkUsageGrid({ usage }) {
               >
                 {row.category}
               </span>
-              {row.mbpsFormatted ? (
-                <span
-                  className={`text-sm font-bold ${row.mbps > 0 ? "text-green-400" : "text-red-400"}`}
-                >
-                  {row.mbpsFormatted}
-                </span>
-              ) : (
-                <span className="text-vpn-muted text-sm">—</span>
-              )}
+              <span
+                className={`inline-flex items-center gap-1.5 text-sm font-bold ${row.mbps > 0 ? "text-green-400" : "text-red-400"}`}
+              >
+                <Gauge className="w-3.5 h-3.5" />
+                {row.mbpsFormatted || "—"}
+              </span>
             </div>
 
-            <p
-              className="text-vpn-primary font-mono text-xs truncate mb-3"
-              title={row.url}
+            <button
+              onClick={() => copyUrl(row.url)}
+              className="group flex items-center gap-2 w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 mb-3 hover:border-vpn-primary/50 transition-colors"
+              title="Click to copy"
             >
-              {row.url}
-            </p>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div>
-                  <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
-                    Streams
-                  </p>
-                  <p className="text-sm font-bold text-white">{streamCount}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
-                    Max
-                  </p>
-                  <p className="text-sm font-bold text-white">
-                    {row.maxStreams}
-                  </p>
-                </div>
-              </div>
-              {streamCount > 0 && (
-                <button
-                  onClick={() => toggleCard(key)}
-                  className="flex items-center gap-1 text-xs text-vpn-muted hover:text-vpn-primary transition-colors"
-                >
-                  {expanded ? (
-                    <>
-                      Hide <ChevronUp className="w-3.5 h-3.5" />
-                    </>
-                  ) : (
-                    <>
-                      Show <ChevronDown className="w-3.5 h-3.5" />
-                    </>
-                  )}
-                </button>
+              <span className="text-vpn-primary font-mono text-xs truncate flex-1 text-left">
+                {row.url}
+              </span>
+              {copiedUrl === row.url ? (
+                <Check className="w-3.5 h-3.5 text-green-400 shrink-0" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-vpn-muted group-hover:text-vpn-primary shrink-0 transition-colors" />
               )}
+            </button>
+
+            <div className="flex items-center gap-4 mb-3">
+              <div>
+                <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                  Streams
+                </p>
+                <p className="text-sm font-bold text-white">{streamCount}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-vpn-muted uppercase tracking-wider">
+                  Max
+                </p>
+                <p className="text-sm font-bold text-white">{row.maxStreams}</p>
+              </div>
             </div>
 
-            {expanded && streamCount > 0 && (
-              <div className="mt-3 pt-3 border-t border-vpn-border/50">
+            {streamCount > 0 && (
+              <div className="pt-3 border-t border-vpn-border/50">
                 <div className="flex flex-wrap gap-1.5">
                   {row.streams.map((s, i) => (
                     <span
@@ -173,6 +162,7 @@ export default function Monitoring() {
   const [searchQuery, setSearchQuery] = useState("");
   const [providerId, setProviderId] = useState("demagentatv");
   const [tab, setTab] = useState("network");
+  const [networkTab, setNetworkTab] = useState("all");
   const intervalRef = useRef(null);
 
   const fetchData = useCallback(
@@ -363,7 +353,41 @@ export default function Monitoring() {
         {/* Network Usage Tab */}
         {tab === "network" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-between">
+              <div className="inline-flex gap-1 bg-vpn-card border border-vpn-border rounded-lg p-1">
+                {["all", ...CATEGORIES].map((cat) => {
+                  const count =
+                    cat === "all"
+                      ? CATEGORIES.reduce(
+                          (sum, c) =>
+                            sum + Object.keys(usage[c]?.Proxy || {}).length,
+                          0,
+                        )
+                      : Object.keys(usage[cat]?.Proxy || {}).length;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setNetworkTab(cat)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        networkTab === cat
+                          ? "bg-vpn-primary text-black"
+                          : "text-vpn-muted hover:text-vpn-text"
+                      }`}
+                    >
+                      {cat === "all" ? "All" : cat}
+                      <span
+                        className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          networkTab === cat
+                            ? "bg-black/20 text-black"
+                            : "bg-vpn-input text-vpn-muted"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
                 <input
@@ -377,7 +401,7 @@ export default function Monitoring() {
                 />
               </div>
             </div>
-            <NetworkUsageGrid usage={usage} />
+            <NetworkUsageGrid usage={usage} category={networkTab} />
           </div>
         )}
 

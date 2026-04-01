@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Activity,
   RefreshCw,
+  RotateCcw,
   Cpu,
   HardDrive,
   ArrowDownToLine,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { useToast } from "../context/ToastContext";
+import { useContainerData } from "../context/ContainerDataContext";
 
 const AUTO_REFRESH_INTERVAL = 5000;
 const CATEGORIES = ["Script", "Manifest", "Media"];
@@ -36,11 +38,18 @@ function bwColorClass(color) {
   }
 }
 
-function NetworkUsageGrid({ usage, category }) {
+function NetworkUsageGrid({
+  usage,
+  category,
+  containers,
+  onRestart,
+  searchQuery,
+}) {
   const [copiedUrl, setCopiedUrl] = useState(null);
+  const [restartingIp, setRestartingIp] = useState(null);
 
   const categories = category === "all" ? CATEGORIES : [category];
-  const rows = [];
+  let rows = [];
   for (const cat of categories) {
     const proxy = usage[cat]?.Proxy || {};
     for (const [url, info] of Object.entries(proxy)) {
@@ -53,6 +62,15 @@ function NetworkUsageGrid({ usage, category }) {
         mbpsFormatted: info?.MbpsFormatted || "",
       });
     }
+  }
+
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    rows = rows.filter(
+      (row) =>
+        row.url.toLowerCase().includes(q) ||
+        row.streams.some((s) => s.toLowerCase().includes(q)),
+    );
   }
 
   const copyUrl = (url) => {
@@ -128,6 +146,30 @@ function NetworkUsageGrid({ usage, category }) {
                 </p>
                 <p className="text-sm font-bold text-white">{row.maxStreams}</p>
               </div>
+              <div className="ml-auto">
+                {(() => {
+                  const ip = row.url.replace(/^https?:\/\//, "").split(":")[0];
+                  const match = containers?.find((c) => c.ip_address === ip);
+                  if (!match) return null;
+                  return (
+                    <button
+                      onClick={async () => {
+                        setRestartingIp(ip);
+                        await onRestart?.(match.id);
+                        setRestartingIp(null);
+                      }}
+                      disabled={restartingIp === ip}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-vpn-input border border-vpn-border rounded-lg text-xs text-vpn-muted hover:text-vpn-primary hover:border-vpn-primary/50 transition-all disabled:opacity-50"
+                      title={`Restart ${match.name}`}
+                    >
+                      <RotateCcw
+                        className={`w-3 h-3 ${restartingIp === ip ? "animate-spin" : ""}`}
+                      />
+                      {match.name}
+                    </button>
+                  );
+                })()}
+              </div>
             </div>
 
             {streamCount > 0 && (
@@ -153,6 +195,7 @@ function NetworkUsageGrid({ usage, category }) {
 
 export default function Monitoring() {
   const toast = useToast();
+  const { containers, refreshContainers } = useContainerData();
   const [monitorData, setMonitorData] = useState(null);
   const [networkData, setNetworkData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -160,6 +203,7 @@ export default function Monitoring() {
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [networkSearch, setNetworkSearch] = useState("");
   const [providerId, setProviderId] = useState("demagentatv");
   const [tab, setTab] = useState("network");
   const [networkTab, setNetworkTab] = useState("all");
@@ -225,6 +269,16 @@ export default function Monitoring() {
   });
 
   const usage = networkData?.Usage || {};
+
+  const handleRestartContainer = async (containerId) => {
+    try {
+      await api.post(`/containers/${containerId}/restart`);
+      toast.success("Container restarting...");
+      refreshContainers();
+    } catch {
+      toast.error("Failed to restart container");
+    }
+  };
 
   if (loading) {
     return (
@@ -388,20 +442,38 @@ export default function Monitoring() {
                   );
                 })}
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
-                <input
-                  type="text"
-                  placeholder="Provider ID..."
-                  value={providerId}
-                  onChange={(e) => setProviderId(e.target.value)}
-                  onBlur={() => fetchData()}
-                  onKeyDown={(e) => e.key === "Enter" && fetchData()}
-                  className="w-48 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted text-sm focus:outline-none focus:border-vpn-primary/50"
-                />
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
+                  <input
+                    type="text"
+                    placeholder="Search streams..."
+                    value={networkSearch}
+                    onChange={(e) => setNetworkSearch(e.target.value)}
+                    className="w-48 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted text-sm focus:outline-none focus:border-vpn-primary/50"
+                  />
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
+                  <input
+                    type="text"
+                    placeholder="Provider ID..."
+                    value={providerId}
+                    onChange={(e) => setProviderId(e.target.value)}
+                    onBlur={() => fetchData()}
+                    onKeyDown={(e) => e.key === "Enter" && fetchData()}
+                    className="w-48 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted text-sm focus:outline-none focus:border-vpn-primary/50"
+                  />
+                </div>
               </div>
             </div>
-            <NetworkUsageGrid usage={usage} category={networkTab} />
+            <NetworkUsageGrid
+              usage={usage}
+              category={networkTab}
+              containers={containers}
+              onRestart={handleRestartContainer}
+              searchQuery={networkSearch}
+            />
           </div>
         )}
 

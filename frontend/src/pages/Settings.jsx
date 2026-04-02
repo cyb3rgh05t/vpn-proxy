@@ -82,6 +82,7 @@ export default function Settings() {
     o11_url: "",
     o11_username: "",
     o11_password: "",
+    o11_provider_id: "",
   });
   const [o11Loading, setO11Loading] = useState(false);
   const [o11Testing, setO11Testing] = useState(false);
@@ -104,6 +105,7 @@ export default function Settings() {
         o11_url: res.data.o11_url || "",
         o11_username: res.data.o11_username || "",
         o11_password: res.data.o11_password || "",
+        o11_provider_id: res.data.o11_provider_id || "",
       });
       setO11Configured(res.data.configured);
     } catch {
@@ -787,6 +789,23 @@ export default function Settings() {
                       )}
                     </button>
                   </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                    Provider ID
+                  </label>
+                  <input
+                    type="text"
+                    value={o11Settings.o11_provider_id}
+                    onChange={(e) =>
+                      setO11Settings({
+                        ...o11Settings,
+                        o11_provider_id: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. demagentatv"
+                    className={inputClass}
+                  />
                 </div>
               </div>
               <div className="flex justify-end">

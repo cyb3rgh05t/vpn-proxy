@@ -40,3 +40,19 @@ def get_network_usage(
     except Exception as e:
         logger.error("Network-usage fetch failed: %s", e)
         raise HTTPException(status_code=502, detail=str(e))
+
+
+@router.get("/proxy-count")
+def get_proxy_count(
+    provider: str = Query(..., description="Provider ID / slug"),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the total number of active proxy URLs for a provider."""
+    if not monitoring_service.is_configured():
+        raise HTTPException(status_code=503, detail="O11 monitoring not configured")
+    try:
+        count = monitoring_service.get_proxy_count(provider)
+        return {"count": count}
+    except Exception as e:
+        logger.error("Proxy count fetch failed: %s", e)
+        raise HTTPException(status_code=502, detail=str(e))

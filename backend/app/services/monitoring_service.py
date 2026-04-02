@@ -180,3 +180,14 @@ def get_monitoring() -> dict:
 def get_network_usage(provider_id: str) -> dict:
     """Fetch network-usage / proxy data for a provider."""
     return _ws_request("networkstatus", {"ProviderId": provider_id})
+
+
+def get_proxy_count(provider_id: str) -> int:
+    """Return the total number of active proxy URLs for a provider."""
+    data = _ws_request("networkstatus", {"ProviderId": provider_id})
+    usage = data.get("Usage", {})
+    count = 0
+    for cat_data in usage.values():
+        proxy = cat_data.get("Proxy", {})
+        count += len(proxy)
+    return count

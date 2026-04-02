@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
-O11_KEYS = ("o11_url", "o11_username", "o11_password")
+O11_KEYS = ("o11_url", "o11_username", "o11_password", "o11_provider_id")
 
 
 def _get_setting(db: Session, key: str) -> str:
@@ -36,10 +36,12 @@ def get_o11_settings(
     url = _get_setting(db, "o11_url")
     username = _get_setting(db, "o11_username")
     password = _get_setting(db, "o11_password")
+    provider_id = _get_setting(db, "o11_provider_id")
     return {
         "o11_url": url,
         "o11_username": username,
         "o11_password": "••••••••" if password else "",
+        "o11_provider_id": provider_id,
         "configured": bool(url and username and password),
     }
 
@@ -62,6 +64,8 @@ def update_o11_settings(
         _set_setting(db, "o11_username", data["o11_username"])
     if "o11_password" in data and data["o11_password"] != "••••••••":
         _set_setting(db, "o11_password", data["o11_password"])
+    if "o11_provider_id" in data:
+        _set_setting(db, "o11_provider_id", data["o11_provider_id"])
 
     # Reload credentials in the monitoring service
     from app.services import monitoring_service

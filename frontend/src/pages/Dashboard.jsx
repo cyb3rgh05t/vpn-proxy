@@ -170,16 +170,16 @@ export default function Dashboard() {
   }, [containers, vpnInfoMap, depsMap]);
 
   const StatCard = ({ label, value, icon: Icon, color, bg }) => (
-    <div className="bg-vpn-card border border-vpn-border rounded-xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 min-w-0">
-      <div className={`p-2 sm:p-2.5 rounded-lg ${bg} shrink-0`}>
-        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${color}`} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-lg sm:text-xl font-bold text-white">{value}</p>
-        <p className="text-[10px] sm:text-xs text-vpn-muted truncate">
+    <div className="bg-vpn-card border border-vpn-border rounded-xl p-4 min-w-0">
+      <div className="flex items-center gap-2 mb-2">
+        <div className={`p-1.5 rounded-md ${bg}`}>
+          <Icon className={`w-3.5 h-3.5 ${color}`} />
+        </div>
+        <p className="text-[11px] font-semibold text-vpn-muted uppercase tracking-wider truncate">
           {label}
         </p>
       </div>
+      <p className="text-2xl font-bold text-white pl-0.5">{value}</p>
     </div>
   );
 

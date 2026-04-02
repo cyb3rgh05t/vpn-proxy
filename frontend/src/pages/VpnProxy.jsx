@@ -229,7 +229,7 @@ export default function VpnProxy() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         {stats.map(
           ({
             label,
@@ -246,17 +246,19 @@ export default function VpnProxy() {
               onClick={() =>
                 setStatusFilter(statusFilter === filter ? null : filter)
               }
-              className={`bg-vpn-card border rounded-xl p-5 flex items-center gap-4 cursor-pointer transition-all ${hoverBorder} ${
+              className={`bg-vpn-card border rounded-xl p-4 cursor-pointer transition-all ${hoverBorder} ${
                 statusFilter === filter ? activeBorder : "border-vpn-border"
               }`}
             >
-              <div className={`p-3 rounded-lg ${bg}`}>
-                <Icon className={`w-6 h-6 ${color}`} />
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`p-1.5 rounded-md ${bg}`}>
+                  <Icon className={`w-3.5 h-3.5 ${color}`} />
+                </div>
+                <p className="text-[11px] font-semibold text-vpn-muted uppercase tracking-wider truncate">
+                  {label}
+                </p>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-white">{value}</p>
-                <p className="text-sm text-vpn-muted">{label}</p>
-              </div>
+              <p className="text-2xl font-bold text-white pl-0.5">{value}</p>
             </div>
           ),
         )}

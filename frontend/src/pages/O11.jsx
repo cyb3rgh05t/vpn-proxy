@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Boxes,
@@ -44,6 +44,24 @@ export default function O11() {
   const [actionLoading, setActionLoading] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
+  const [proxyCount, setProxyCount] = useState(0);
+
+  useEffect(() => {
+    const fetchProxyCount = async () => {
+      try {
+        const settingsRes = await api.get("/settings/o11");
+        const pid = settingsRes.data.o11_provider_id;
+        if (!pid) return;
+        const res = await api.get("/monitoring/proxy-count", {
+          params: { provider: pid },
+        });
+        setProxyCount(res.data.count || 0);
+      } catch {
+        // monitoring not configured or provider not set
+      }
+    };
+    fetchProxyCount();
+  }, [containers]);
 
   const getVpnInfoForParent = useCallback(
     (vpnParent) => {
@@ -153,6 +171,14 @@ export default function O11() {
       color: "text-blue-400",
       bg: "bg-blue-500/10",
       filter: "vpn",
+    },
+    {
+      label: "Proxied",
+      value: proxyCount,
+      icon: Globe,
+      color: "text-purple-400",
+      bg: "bg-purple-500/10",
+      filter: null,
     },
   ];
 
@@ -382,26 +408,30 @@ export default function O11() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         {stats.map(({ label, value, icon: Icon, color, bg, filter }) => (
           <div
             key={label}
             onClick={() =>
-              setStatusFilter(statusFilter === filter ? null : filter)
+              filter !== null
+                ? setStatusFilter(statusFilter === filter ? null : filter)
+                : undefined
             }
-            className={`bg-vpn-card border rounded-xl p-5 flex items-center gap-4 cursor-pointer transition-all hover:border-vpn-muted ${
-              statusFilter === filter
+            className={`bg-vpn-card border rounded-xl p-4 ${filter !== null ? "cursor-pointer" : ""} transition-all hover:border-vpn-muted ${
+              statusFilter === filter && filter !== null
                 ? "border-vpn-primary ring-1 ring-vpn-primary/30"
                 : "border-vpn-border"
             }`}
           >
-            <div className={`p-3 rounded-lg ${bg}`}>
-              <Icon className={`w-6 h-6 ${color}`} />
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`p-1.5 rounded-md ${bg}`}>
+                <Icon className={`w-3.5 h-3.5 ${color}`} />
+              </div>
+              <p className="text-[11px] font-semibold text-vpn-muted uppercase tracking-wider truncate">
+                {label}
+              </p>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{value}</p>
-              <p className="text-sm text-vpn-muted">{label}</p>
-            </div>
+            <p className="text-2xl font-bold text-white pl-0.5">{value}</p>
           </div>
         ))}
       </div>

@@ -206,23 +206,27 @@ export default function Monitoring() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [networkSearch, setNetworkSearch] = useState("");
-  const [providerId, setProviderId] = useState("demagentatv");
+  const [providerId, setProviderId] = useState("");
   const [tab, setTab] = useState("network");
   const [networkTab, setNetworkTab] = useState("all");
   const intervalRef = useRef(null);
 
   const fetchData = useCallback(
-    async (silent = false) => {
+    async (silent = false, overrideProviderId = null) => {
+      const pid = overrideProviderId || providerId;
       try {
         if (!silent) setRefreshing(true);
-        const [monRes, netRes] = await Promise.all([
-          api.get("/monitoring"),
-          api.get("/monitoring/network-usage", {
-            params: { provider: providerId },
-          }),
-        ]);
-        setMonitorData(monRes.data);
-        setNetworkData(netRes.data);
+        const requests = [api.get("/monitoring")];
+        if (pid) {
+          requests.push(
+            api.get("/monitoring/network-usage", {
+              params: { provider: pid },
+            }),
+          );
+        }
+        const results = await Promise.all(requests);
+        setMonitorData(results[0].data);
+        if (results[1]) setNetworkData(results[1].data);
       } catch (err) {
         if (!silent) toast.error("Failed to fetch monitoring data");
       } finally {
@@ -235,9 +239,14 @@ export default function Monitoring() {
 
   const checkStatus = useCallback(async () => {
     try {
-      const res = await api.get("/monitoring/status");
-      setConfigured(res.data.configured);
-      if (res.data.configured) fetchData();
+      const [statusRes, settingsRes] = await Promise.all([
+        api.get("/monitoring/status"),
+        api.get("/settings/o11"),
+      ]);
+      const pid = settingsRes.data.o11_provider_id || "";
+      if (pid) setProviderId(pid);
+      setConfigured(statusRes.data.configured);
+      if (statusRes.data.configured) fetchData(false, pid);
       else setLoading(false);
     } catch {
       setConfigured(false);

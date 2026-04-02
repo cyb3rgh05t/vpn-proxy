@@ -461,6 +461,38 @@ def get_provider_list():
 
 # All Gluetun environment variables organized by category
 GLUETUN_ENV_VARIABLES = {
+    "System": [
+        {
+            "key": "TZ",
+            "label": "Timezone",
+            "placeholder": "e.g. Europe/Berlin",
+            "default": "Europe/Berlin",
+        },
+        {
+            "key": "PUID",
+            "label": "Process UID",
+            "placeholder": "User ID",
+            "default": "1000",
+        },
+        {
+            "key": "PGID",
+            "label": "Process GID",
+            "placeholder": "Group ID",
+            "default": "1000",
+        },
+        {
+            "key": "LOG_LEVEL",
+            "label": "Log Level",
+            "placeholder": "debug, info, warn, error",
+            "default": "info",
+        },
+        {
+            "key": "VERSION_INFORMATION",
+            "label": "Version Info",
+            "placeholder": "on or off",
+            "default": "on",
+        },
+    ],
     "Server Selection": [
         {
             "key": "SERVER_COUNTRIES",
@@ -967,37 +999,6 @@ GLUETUN_ENV_VARIABLES = {
             "default": "/tmp/gluetun/ip",
         },
     ],
-    "System": [
-        {
-            "key": "TZ",
-            "label": "Timezone",
-            "placeholder": "e.g. Europe/Berlin",
-            "default": "",
-        },
-        {
-            "key": "PUID",
-            "label": "Process UID",
-            "placeholder": "User ID",
-            "default": "1000",
-        },
-        {
-            "key": "PGID",
-            "label": "Process GID",
-            "placeholder": "Group ID",
-            "default": "1000",
-        },
-        {
-            "key": "LOG_LEVEL",
-            "label": "Log Level",
-            "placeholder": "debug, info, warn, error",
-            "default": "info",
-        },
-        {
-            "key": "VERSION_INFORMATION",
-            "label": "Version Info",
-            "placeholder": "on or off",
-            "default": "on",
-        },
     ],
 }
 

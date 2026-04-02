@@ -170,13 +170,15 @@ export default function Dashboard() {
   }, [containers, vpnInfoMap, depsMap]);
 
   const StatCard = ({ label, value, icon: Icon, color, bg }) => (
-    <div className="bg-vpn-card border border-vpn-border rounded-xl p-4 flex items-center gap-3">
-      <div className={`p-2.5 rounded-lg ${bg}`}>
-        <Icon className={`w-5 h-5 ${color}`} />
+    <div className="bg-vpn-card border border-vpn-border rounded-xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 min-w-0">
+      <div className={`p-2 sm:p-2.5 rounded-lg ${bg} shrink-0`}>
+        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${color}`} />
       </div>
-      <div>
-        <p className="text-xl font-bold text-white">{value}</p>
-        <p className="text-xs text-vpn-muted">{label}</p>
+      <div className="min-w-0">
+        <p className="text-lg sm:text-xl font-bold text-white">{value}</p>
+        <p className="text-[10px] sm:text-xs text-vpn-muted truncate">
+          {label}
+        </p>
       </div>
     </div>
   );
@@ -250,7 +252,7 @@ export default function Dashboard() {
               Gluetun VPN
             </h3>
           </div>
-          <div className="grid grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
             <StatCard
               label="Total"
               value={containers.length}
@@ -305,7 +307,7 @@ export default function Dashboard() {
                 O11 Containers
               </h3>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <StatCard
                 label="Total"
                 value={o11Containers.length}

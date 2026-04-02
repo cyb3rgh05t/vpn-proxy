@@ -71,7 +71,9 @@ const AUTO_SET_KEYS = new Set([
   "VPN_TYPE",
   "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE",
   "HTTPPROXY",
+  "HTTPPROXY_LISTENING_ADDRESS",
   "SHADOWSOCKS",
+  "SHADOWSOCKS_LISTENING_ADDRESS",
 ]);
 
 export default function CreateContainer() {
@@ -95,7 +97,7 @@ export default function CreateContainer() {
   const [extraPorts, setExtraPorts] = useState([]);
   const [envVarCategories, setEnvVarCategories] = useState({});
   const [advancedFields, setAdvancedFields] = useState({});
-  const [gluetunFields, setGluetunFields] = useState({ TZ: "Europe/Berlin" });
+  const [gluetunFields, setGluetunFields] = useState({});
   const [openCategories, setOpenCategories] = useState({});
   const [openGluetunCategories, setOpenGluetunCategories] = useState({});
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -496,7 +498,7 @@ export default function CreateContainer() {
           </h2>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2 mb-1.5">
                 <label className="text-sm font-medium text-vpn-muted">
                   HTTP Proxy
                 </label>
@@ -532,7 +534,7 @@ export default function CreateContainer() {
               />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2 mb-1.5">
                 <label className="text-sm font-medium text-vpn-muted">
                   Shadowsocks
                 </label>

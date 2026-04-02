@@ -932,7 +932,7 @@ export default function ContainerDetail() {
                 </h3>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 mb-1">
                       <label className="text-xs text-vpn-muted font-mono">
                         HTTP Proxy Port
                       </label>
@@ -969,7 +969,7 @@ export default function ContainerDetail() {
                     />
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 mb-1">
                       <label className="text-xs text-vpn-muted font-mono">
                         Shadowsocks Port
                       </label>

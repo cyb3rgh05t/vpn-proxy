@@ -52,6 +52,13 @@ export default function Dashboard() {
     ["exited", "dead", "removed"].includes(c.status),
   ).length;
 
+  // --- VPN connected (actually has public IP) ---
+  const vpnConnected = containers.filter((c) => {
+    const info = vpnInfoMap[String(c.id)];
+    return info?.vpn_status === "running" && info?.public_ip;
+  }).length;
+  const vpnDisconnected = gluetunRunning - vpnConnected;
+
   // --- O11 stats ---
   const o11Running = o11Containers.filter((c) =>
     ["running", "healthy"].includes(c.status),
@@ -243,7 +250,7 @@ export default function Dashboard() {
               Gluetun VPN
             </h3>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-6 gap-3">
             <StatCard
               label="Total"
               value={containers.length}
@@ -257,6 +264,20 @@ export default function Dashboard() {
               icon={Activity}
               color="text-emerald-400"
               bg="bg-emerald-500/10"
+            />
+            <StatCard
+              label="VPN Connected"
+              value={vpnConnected}
+              icon={Wifi}
+              color="text-emerald-400"
+              bg="bg-emerald-500/10"
+            />
+            <StatCard
+              label="VPN Disconnected"
+              value={vpnDisconnected}
+              icon={WifiOff}
+              color="text-amber-400"
+              bg="bg-amber-500/10"
             />
             <StatCard
               label="Unhealthy"
@@ -480,7 +501,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-2 mb-2">
                       <span
                         className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                          conn.vpnStatus === "running"
+                          conn.vpnStatus === "running" && conn.publicIp
                             ? "bg-emerald-500 shadow-sm shadow-emerald-500/50"
                             : "bg-red-500"
                         }`}
@@ -504,17 +525,17 @@ export default function Dashboard() {
                         </span>
                         <span
                           className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium ${
-                            conn.vpnStatus === "running"
+                            conn.vpnStatus === "running" && conn.publicIp
                               ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                               : "bg-red-500/10 text-red-400 border border-red-500/20"
                           }`}
                         >
-                          {conn.vpnStatus === "running" ? (
+                          {conn.vpnStatus === "running" && conn.publicIp ? (
                             <Wifi className="w-2.5 h-2.5" />
                           ) : (
                             <WifiOff className="w-2.5 h-2.5" />
                           )}
-                          {conn.vpnStatus === "running"
+                          {conn.vpnStatus === "running" && conn.publicIp
                             ? "Connected"
                             : "Disconnected"}
                         </span>

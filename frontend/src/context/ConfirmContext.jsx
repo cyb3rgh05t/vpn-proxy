@@ -14,19 +14,22 @@ const variantConfig = {
     icon: Trash2,
     iconColor: "text-red-400",
     iconBg: "bg-red-500/10",
-    buttonClass: "bg-red-600 hover:bg-red-700 text-white",
+    buttonClass:
+      "bg-vpn-card border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-400",
   },
   warning: {
     icon: AlertTriangle,
     iconColor: "text-amber-400",
     iconBg: "bg-amber-500/10",
-    buttonClass: "bg-amber-600 hover:bg-amber-700 text-white",
+    buttonClass:
+      "bg-vpn-card border border-amber-500/50 text-amber-400 hover:bg-amber-500/10 hover:border-amber-400",
   },
   info: {
     icon: Rocket,
-    iconColor: "text-blue-400",
-    iconBg: "bg-blue-500/10",
-    buttonClass: "bg-blue-600 hover:bg-blue-700 text-white",
+    iconColor: "text-vpn-primary",
+    iconBg: "bg-vpn-primary/10",
+    buttonClass:
+      "bg-vpn-card border border-vpn-primary/50 text-vpn-primary hover:bg-vpn-primary/10 hover:border-vpn-primary",
   },
 };
 

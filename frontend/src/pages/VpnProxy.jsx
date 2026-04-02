@@ -9,6 +9,8 @@ import {
   Search,
   Server,
   Network,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import api from "../services/api";
 import ContainerCard from "../components/ContainerCard";
@@ -60,6 +62,12 @@ export default function VpnProxy() {
     ["exited", "dead", "removed"].includes(c.status),
   ).length;
 
+  const vpnConnected = containers.filter((c) => {
+    const info = vpnInfoMap[String(c.id)];
+    return info?.vpn_status === "running" && info?.public_ip;
+  }).length;
+  const vpnDisconnected = running - vpnConnected;
+
   const stats = [
     {
       label: "Total",
@@ -76,6 +84,22 @@ export default function VpnProxy() {
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
       filter: "running",
+    },
+    {
+      label: "VPN Connected",
+      value: vpnConnected,
+      icon: Wifi,
+      color: "text-emerald-400",
+      bg: "bg-emerald-500/10",
+      filter: null,
+    },
+    {
+      label: "VPN Disconnected",
+      value: vpnDisconnected,
+      icon: WifiOff,
+      color: "text-amber-400",
+      bg: "bg-amber-500/10",
+      filter: null,
     },
     {
       label: "Stopped",
@@ -183,7 +207,7 @@ export default function VpnProxy() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
         {stats.map(({ label, value, icon: Icon, color, bg, filter }) => (
           <div
             key={label}

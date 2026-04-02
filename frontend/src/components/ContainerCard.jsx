@@ -176,17 +176,19 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
           {vpnInfo?.vpn_status && (
             <span
               className={`flex items-center gap-1 text-xs font-medium ${
-                vpnInfo.vpn_status === "running"
+                vpnInfo.vpn_status === "running" && vpnInfo.public_ip
                   ? "text-emerald-400"
                   : "text-red-400"
               }`}
             >
-              {vpnInfo.vpn_status === "running" ? (
+              {vpnInfo.vpn_status === "running" && vpnInfo.public_ip ? (
                 <Wifi className="w-3 h-3" />
               ) : (
                 <WifiOff className="w-3 h-3" />
               )}
-              {vpnInfo.vpn_status === "running" ? "Connected" : "Disconnected"}
+              {vpnInfo.vpn_status === "running" && vpnInfo.public_ip
+                ? "Connected"
+                : "Disconnected"}
             </span>
           )}
         </div>

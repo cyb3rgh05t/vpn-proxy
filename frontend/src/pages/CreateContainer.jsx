@@ -70,6 +70,8 @@ const AUTO_SET_KEYS = new Set([
   "VPN_SERVICE_PROVIDER",
   "VPN_TYPE",
   "HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE",
+  "HTTPPROXY",
+  "SHADOWSOCKS",
 ]);
 
 export default function CreateContainer() {

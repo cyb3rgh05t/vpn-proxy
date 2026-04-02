@@ -360,7 +360,12 @@ export default function Dashboard() {
                 {providerStats.map((p) => (
                   <div
                     key={p.name}
-                    className="bg-vpn-bg/50 border border-vpn-border/50 rounded-lg p-3 hover:border-vpn-muted/50 transition-colors"
+                    onClick={() =>
+                      navigate(
+                        `/vpn-proxy?provider=${encodeURIComponent(p.name)}`,
+                      )
+                    }
+                    className="bg-vpn-bg/50 border border-vpn-border/50 rounded-lg p-3 hover:border-vpn-muted/50 transition-colors cursor-pointer"
                   >
                     {/* Provider header */}
                     <div className="flex items-center gap-3 mb-2.5">

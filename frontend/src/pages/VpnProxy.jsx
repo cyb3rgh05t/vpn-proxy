@@ -16,10 +16,11 @@ import api from "../services/api";
 import ContainerCard from "../components/ContainerCard";
 import { useToast } from "../context/ToastContext";
 import { useContainerData } from "../context/ContainerDataContext";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 export default function VpnProxy() {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const scrolledRef = useRef(false);
   const navigate = useNavigate();
   const toast = useToast();
@@ -53,7 +54,9 @@ export default function VpnProxy() {
   const [discovering, setDiscovering] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
-  const [providerFilter, setProviderFilter] = useState("all");
+  const [providerFilter, setProviderFilter] = useState(
+    () => searchParams.get("provider") || "all",
+  );
 
   const running = containers.filter((c) =>
     ["running", "healthy"].includes(c.status),

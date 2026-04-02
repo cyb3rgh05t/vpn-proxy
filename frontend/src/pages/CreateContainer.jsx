@@ -87,6 +87,8 @@ export default function CreateContainer() {
     port_shadowsocks: 8388,
     network_name: "",
   });
+  const [httpProxyEnabled, setHttpProxyEnabled] = useState(true);
+  const [shadowsocksEnabled, setShadowsocksEnabled] = useState(false);
   const [configFields, setConfigFields] = useState({});
   const [extraPorts, setExtraPorts] = useState([]);
   const [envVarCategories, setEnvVarCategories] = useState({});
@@ -232,6 +234,8 @@ export default function CreateContainer() {
       ...configFields,
       ...filledGluetun,
       ...filledAdvanced,
+      HTTPPROXY: httpProxyEnabled ? "on" : "off",
+      SHADOWSOCKS: shadowsocksEnabled ? "on" : "off",
     };
 
     try {
@@ -490,7 +494,26 @@ export default function CreateContainer() {
           </h2>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className={labelClass}>HTTP Proxy</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-vpn-muted">
+                  HTTP Proxy
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setHttpProxyEnabled(!httpProxyEnabled)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    httpProxyEnabled
+                      ? "bg-vpn-primary"
+                      : "bg-vpn-input border border-vpn-border"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                      httpProxyEnabled ? "translate-x-4" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
               <input
                 type="number"
                 value={form.port_http_proxy}
@@ -500,13 +523,33 @@ export default function CreateContainer() {
                     port_http_proxy: parseInt(e.target.value) || 0,
                   })
                 }
-                className={inputClass}
+                className={`${inputClass} ${!httpProxyEnabled ? "opacity-40" : ""}`}
                 min="1024"
                 max="65535"
+                disabled={!httpProxyEnabled}
               />
             </div>
             <div>
-              <label className={labelClass}>Shadowsocks</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-vpn-muted">
+                  Shadowsocks
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShadowsocksEnabled(!shadowsocksEnabled)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    shadowsocksEnabled
+                      ? "bg-vpn-primary"
+                      : "bg-vpn-input border border-vpn-border"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                      shadowsocksEnabled ? "translate-x-4" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
               <input
                 type="number"
                 value={form.port_shadowsocks}
@@ -516,9 +559,10 @@ export default function CreateContainer() {
                     port_shadowsocks: parseInt(e.target.value) || 0,
                   })
                 }
-                className={inputClass}
+                className={`${inputClass} ${!shadowsocksEnabled ? "opacity-40" : ""}`}
                 min="1024"
                 max="65535"
+                disabled={!shadowsocksEnabled}
               />
             </div>
           </div>

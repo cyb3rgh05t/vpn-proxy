@@ -51,6 +51,8 @@ export default function ContainerDetail() {
   const [editName, setEditName] = useState("");
   const [editHttpPort, setEditHttpPort] = useState(8888);
   const [editShadowsocksPort, setEditShadowsocksPort] = useState(8388);
+  const [editHttpProxyEnabled, setEditHttpProxyEnabled] = useState(true);
+  const [editShadowsocksEnabled, setEditShadowsocksEnabled] = useState(false);
   const [redeploying, setRedeploying] = useState(false);
   const [configFiles, setConfigFiles] = useState([]);
   const [uploadingConfig, setUploadingConfig] = useState(false);
@@ -218,7 +220,13 @@ export default function ContainerDetail() {
   };
 
   const handleEditConfig = () => {
-    setEditConfig({ ...(container.config || {}) });
+    const cfg = { ...(container.config || {}) };
+    setEditHttpProxyEnabled(cfg.HTTPPROXY?.toLowerCase() === "on");
+    setEditShadowsocksEnabled(cfg.SHADOWSOCKS?.toLowerCase() === "on");
+    // Remove HTTPPROXY/SHADOWSOCKS from editable env vars since they have toggles now
+    delete cfg.HTTPPROXY;
+    delete cfg.SHADOWSOCKS;
+    setEditConfig(cfg);
     setEditExtraPorts((container.extra_ports || []).map((ep) => ({ ...ep })));
     setEditName(container.name || "");
     setEditHttpPort(container.port_http_proxy || 8888);
@@ -285,7 +293,11 @@ export default function ContainerDetail() {
     setRedeploying(true);
     try {
       const payload = {
-        config: editConfig,
+        config: {
+          ...editConfig,
+          HTTPPROXY: editHttpProxyEnabled ? "on" : "off",
+          SHADOWSOCKS: editShadowsocksEnabled ? "on" : "off",
+        },
         extra_ports: editExtraPorts.filter((ep) => ep.host && ep.container),
         port_http_proxy: editHttpPort,
         port_shadowsocks: editShadowsocksPort,
@@ -920,33 +932,77 @@ export default function ContainerDetail() {
                 </h3>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="text-xs text-vpn-muted font-mono block mb-1">
-                      Internal Proxy Port
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs text-vpn-muted font-mono">
+                        HTTP Proxy Port
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditHttpProxyEnabled(!editHttpProxyEnabled)
+                        }
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                          editHttpProxyEnabled
+                            ? "bg-vpn-primary"
+                            : "bg-vpn-input border border-vpn-border"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                            editHttpProxyEnabled
+                              ? "translate-x-4"
+                              : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
                     <input
                       type="number"
                       value={editHttpPort}
                       onChange={(e) =>
                         setEditHttpPort(parseInt(e.target.value) || 0)
                       }
-                      className="w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
+                      className={`w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary ${!editHttpProxyEnabled ? "opacity-40" : ""}`}
                       min="1024"
                       max="65535"
+                      disabled={!editHttpProxyEnabled}
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-vpn-muted font-mono block mb-1">
-                      Shadowsocks Port
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs text-vpn-muted font-mono">
+                        Shadowsocks Port
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditShadowsocksEnabled(!editShadowsocksEnabled)
+                        }
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                          editShadowsocksEnabled
+                            ? "bg-vpn-primary"
+                            : "bg-vpn-input border border-vpn-border"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                            editShadowsocksEnabled
+                              ? "translate-x-4"
+                              : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
                     <input
                       type="number"
                       value={editShadowsocksPort}
                       onChange={(e) =>
                         setEditShadowsocksPort(parseInt(e.target.value) || 0)
                       }
-                      className="w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary"
+                      className={`w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary ${!editShadowsocksEnabled ? "opacity-40" : ""}`}
                       min="1024"
                       max="65535"
+                      disabled={!editShadowsocksEnabled}
                     />
                   </div>
                 </div>

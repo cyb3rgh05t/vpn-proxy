@@ -75,7 +75,9 @@ export default function VpnProxy() {
       icon: Shield,
       color: "text-vpn-primary",
       bg: "bg-vpn-primary/10",
-      filter: null,
+      hoverBorder: "hover:border-vpn-primary",
+      activeBorder: "border-vpn-primary ring-1 ring-vpn-primary/30",
+      filter: "all",
     },
     {
       label: "Running",
@@ -83,6 +85,8 @@ export default function VpnProxy() {
       icon: Activity,
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
+      hoverBorder: "hover:border-emerald-400",
+      activeBorder: "border-emerald-400 ring-1 ring-emerald-400/30",
       filter: "running",
     },
     {
@@ -91,7 +95,9 @@ export default function VpnProxy() {
       icon: Wifi,
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
-      filter: null,
+      hoverBorder: "hover:border-emerald-400",
+      activeBorder: "border-emerald-400 ring-1 ring-emerald-400/30",
+      filter: "vpn-connected",
     },
     {
       label: "VPN Disconnected",
@@ -99,7 +105,9 @@ export default function VpnProxy() {
       icon: WifiOff,
       color: "text-amber-400",
       bg: "bg-amber-500/10",
-      filter: null,
+      hoverBorder: "hover:border-amber-400",
+      activeBorder: "border-amber-400 ring-1 ring-amber-400/30",
+      filter: "vpn-disconnected",
     },
     {
       label: "Stopped",
@@ -107,16 +115,27 @@ export default function VpnProxy() {
       icon: AlertTriangle,
       color: "text-amber-400",
       bg: "bg-amber-500/10",
+      hoverBorder: "hover:border-amber-400",
+      activeBorder: "border-amber-400 ring-1 ring-amber-400/30",
       filter: "stopped",
     },
   ];
 
-  const matchesFilter = (status) => {
-    if (!statusFilter) return true;
-    if (statusFilter === "running")
-      return ["running", "healthy"].includes(status);
+  const matchesFilter = (container) => {
+    if (!statusFilter || statusFilter === "all") return true;
+    const s = container.status;
+    if (statusFilter === "running") return ["running", "healthy"].includes(s);
     if (statusFilter === "stopped")
-      return ["exited", "dead", "removed", "created"].includes(status);
+      return ["exited", "dead", "removed", "created"].includes(s);
+    if (statusFilter === "vpn-connected") {
+      const info = vpnInfoMap[String(container.id)];
+      return info?.vpn_status === "running" && !!info?.public_ip;
+    }
+    if (statusFilter === "vpn-disconnected") {
+      if (!["running", "healthy"].includes(s)) return false;
+      const info = vpnInfoMap[String(container.id)];
+      return !info?.public_ip || info?.vpn_status !== "running";
+    }
     return true;
   };
 
@@ -126,7 +145,7 @@ export default function VpnProxy() {
 
   const filteredContainers = containers.filter(
     (c) =>
-      matchesFilter(c.status) &&
+      matchesFilter(c) &&
       (providerFilter === "all" ||
         c.vpn_provider?.toLowerCase() === providerFilter.toLowerCase()) &&
       (searchQuery === "" ||
@@ -208,27 +227,36 @@ export default function VpnProxy() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
-        {stats.map(({ label, value, icon: Icon, color, bg, filter }) => (
-          <div
-            key={label}
-            onClick={() =>
-              setStatusFilter(statusFilter === filter ? null : filter)
-            }
-            className={`bg-vpn-card border rounded-xl p-5 flex items-center gap-4 cursor-pointer transition-all hover:border-vpn-muted ${
-              statusFilter === filter
-                ? "border-vpn-primary ring-1 ring-vpn-primary/30"
-                : "border-vpn-border"
-            }`}
-          >
-            <div className={`p-3 rounded-lg ${bg}`}>
-              <Icon className={`w-6 h-6 ${color}`} />
+        {stats.map(
+          ({
+            label,
+            value,
+            icon: Icon,
+            color,
+            bg,
+            hoverBorder,
+            activeBorder,
+            filter,
+          }) => (
+            <div
+              key={label}
+              onClick={() =>
+                setStatusFilter(statusFilter === filter ? null : filter)
+              }
+              className={`bg-vpn-card border rounded-xl p-5 flex items-center gap-4 cursor-pointer transition-all ${hoverBorder} ${
+                statusFilter === filter ? activeBorder : "border-vpn-border"
+              }`}
+            >
+              <div className={`p-3 rounded-lg ${bg}`}>
+                <Icon className={`w-6 h-6 ${color}`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{value}</p>
+                <p className="text-sm text-vpn-muted">{label}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{value}</p>
-              <p className="text-sm text-vpn-muted">{label}</p>
-            </div>
-          </div>
-        ))}
+          ),
+        )}
       </div>
 
       {/* Search */}
@@ -250,10 +278,10 @@ export default function VpnProxy() {
             {["all", ...providers].map((prov) => {
               const count =
                 prov === "all"
-                  ? containers.filter((c) => matchesFilter(c.status)).length
+                  ? containers.filter((c) => matchesFilter(c)).length
                   : containers.filter(
                       (c) =>
-                        matchesFilter(c.status) &&
+                        matchesFilter(c) &&
                         c.vpn_provider?.toLowerCase() === prov.toLowerCase(),
                     ).length;
               return (

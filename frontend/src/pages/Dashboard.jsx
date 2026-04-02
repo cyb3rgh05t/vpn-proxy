@@ -305,7 +305,7 @@ export default function Dashboard() {
                 O11 Containers
               </h3>
             </div>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <StatCard
                 label="Total"
                 value={o11Containers.length}
@@ -319,13 +319,6 @@ export default function Dashboard() {
                 icon={Activity}
                 color="text-emerald-400"
                 bg="bg-emerald-500/10"
-              />
-              <StatCard
-                label="Unhealthy"
-                value={o11Unhealthy}
-                icon={HeartCrack}
-                color="text-red-400"
-                bg="bg-red-500/10"
               />
               <StatCard
                 label="Stopped"

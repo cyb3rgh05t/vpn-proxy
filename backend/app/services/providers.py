@@ -999,7 +999,6 @@ GLUETUN_ENV_VARIABLES = {
             "default": "/tmp/gluetun/ip",
         },
     ],
-    ],
 }
 
 

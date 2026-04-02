@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Boxes,
@@ -38,30 +38,13 @@ export default function O11() {
     loading,
     refreshO11Containers,
     refreshAll,
+    proxyCount,
   } = useContainerData();
 
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
-  const [proxyCount, setProxyCount] = useState(0);
-
-  useEffect(() => {
-    const fetchProxyCount = async () => {
-      try {
-        const settingsRes = await api.get("/settings/o11");
-        const pid = settingsRes.data.o11_provider_id;
-        if (!pid) return;
-        const res = await api.get("/monitoring/proxy-count", {
-          params: { provider: pid },
-        });
-        setProxyCount(res.data.count || 0);
-      } catch {
-        // monitoring not configured or provider not set
-      }
-    };
-    fetchProxyCount();
-  }, [containers]);
 
   const getVpnInfoForParent = useCallback(
     (vpnParent) => {

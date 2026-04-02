@@ -4,10 +4,13 @@ import {
   useEffect,
   useCallback,
   useContext,
+  useRef,
 } from "react";
 import api from "../services/api";
 
 const ContainerDataContext = createContext(null);
+
+const MONITORING_INTERVAL = 5000;
 
 export function ContainerDataProvider({ children }) {
   const [containers, setContainers] = useState([]);
@@ -16,6 +19,16 @@ export function ContainerDataProvider({ children }) {
   const [depsMap, setDepsMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Monitoring state (cached across page navigations)
+  const [monitoringConfigured, setMonitoringConfigured] = useState(null);
+  const [monitoringProviderId, setMonitoringProviderId] = useState("");
+  const [monitorData, setMonitorData] = useState(null);
+  const [networkData, setNetworkData] = useState(null);
+  const [proxyCount, setProxyCount] = useState(0);
+  const [monitoringLoading, setMonitoringLoading] = useState(true);
+  const monitoringIntervalRef = useRef(null);
+  const monitoringInitRef = useRef(false);
 
   const fetchContainers = useCallback(async () => {
     try {
@@ -85,11 +98,77 @@ export function ContainerDataProvider({ children }) {
     setLoading(false);
   }, [fetchContainers, fetchAllDependents]);
 
+  // --- Monitoring fetch functions ---
+  const fetchMonitoringData = useCallback(
+    async (silent = false, overrideProviderId = null) => {
+      const pid = overrideProviderId || monitoringProviderId;
+      try {
+        if (!silent) setMonitoringLoading(true);
+        const requests = [api.get("/monitoring")];
+        if (pid) {
+          requests.push(
+            api.get("/monitoring/network-usage", {
+              params: { provider: pid },
+            }),
+          );
+          requests.push(
+            api.get("/monitoring/proxy-count", {
+              params: { provider: pid },
+            }),
+          );
+        }
+        const results = await Promise.all(requests);
+        setMonitorData(results[0].data);
+        if (results[1]) setNetworkData(results[1].data);
+        if (results[2]) setProxyCount(results[2].data.count || 0);
+      } catch {
+        // silently ignore on silent refresh
+      } finally {
+        setMonitoringLoading(false);
+      }
+    },
+    [monitoringProviderId],
+  );
+
+  const initMonitoring = useCallback(async () => {
+    if (monitoringInitRef.current) return;
+    monitoringInitRef.current = true;
+    try {
+      const [statusRes, settingsRes] = await Promise.all([
+        api.get("/monitoring/status"),
+        api.get("/settings/o11"),
+      ]);
+      const pid = settingsRes.data.o11_provider_id || "";
+      if (pid) setMonitoringProviderId(pid);
+      const isConfigured = statusRes.data.configured;
+      setMonitoringConfigured(isConfigured);
+      if (isConfigured) {
+        await fetchMonitoringData(false, pid);
+      } else {
+        setMonitoringLoading(false);
+      }
+    } catch {
+      setMonitoringConfigured(false);
+      setMonitoringLoading(false);
+    }
+  }, [fetchMonitoringData]);
+
   useEffect(() => {
     fetchAll();
+    initMonitoring();
     const interval = setInterval(fetchAll, 3000);
     return () => clearInterval(interval);
-  }, [fetchAll]);
+  }, [fetchAll, initMonitoring]);
+
+  // Auto-refresh monitoring data
+  useEffect(() => {
+    if (!monitoringConfigured) return;
+    monitoringIntervalRef.current = setInterval(
+      () => fetchMonitoringData(true),
+      MONITORING_INTERVAL,
+    );
+    return () => clearInterval(monitoringIntervalRef.current);
+  }, [monitoringConfigured, fetchMonitoringData]);
 
   return (
     <ContainerDataContext.Provider
@@ -103,6 +182,15 @@ export function ContainerDataProvider({ children }) {
         refreshContainers: fetchContainers,
         refreshO11Containers: fetchAll,
         refreshAll: fetchAll,
+        // Monitoring
+        monitoringConfigured,
+        monitoringProviderId,
+        setMonitoringProviderId,
+        monitorData,
+        networkData,
+        proxyCount,
+        monitoringLoading,
+        refreshMonitoring: fetchMonitoringData,
       }}
     >
       {children}

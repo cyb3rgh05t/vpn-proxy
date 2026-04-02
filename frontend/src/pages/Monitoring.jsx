@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   Activity,
   RefreshCw,
@@ -20,7 +20,6 @@ import api from "../services/api";
 import { useToast } from "../context/ToastContext";
 import { useContainerData } from "../context/ContainerDataContext";
 
-const AUTO_REFRESH_INTERVAL = 5000;
 const CATEGORIES = ["Script", "Manifest", "Media"];
 
 function bwColorClass(color) {
@@ -197,75 +196,28 @@ function NetworkUsageGrid({
 
 export default function Monitoring() {
   const toast = useToast();
-  const { containers, refreshContainers } = useContainerData();
-  const [monitorData, setMonitorData] = useState(null);
-  const [networkData, setNetworkData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [configured, setConfigured] = useState(null);
+  const {
+    containers,
+    refreshContainers,
+    monitoringConfigured: configured,
+    monitoringProviderId: providerId,
+    setMonitoringProviderId: setProviderId,
+    monitorData,
+    networkData,
+    monitoringLoading: loading,
+    refreshMonitoring,
+  } = useContainerData();
   const [refreshing, setRefreshing] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [networkSearch, setNetworkSearch] = useState("");
-  const [providerId, setProviderId] = useState("");
   const [tab, setTab] = useState("network");
   const [networkTab, setNetworkTab] = useState("all");
-  const intervalRef = useRef(null);
 
-  const fetchData = useCallback(
-    async (silent = false, overrideProviderId = null) => {
-      const pid = overrideProviderId || providerId;
-      try {
-        if (!silent) setRefreshing(true);
-        const requests = [api.get("/monitoring")];
-        if (pid) {
-          requests.push(
-            api.get("/monitoring/network-usage", {
-              params: { provider: pid },
-            }),
-          );
-        }
-        const results = await Promise.all(requests);
-        setMonitorData(results[0].data);
-        if (results[1]) setNetworkData(results[1].data);
-      } catch (err) {
-        if (!silent) toast.error("Failed to fetch monitoring data");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [toast, providerId],
-  );
-
-  const checkStatus = useCallback(async () => {
-    try {
-      const [statusRes, settingsRes] = await Promise.all([
-        api.get("/monitoring/status"),
-        api.get("/settings/o11"),
-      ]);
-      const pid = settingsRes.data.o11_provider_id || "";
-      if (pid) setProviderId(pid);
-      setConfigured(statusRes.data.configured);
-      if (statusRes.data.configured) fetchData(false, pid);
-      else setLoading(false);
-    } catch {
-      setConfigured(false);
-      setLoading(false);
-    }
-  }, [fetchData]);
-
-  useEffect(() => {
-    checkStatus();
-  }, [checkStatus]);
-
-  useEffect(() => {
-    if (!autoRefresh || !configured) return;
-    intervalRef.current = setInterval(
-      () => fetchData(true),
-      AUTO_REFRESH_INTERVAL,
-    );
-    return () => clearInterval(intervalRef.current);
-  }, [autoRefresh, configured, fetchData]);
+  const fetchData = useCallback(async () => {
+    setRefreshing(true);
+    await refreshMonitoring(false);
+    setRefreshing(false);
+  }, [refreshMonitoring]);
 
   const readers = monitorData?.Readers || [];
   const filteredReaders = readers.filter((r) => {
@@ -475,8 +427,10 @@ export default function Monitoring() {
                     placeholder="Provider ID..."
                     value={providerId}
                     onChange={(e) => setProviderId(e.target.value)}
-                    onBlur={() => fetchData()}
-                    onKeyDown={(e) => e.key === "Enter" && fetchData()}
+                    onBlur={() => refreshMonitoring(false)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && refreshMonitoring(false)
+                    }
                     className="w-48 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted text-sm focus:outline-none focus:border-vpn-primary/50"
                   />
                 </div>

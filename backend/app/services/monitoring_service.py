@@ -183,11 +183,11 @@ def get_network_usage(provider_id: str) -> dict:
 
 
 def get_proxy_count(provider_id: str) -> int:
-    """Return the total number of active proxy URLs for a provider."""
+    """Return the number of unique active proxy URLs for a provider."""
     data = _ws_request("networkstatus", {"ProviderId": provider_id})
     usage = data.get("Usage", {})
-    count = 0
+    unique_urls = set()
     for cat_data in usage.values():
         proxy = cat_data.get("Proxy", {})
-        count += len(proxy)
-    return count
+        unique_urls.update(proxy.keys())
+    return len(unique_urls)

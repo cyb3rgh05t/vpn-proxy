@@ -407,12 +407,27 @@ def delete_dependent(
     container_name: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Delete (remove) a dependent Docker container by name."""
+    """Delete (remove) a dependent Docker container by name and clean up local data."""
     all_containers = docker_service.list_all_docker_containers()
     if not any(d["name"] == container_name for d in all_containers):
         raise HTTPException(status_code=404, detail="Container not found")
     try:
         docker_service.remove_container(container_name)
+
+        # Remove local data directory (data/o11/<name>/)
+        import shutil
+
+        o11_data = os.path.join(
+            os.path.abspath(settings.DATA_DIR), "o11", container_name
+        )
+        if os.path.isdir(o11_data):
+            shutil.rmtree(o11_data)
+            logger.info(
+                "Removed data directory for O11 container '%s': %s",
+                container_name,
+                o11_data,
+            )
+
         return {"message": f"Container {container_name} deleted"}
     except Exception as e:
         logger.error("Failed to delete container %s: %s", container_name, e)

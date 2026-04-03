@@ -195,6 +195,190 @@ def list_docker_images(
     return sorted(images)
 
 
+@router.get("/dependents/data-path/{name}")
+def get_o11_data_path(
+    name: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Get the host-side data path for an O11 container (for volume mount hints)."""
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+        raise HTTPException(status_code=400, detail="Invalid container name")
+
+    if settings.HOST_DATA_DIR:
+        base = os.path.join(settings.HOST_DATA_DIR, "o11", name)
+    else:
+        base = os.path.join(os.path.abspath(settings.DATA_DIR), "o11", name)
+
+    return {"base_path": base.replace("\\", "/")}
+
+
+ALLOWED_O11_EXTENSIONS = {
+    ".ovpn",
+    ".conf",
+    ".key",
+    ".crt",
+    ".pem",
+    ".txt",
+    ".cfg",
+    ".xml",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".ini",
+    ".toml",
+    ".sh",
+    ".bat",
+    ".env",
+    ".csv",
+    ".log",
+    ".properties",
+    ".html",
+    ".css",
+    ".js",
+    ".py",
+    ".lua",
+}
+MAX_O11_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+@router.post("/dependents/upload-files/{name}")
+async def upload_o11_file(
+    name: str,
+    file: UploadFile = File(...),
+    target_path: str = "",
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a file for an O11 container with optional target path (subdirectory)."""
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+        raise HTTPException(status_code=400, detail="Invalid container name")
+
+    # Validate and sanitize target_path (e.g. "scripts", "config")
+    target_path = target_path.strip().strip("/")
+    if target_path:
+        # Prevent path traversal
+        if ".." in target_path or target_path.startswith("/"):
+            raise HTTPException(status_code=400, detail="Invalid target path")
+        # Only allow simple subdirectory names
+        if not re.match(r"^[a-zA-Z0-9_/.-]+$", target_path):
+            raise HTTPException(
+                status_code=400, detail="Invalid target path characters"
+            )
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+    filename = os.path.basename(file.filename)
+    _, ext = os.path.splitext(filename)
+    if ext.lower() not in ALLOWED_O11_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_O11_EXTENSIONS))}",
+        )
+
+    content = await file.read()
+    if len(content) > MAX_O11_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 5 MB)")
+
+    # Save to data/o11/{name}/{target_path}/
+    o11_data = os.path.join(os.path.abspath(settings.DATA_DIR), "o11", name)
+    if target_path:
+        o11_data = os.path.join(o11_data, target_path)
+    os.makedirs(o11_data, exist_ok=True)
+    dest = os.path.join(o11_data, filename)
+    with open(dest, "wb") as f:
+        f.write(content)
+
+    stored_path = f"{target_path}/{filename}" if target_path else filename
+    logger.info(
+        "Uploaded file '%s' for O11 container '%s' (target: %s)",
+        filename,
+        name,
+        target_path or "/",
+    )
+    return {
+        "message": f"Uploaded {filename}",
+        "filename": filename,
+        "size": len(content),
+        "target_path": target_path,
+        "stored_path": stored_path,
+    }
+
+
+@router.get("/dependents/files/{name}")
+def list_o11_files(
+    name: str,
+    current_user: User = Depends(get_current_user),
+):
+    """List uploaded files for an O11 container (recursively including subdirs)."""
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+        raise HTTPException(status_code=400, detail="Invalid container name")
+
+    o11_data = os.path.join(os.path.abspath(settings.DATA_DIR), "o11", name)
+    if not os.path.isdir(o11_data):
+        return []
+
+    files = []
+    for root, _dirs, filenames in os.walk(o11_data):
+        for fname in filenames:
+            fpath = os.path.join(root, fname)
+            rel_path = os.path.relpath(fpath, o11_data).replace("\\", "/")
+            # Extract target_path (subdirectory part)
+            parts = rel_path.rsplit("/", 1)
+            target_path = parts[0] if len(parts) > 1 else ""
+            files.append(
+                {
+                    "name": fname,
+                    "size": os.path.getsize(fpath),
+                    "target_path": target_path,
+                    "stored_path": rel_path,
+                }
+            )
+    return files
+
+
+@router.delete("/dependents/files/{name}/{filepath:path}")
+def delete_o11_file(
+    name: str,
+    filepath: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Delete an uploaded file for an O11 container (supports subdirectory paths)."""
+    import re
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+        raise HTTPException(status_code=400, detail="Invalid container name")
+
+    # Prevent path traversal
+    if ".." in filepath:
+        raise HTTPException(status_code=400, detail="Invalid file path")
+
+    o11_data = os.path.join(os.path.abspath(settings.DATA_DIR), "o11", name)
+    fpath = os.path.join(o11_data, filepath)
+
+    # Verify the resolved path is still within o11_data
+    if not os.path.abspath(fpath).startswith(os.path.abspath(o11_data)):
+        raise HTTPException(status_code=400, detail="Invalid file path")
+
+    if not os.path.isfile(fpath):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    os.remove(fpath)
+
+    # Clean up empty parent directories
+    parent = os.path.dirname(fpath)
+    while parent != o11_data and os.path.isdir(parent) and not os.listdir(parent):
+        os.rmdir(parent)
+        parent = os.path.dirname(parent)
+
+    logger.info("Deleted file '%s' for O11 container '%s'", filepath, name)
+    return {"message": f"Deleted {filepath}"}
+
+
 @router.post("/dependents/{container_name}/network-mode")
 def change_dependent_network_mode(
     container_name: str,

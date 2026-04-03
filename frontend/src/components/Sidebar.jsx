@@ -16,10 +16,10 @@ import { useState } from "react";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/vpn-proxy", icon: Shield, label: "VPN-PROXY" },
+  { to: "/vpn-proxy", icon: Shield, label: "VPN-Proxy" },
   { to: "/o11", icon: Boxes, label: "O11" },
   { to: "/monitoring", icon: Activity, label: "Monitoring" },
-  { to: "/create", icon: PlusCircle, label: "New VPN-PROXY" },
+  { to: "/create", icon: PlusCircle, label: "New VPN-Proxy" },
   { to: "/create-o11", icon: PlusCircle, label: "New O11" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];

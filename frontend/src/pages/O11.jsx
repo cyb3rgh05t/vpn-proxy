@@ -43,6 +43,7 @@ export default function O11() {
   } = useContainerData();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
@@ -375,13 +376,26 @@ export default function O11() {
           </h1>
           <p className="text-vpn-muted mt-1">Your o11 Pro containers</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex gap-3">
           <button
-            onClick={() => navigate("/create-o11")}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-primary text-black font-semibold rounded-lg hover:bg-vpn-primary/90 transition-all shadow-sm"
+            onClick={async () => {
+              setDiscovering(true);
+              try {
+                await refreshO11Containers();
+                toast.success("O11 containers discovered");
+              } catch {
+                toast.error("Failed to discover containers");
+              } finally {
+                setDiscovering(false);
+              }
+            }}
+            disabled={discovering}
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <PlusCircle className="w-4 h-4" />
-            New O11
+            <Search
+              className={`w-4 h-4 text-vpn-primary ${discovering ? "animate-spin" : ""}`}
+            />
+            Discover
           </button>
           <button
             onClick={async () => {
@@ -396,6 +410,13 @@ export default function O11() {
               className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
             />
             Refresh
+          </button>
+          <button
+            onClick={() => navigate("/create-o11")}
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+          >
+            <PlusCircle className="w-4 h-4 text-vpn-primary" />
+            New O11
           </button>
         </div>
       </div>

@@ -223,7 +223,7 @@ export default function VpnProxy() {
             className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
           >
             <PlusCircle className="w-4 h-4 text-vpn-primary" />
-            New Container
+            New VPN-Proxy
           </button>
         </div>
       </div>

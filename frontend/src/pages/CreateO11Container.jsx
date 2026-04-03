@@ -1,6 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Plus, Trash2, Boxes, Shield } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Plus,
+  Trash2,
+  Boxes,
+  Shield,
+  Upload,
+  File,
+  X,
+  FolderOpen,
+} from "lucide-react";
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
 
@@ -20,9 +31,20 @@ export default function CreateO11Container() {
     command: "",
   });
 
-  const [envVars, setEnvVars] = useState([]);
+  const [envVars, setEnvVars] = useState([
+    { key: "PGID", value: "1000" },
+    { key: "PUID", value: "1000" },
+    { key: "TZ", value: "Europe/Berlin" },
+    { key: "O11_PORT", value: "6123" },
+    { key: "O11_EPG_PORT", value: "6125" },
+  ]);
   const [ports, setPorts] = useState([]);
   const [volumes, setVolumes] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadTargetPath, setUploadTargetPath] = useState("");
+  const [hostBasePath, setHostBasePath] = useState("");
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     api
@@ -62,6 +84,95 @@ export default function CreateO11Container() {
     const updated = [...volumes];
     updated[i] = { ...updated[i], [field]: value };
     setVolumes(updated);
+  };
+
+  // --- File Upload ---
+  const fetchHostBasePath = async () => {
+    if (!form.name.trim() || hostBasePath) return;
+    try {
+      const res = await api.get(
+        `/containers/dependents/data-path/${encodeURIComponent(form.name.trim())}`,
+      );
+      setHostBasePath(res.data.base_path);
+    } catch {
+      // fallback
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !form.name.trim()) return;
+    setUploading(true);
+    await fetchHostBasePath();
+    try {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const targetClean = uploadTargetPath.trim().replace(/^\/+|\/+$/g, "");
+        const url = `/containers/dependents/upload-files/${encodeURIComponent(form.name.trim())}${targetClean ? `?target_path=${encodeURIComponent(targetClean)}` : ""}`;
+        const res = await api.post(url, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        setUploadedFiles((prev) => [
+          ...prev,
+          {
+            name: res.data.filename,
+            size: res.data.size,
+            target_path: res.data.target_path || "",
+            stored_path: res.data.stored_path,
+          },
+        ]);
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to upload file");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeUploadedFile = async (storedPath) => {
+    try {
+      await api.delete(
+        `/containers/dependents/files/${encodeURIComponent(form.name.trim())}/${storedPath}`,
+      );
+    } catch {
+      // ignore delete errors for pre-creation files
+    }
+    setUploadedFiles((prev) =>
+      prev.filter((f) => f.stored_path !== storedPath),
+    );
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  // Auto-generate volume mounts from uploaded files
+  const addVolumesFromUploads = () => {
+    if (!uploadedFiles.length || !hostBasePath) return;
+    // Group files by target_path to create one volume mount per unique target directory
+    const targetPaths = [
+      ...new Set(uploadedFiles.map((f) => f.target_path || "")),
+    ];
+    const newVolumes = [];
+    for (const tp of targetPaths) {
+      const hostPath = tp ? `${hostBasePath}/${tp}` : hostBasePath;
+      // Don't add duplicate
+      const exists = volumes.some((v) => v.source === hostPath);
+      if (!exists) {
+        newVolumes.push({
+          source: hostPath,
+          target: tp ? `/${tp}` : "/data",
+          mode: "rw",
+        });
+      }
+    }
+    if (newVolumes.length) {
+      setVolumes((prev) => [...prev, ...newVolumes]);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -536,22 +647,135 @@ export default function CreateO11Container() {
           )}
         </div>
 
+        {/* Card: File Upload */}
+        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-1">File Upload</h2>
+          <p className="text-xs text-vpn-muted mb-4">
+            Upload configuration or script files into the container. Set the{" "}
+            <span className="text-vpn-primary">Container Target Path</span> to
+            control where files end up inside the container, then click{" "}
+            <span className="text-vpn-primary">"Generate Volume Mounts"</span>{" "}
+            to auto-create the bind mounts.
+          </p>
+
+          {!form.name.trim() ? (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+              <p className="text-xs text-amber-400">
+                Enter a container name above before uploading files.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Target path input */}
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                  Container Target Path
+                </label>
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4 text-vpn-primary flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={uploadTargetPath}
+                    onChange={(e) => setUploadTargetPath(e.target.value)}
+                    placeholder="e.g. /scripts or /config (leave empty for root)"
+                    className="flex-1 px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm font-mono placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                  />
+                </div>
+                <p className="text-xs text-vpn-muted mt-1">
+                  Where inside the container should these files be placed? e.g.{" "}
+                  <code className="text-vpn-primary/70">/scripts</code>,{" "}
+                  <code className="text-vpn-primary/70">/config</code>, or empty
+                  for container root.
+                </p>
+              </div>
+
+              {/* Upload button */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".ovpn,.conf,.key,.crt,.pem,.txt,.cfg,.xml,.json,.yaml,.yml,.ini,.toml,.sh,.bat,.env,.csv,.log,.properties,.html,.css,.js,.py,.lua"
+                onChange={handleFileUpload}
+                className="hidden"
+                multiple
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-vpn-border hover:border-vpn-primary rounded-xl text-sm text-vpn-muted hover:text-vpn-primary transition-all disabled:opacity-50"
+              >
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                {uploading
+                  ? "Uploading..."
+                  : `Click to upload files${uploadTargetPath.trim() ? ` → ${uploadTargetPath.trim()}` : ""}`}
+              </button>
+
+              {/* Uploaded file list */}
+              {uploadedFiles.length > 0 && (
+                <>
+                  <div className="mt-3 space-y-2">
+                    {uploadedFiles.map((f) => (
+                      <div
+                        key={f.stored_path}
+                        className="flex items-center justify-between bg-vpn-input rounded-lg px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <File className="w-4 h-4 text-vpn-primary flex-shrink-0" />
+                          <span className="text-sm text-white truncate">
+                            {f.name}
+                          </span>
+                          {f.target_path && (
+                            <span className="text-xs text-vpn-primary/70 font-mono flex-shrink-0">
+                              → /{f.target_path}/
+                            </span>
+                          )}
+                          <span className="text-xs text-vpn-muted font-mono flex-shrink-0">
+                            {formatFileSize(f.size)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeUploadedFile(f.stored_path)}
+                          className="p-1 text-vpn-muted hover:text-red-400 transition-colors flex-shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Auto-generate volumes button */}
+                  <button
+                    type="button"
+                    onClick={addVolumesFromUploads}
+                    className="mt-3 flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-vpn-primary" />
+                    Generate Volume Mounts
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+
         {/* Submit */}
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/o11")}
-            className="px-6 py-2.5 border border-vpn-border text-vpn-text rounded-lg hover:bg-vpn-input transition-colors"
-          >
-            Cancel
-          </button>
+        <div className="flex justify-end">
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2.5 bg-vpn-primary text-black font-semibold rounded-lg hover:bg-vpn-primary/90 transition-colors disabled:opacity-50"
+            className="px-6 py-2.5 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 disabled:cursor-not-allowed text-vpn-text font-medium rounded-lg transition-all shadow-sm flex items-center gap-2"
           >
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {loading ? "Creating..." : "Create Container"}
+            {loading ? (
+              <Loader2 className="w-4 h-4 text-vpn-primary animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4 text-vpn-primary" />
+            )}
+            {loading ? "Creating Container..." : "Create Container"}
           </button>
         </div>
       </form>

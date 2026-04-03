@@ -101,6 +101,7 @@ export default function CreateContainer() {
   const [openCategories, setOpenCategories] = useState({});
   const [openGluetunCategories, setOpenGluetunCategories] = useState({});
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showGluetun, setShowGluetun] = useState(false);
   const [networks, setNetworks] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -273,11 +274,11 @@ export default function CreateContainer() {
   return (
     <div>
       <button
-        onClick={() => navigate("/")}
+        onClick={() => navigate("/vpn-proxy")}
         className="flex items-center gap-2 text-vpn-muted hover:text-white mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Dashboard
+        Back to VPN-Proxy
       </button>
 
       <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
@@ -321,10 +322,12 @@ export default function CreateContainer() {
                 placeholder="Default (bridge)"
                 options={[
                   { value: "", label: "Default (bridge)" },
-                  ...networks.map((n) => ({
-                    value: n.name,
-                    label: `${n.name} (${n.driver})`,
-                  })),
+                  ...networks
+                    .filter((n) => !["host", "none"].includes(n.name))
+                    .map((n) => ({
+                      value: n.name,
+                      label: `${n.name} (${n.driver})`,
+                    })),
                 ]}
               />
               <p className="text-xs text-vpn-muted mt-1">
@@ -649,100 +652,115 @@ export default function CreateContainer() {
         {/* Card: Gluetun Configuration */}
         {Object.keys(envVarCategories).length > 0 && (
           <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-            <h2 className="text-lg font-semibold text-white mb-1">
-              Gluetun Configuration
-            </h2>
-            <p className="text-xs text-vpn-muted mb-4">
+            <button
+              type="button"
+              onClick={() => setShowGluetun(!showGluetun)}
+              className="flex items-center justify-between w-full"
+            >
+              <h2 className="text-lg font-semibold text-white">
+                Gluetun Configuration
+              </h2>
+              {showGluetun ? (
+                <ChevronDown className="w-5 h-5 text-vpn-muted" />
+              ) : (
+                <ChevronRight className="w-5 h-5 text-vpn-muted" />
+              )}
+            </button>
+            <p className="text-xs text-vpn-muted mt-1">
               Common Gluetun environment variables. Provider-specific fields
               above take priority.
             </p>
-            <div className="space-y-3">
-              {Object.entries(envVarCategories).map(([category, vars]) => {
-                const providerKeys = getProviderFieldKeys();
-                const filteredVars = vars.filter(
-                  (v) =>
-                    WHITELISTED_KEYS.has(v.key) &&
-                    !AUTO_SET_KEYS.has(v.key) &&
-                    !providerKeys.has(v.key),
-                );
-                if (filteredVars.length === 0) return null;
+            {showGluetun && (
+              <div className="mt-4 space-y-3">
+                {Object.entries(envVarCategories).map(([category, vars]) => {
+                  const providerKeys = getProviderFieldKeys();
+                  const filteredVars = vars.filter(
+                    (v) =>
+                      WHITELISTED_KEYS.has(v.key) &&
+                      !AUTO_SET_KEYS.has(v.key) &&
+                      !providerKeys.has(v.key),
+                  );
+                  if (filteredVars.length === 0) return null;
 
-                return (
-                  <div
-                    key={category}
-                    className="border border-vpn-border rounded-lg overflow-hidden"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleGluetunCategory(category)}
-                      className="flex items-center justify-between w-full px-4 py-2.5 bg-vpn-input hover:bg-vpn-border transition-colors"
+                  return (
+                    <div
+                      key={category}
+                      className="border border-vpn-border rounded-lg overflow-hidden"
                     >
-                      <span className="text-sm font-medium text-vpn-text">
-                        {category}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {filteredVars.some((v) => gluetunFields[v.key]) && (
-                          <span className="text-xs text-vpn-primary">
-                            {
-                              filteredVars.filter((v) => gluetunFields[v.key])
-                                .length
-                            }{" "}
-                            set
-                          </span>
-                        )}
-                        {openGluetunCategories[category] ? (
-                          <ChevronDown className="w-4 h-4 text-vpn-muted" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-vpn-muted" />
-                        )}
-                      </div>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleGluetunCategory(category)}
+                        className="flex items-center justify-between w-full px-4 py-2.5 bg-vpn-input hover:bg-vpn-border transition-colors"
+                      >
+                        <span className="text-sm font-medium text-vpn-text">
+                          {category}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {filteredVars.some((v) => gluetunFields[v.key]) && (
+                            <span className="text-xs text-vpn-primary">
+                              {
+                                filteredVars.filter((v) => gluetunFields[v.key])
+                                  .length
+                              }{" "}
+                              set
+                            </span>
+                          )}
+                          {openGluetunCategories[category] ? (
+                            <ChevronDown className="w-4 h-4 text-vpn-muted" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-vpn-muted" />
+                          )}
+                        </div>
+                      </button>
 
-                    {openGluetunCategories[category] && (
-                      <div className="px-4 py-3 space-y-3">
-                        {filteredVars.map((envVar) => (
-                          <div key={envVar.key}>
-                            <label className={labelClass}>
-                              {envVar.label}
-                              <span className="text-xs text-vpn-muted ml-2 font-normal">
-                                {envVar.key}
-                              </span>
-                            </label>
-                            <input
-                              type={
-                                envVar.type === "password" ? "password" : "text"
-                              }
-                              value={gluetunFields[envVar.key] || ""}
-                              onChange={(e) =>
-                                setGluetunFields({
-                                  ...gluetunFields,
-                                  [envVar.key]: e.target.value,
-                                })
-                              }
-                              className={inputClass}
-                              placeholder={
-                                envVar.default
-                                  ? `Default: ${envVar.default}`
-                                  : envVar.placeholder || ""
-                              }
-                              autoComplete="off"
-                            />
-                            {envVar.default && (
-                              <p className="text-xs text-vpn-muted mt-1">
-                                Default:{" "}
-                                <span className="text-vpn-primary/70">
-                                  {envVar.default}
+                      {openGluetunCategories[category] && (
+                        <div className="px-4 py-3 space-y-3">
+                          {filteredVars.map((envVar) => (
+                            <div key={envVar.key}>
+                              <label className={labelClass}>
+                                {envVar.label}
+                                <span className="text-xs text-vpn-muted ml-2 font-normal">
+                                  {envVar.key}
                                 </span>
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                              </label>
+                              <input
+                                type={
+                                  envVar.type === "password"
+                                    ? "password"
+                                    : "text"
+                                }
+                                value={gluetunFields[envVar.key] || ""}
+                                onChange={(e) =>
+                                  setGluetunFields({
+                                    ...gluetunFields,
+                                    [envVar.key]: e.target.value,
+                                  })
+                                }
+                                className={inputClass}
+                                placeholder={
+                                  envVar.default
+                                    ? `Default: ${envVar.default}`
+                                    : envVar.placeholder || ""
+                                }
+                                autoComplete="off"
+                              />
+                              {envVar.default && (
+                                <p className="text-xs text-vpn-muted mt-1">
+                                  Default:{" "}
+                                  <span className="text-vpn-primary/70">
+                                    {envVar.default}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}{" "}
           </div>
         )}
 

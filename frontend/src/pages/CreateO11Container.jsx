@@ -184,6 +184,8 @@ export default function CreateO11Container() {
     let networkMode = form.network_mode;
     if (form.network_mode === "vpn" && form.vpn_container) {
       networkMode = `container:${form.vpn_container}`;
+    } else if (form.network_mode === "custom" && form.vpn_container) {
+      networkMode = form.vpn_container;
     }
 
     // Build environment dict
@@ -209,9 +211,13 @@ export default function CreateO11Container() {
     );
 
     try {
+      let imageName = form.image.trim();
+      if (imageName.toLowerCase().startsWith("docker pull ")) {
+        imageName = imageName.slice("docker pull ".length).trim();
+      }
       await api.post("/containers/dependents/create", {
         name: form.name.trim(),
-        image: form.image.trim(),
+        image: imageName,
         network_mode: networkMode,
         environment:
           Object.keys(environment).length > 0 ? environment : undefined,

@@ -137,6 +137,9 @@ def create_o11_container(
     """Create a new O11 (generic Docker) container."""
     name = (body.get("name") or "").strip()
     image = (body.get("image") or "").strip()
+    # Strip common prefixes if user pastes a full docker pull command
+    if image.lower().startswith("docker pull "):
+        image = image[len("docker pull ") :].strip()
     if not name:
         raise HTTPException(status_code=400, detail="Container name is required")
     if not image:

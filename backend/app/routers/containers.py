@@ -7,6 +7,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.models.vpn_container import VPNContainer
+from app.models.o11_container import O11Container
 from app.schemas.container import (
     ContainerCreate,
     ContainerUpdate,
@@ -132,6 +133,7 @@ def debug_dependents():
 @router.post("/dependents/create")
 def create_o11_container(
     body: dict = Body(...),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Create a new O11 (generic Docker) container."""
@@ -168,11 +170,31 @@ def create_o11_container(
             command=body.get("command"),
             labels=body.get("labels"),
         )
+
+        # Save to database
+        o11_record = O11Container(
+            name=name,
+            image=image,
+            network_mode=body.get("network_mode", "bridge"),
+            environment=body.get("environment"),
+            ports=body.get("ports"),
+            volumes=body.get("volumes"),
+            restart_policy=body.get("restart_policy", "unless-stopped"),
+            command=body.get("command"),
+            container_id=container_id,
+            status="created",
+            created_by=current_user.id,
+        )
+        db.add(o11_record)
+        db.commit()
+
         return {
             "message": f"Container '{name}' created successfully",
             "container_id": container_id,
             "name": name,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Failed to create O11 container %s: %s", name, e)
         raise HTTPException(
@@ -382,6 +404,47 @@ def delete_o11_file(
     return {"message": f"Deleted {filepath}"}
 
 
+@router.get("/dependents/{container_name}/db-info")
+def get_o11_db_info(
+    container_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the database record for an O11 container."""
+    record = db.query(O11Container).filter(O11Container.name == container_name).first()
+    if not record:
+        return {"description": None}
+    return {
+        "id": record.id,
+        "name": record.name,
+        "description": record.description,
+        "image": record.image,
+        "network_mode": record.network_mode,
+        "created_at": record.created_at.isoformat() if record.created_at else None,
+        "updated_at": record.updated_at.isoformat() if record.updated_at else None,
+    }
+
+
+@router.put("/dependents/{container_name}/description")
+def update_o11_description(
+    container_name: str,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update the description of an O11 container."""
+    record = db.query(O11Container).filter(O11Container.name == container_name).first()
+    if not record:
+        # Auto-create a minimal record if container exists in Docker but not in DB
+        record = O11Container(name=container_name)
+        db.add(record)
+
+    desc = (body.get("description") or "").strip() or None
+    record.description = desc
+    db.commit()
+    return {"message": "Description updated", "description": record.description}
+
+
 @router.post("/dependents/{container_name}/network-mode")
 def change_dependent_network_mode(
     container_name: str,
@@ -405,6 +468,7 @@ def change_dependent_network_mode(
 @router.delete("/dependents/{container_name}")
 def delete_dependent(
     container_name: str,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Delete (remove) a dependent Docker container by name and clean up local data."""
@@ -413,6 +477,10 @@ def delete_dependent(
         raise HTTPException(status_code=404, detail="Container not found")
     try:
         docker_service.remove_container(container_name)
+
+        # Remove from database
+        db.query(O11Container).filter(O11Container.name == container_name).delete()
+        db.commit()
 
         # Remove local data directory (data/o11/<name>/)
         import shutil
@@ -1057,7 +1125,16 @@ def control_dependent(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-ALLOWED_CONFIG_EXTENSIONS = {".ovpn", ".conf", ".key", ".crt", ".pem", ".txt", ".cfg"}
+ALLOWED_CONFIG_EXTENSIONS = {
+    ".ovpn",
+    ".conf",
+    ".key",
+    ".crt",
+    ".pem",
+    ".txt",
+    ".cfg",
+    ".json",
+}
 MAX_CONFIG_SIZE = 1 * 1024 * 1024  # 1 MB
 
 

@@ -28,22 +28,32 @@ import CustomDropdown from "../components/CustomDropdown";
 import StatusBadge from "../components/StatusBadge";
 import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
+import { useContainerData } from "../context/ContainerDataContext";
 
 export default function ContainerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
   const confirm = useConfirm();
-  const [container, setContainer] = useState(null);
+  const { containers: cachedContainers } = useContainerData();
+
+  // Try to find cached data from context so the page renders immediately
+  const cachedContainer = cachedContainers.find(
+    (c) => String(c.id) === String(id),
+  );
+
+  const [container, setContainer] = useState(cachedContainer || null);
   const [logs, setLogs] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedContainer);
   const [tab, setTab] = useState("info");
   const [dependents, setDependents] = useState([]);
   const [actionLoading, setActionLoading] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [vpnInfo, setVpnInfo] = useState(null);
   const [vpnInfoLoading, setVpnInfoLoading] = useState(true);
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(
+    cachedContainer?.description || "",
+  );
   const [descSaving, setDescSaving] = useState(false);
   const descFocused = useRef(false);
   const initialLoad = useRef(true);

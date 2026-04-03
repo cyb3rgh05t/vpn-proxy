@@ -378,6 +378,7 @@ export default function Settings() {
       <div className="inline-flex gap-1 bg-vpn-card border border-vpn-border rounded-xl p-1">
         {[
           { id: "system", label: "System", icon: Wrench },
+          { id: "monitoring", label: "Monitoring", icon: Activity },
           { id: "users", label: "User Management", icon: Users },
         ].map(({ id, label, icon: Icon }) => (
           <button
@@ -690,7 +691,12 @@ export default function Settings() {
               </div>
             )}
           </div>
+        </div>
+      )}
 
+      {/* Monitoring Tab */}
+      {settingsTab === "monitoring" && (
+        <div className="space-y-6">
           {/* O11 Monitoring Connection */}
           <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">

@@ -66,6 +66,12 @@ export default function O11ContainerDetail() {
   const [filesLoading, setFilesLoading] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Description
+  const [description, setDescription] = useState("");
+  const [descSaving, setDescSaving] = useState(false);
+  const descFocused = useRef(false);
+  const initialDescLoad = useRef(true);
+
   const fetchContainer = useCallback(async () => {
     try {
       const res = await api.get(
@@ -78,6 +84,37 @@ export default function O11ContainerDetail() {
       setLoading(false);
     }
   }, [name, navigate]);
+
+  const fetchDbInfo = useCallback(async () => {
+    try {
+      const res = await api.get(
+        `/containers/dependents/${encodeURIComponent(name)}/db-info`,
+      );
+      if (initialDescLoad.current || !descFocused.current) {
+        setDescription(res.data.description || "");
+        initialDescLoad.current = false;
+      }
+    } catch {
+      // ignore
+    }
+  }, [name]);
+
+  const handleDescriptionSave = async () => {
+    const trimmed = description.trim();
+    if (trimmed === (container?.description || "")) return;
+    setDescSaving(true);
+    try {
+      await api.put(
+        `/containers/dependents/${encodeURIComponent(name)}/description`,
+        { description: trimmed || null },
+      );
+      toast.success("Description saved");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to save description");
+    } finally {
+      setDescSaving(false);
+    }
+  };
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -168,7 +205,8 @@ export default function O11ContainerDetail() {
 
   useEffect(() => {
     fetchContainer();
-  }, [fetchContainer]);
+    fetchDbInfo();
+  }, [fetchContainer, fetchDbInfo]);
 
   useEffect(() => {
     if (tab === "logs") fetchLogs();
@@ -178,9 +216,10 @@ export default function O11ContainerDetail() {
   useEffect(() => {
     const interval = setInterval(() => {
       fetchContainer();
+      fetchDbInfo();
     }, 5000);
     return () => clearInterval(interval);
-  }, [fetchContainer]);
+  }, [fetchContainer, fetchDbInfo]);
 
   const getVpnInfoForParent = (vpnParentName) => {
     if (!vpnParentName) return null;
@@ -304,6 +343,25 @@ export default function O11ContainerDetail() {
             </p>
           </div>
           <StatusBadge status={container.status} />
+        </div>
+
+        <div className="mb-4 bg-vpn-input border border-vpn-border rounded-lg px-4 py-2.5">
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onFocus={() => (descFocused.current = true)}
+            onBlur={() => {
+              descFocused.current = false;
+              handleDescriptionSave();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.target.blur();
+            }}
+            placeholder="Add a description..."
+            disabled={descSaving}
+            className="w-full bg-transparent border-none text-sm text-vpn-text placeholder-vpn-muted focus:outline-none focus:text-white disabled:opacity-50"
+          />
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

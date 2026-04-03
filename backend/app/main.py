@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.database import engine, Base, SessionLocal
 from app.models.vpn_container import VPNContainer
+from app.models.o11_container import O11Container
 from app.models.api_key import APIKey
 from app.models.app_settings import AppSettings
 from app.services import docker_service
@@ -90,6 +91,54 @@ def auto_discover_containers():
         logger.warning("Auto-discovery of Gluetun containers failed: %s", e)
 
 
+def auto_discover_o11_containers():
+    """Import existing O11 containers (labelled managed-by=vpn-proxy-o11) on startup."""
+    try:
+        all_containers = docker_service.list_all_docker_containers()
+        o11_containers = [
+            c
+            for c in all_containers
+            if c.get("labels", {}).get("managed-by") == "vpn-proxy-o11"
+        ]
+        if not o11_containers:
+            return
+        db = SessionLocal()
+        try:
+            imported = 0
+            for info in o11_containers:
+                existing = (
+                    db.query(O11Container)
+                    .filter(O11Container.name == info["name"])
+                    .first()
+                )
+                if existing:
+                    # Update container_id if changed (e.g. recreated)
+                    if existing.container_id != info.get("id"):
+                        existing.container_id = info.get("id")
+                        db.commit()
+                    continue
+                record = O11Container(
+                    name=info["name"],
+                    image=info.get("image", ""),
+                    network_mode=info.get("network_mode", ""),
+                    container_id=info.get("id"),
+                    status=info.get("status", "unknown"),
+                )
+                db.add(record)
+                db.commit()
+                imported += 1
+            if imported > 0:
+                logger.info("Auto-imported %d existing O11 containers.", imported)
+            else:
+                logger.info(
+                    "Found %d O11 containers, all already tracked.", len(o11_containers)
+                )
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning("Auto-discovery of O11 containers failed: %s", e)
+
+
 def run_migrations():
     """Add missing columns to existing tables."""
     import sqlalchemy
@@ -130,6 +179,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     run_migrations()
     auto_discover_containers()
+    auto_discover_o11_containers()
     logger.info("VPN Proxy Manager started.")
     yield
     logger.info("VPN Proxy Manager shutting down.")

@@ -130,6 +130,22 @@ def debug_dependents():
     return docker_service.list_all_docker_containers_debug()
 
 
+@router.get("/dependents/db-info-batch")
+def get_all_o11_db_info(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return DB info (description etc.) for all O11 containers, keyed by name."""
+    records = db.query(O11Container).all()
+    return {
+        r.name: {
+            "description": r.description,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in records
+    }
+
+
 @router.post("/dependents/create")
 def create_o11_container(
     body: dict = Body(...),

@@ -194,6 +194,11 @@ export default function O11() {
           <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
             {dep.name}
           </h3>
+          {dep.description && (
+            <p className="text-xs text-vpn-muted mt-0.5 truncate">
+              {dep.description}
+            </p>
+          )}
         </div>
         <StatusBadge status={dep.status} />
       </div>

@@ -65,14 +65,24 @@ export function ContainerDataProvider({ children }) {
     // Fire vpn-info fetch independently (slow endpoint, don't block the rest)
     fetchVpnInfo();
 
-    const [containerData, allDeps] = await Promise.all([
+    const [containerData, allDeps, o11DbInfo] = await Promise.all([
       fetchContainers(),
       fetchAllDependents(),
+      api
+        .get("/containers/dependents/db-info-batch")
+        .then((r) => r.data)
+        .catch(() => ({})),
     ]);
 
-    // Set O11 containers — identified by the managed-by label
+    // Set O11 containers — identified by the managed-by label, merged with DB info
+    const o11List = allDeps.filter(
+      (c) => c.labels?.["managed-by"] === "vpn-proxy-o11",
+    );
     setO11Containers(
-      allDeps.filter((c) => c.labels?.["managed-by"] === "vpn-proxy-o11"),
+      o11List.map((c) => ({
+        ...c,
+        description: o11DbInfo[c.name]?.description || null,
+      })),
     );
 
     // Build depsMap client-side: group dependents by their vpn_parent → managed container id

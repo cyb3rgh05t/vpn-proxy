@@ -42,11 +42,15 @@ export default function O11ContainerDetail() {
   const {
     containers: managedContainers,
     vpnInfoMap,
+    o11Containers,
     refreshO11Containers,
   } = useContainerData();
 
-  const [container, setContainer] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Use cached data from context for instant rendering
+  const cachedContainer = o11Containers.find((c) => c.name === name);
+
+  const [container, setContainer] = useState(cachedContainer || null);
+  const [loading, setLoading] = useState(!cachedContainer);
   const [logs, setLogs] = useState("");
   const [tab, setTab] = useState("info");
   const [actionLoading, setActionLoading] = useState("");

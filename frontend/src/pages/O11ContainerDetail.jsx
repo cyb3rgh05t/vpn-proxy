@@ -498,16 +498,33 @@ export default function O11ContainerDetail() {
                 <Network className="w-4 h-4 inline mr-1.5 -mt-0.5" />
                 Ports & Network
               </h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 {Object.entries(container.ports || {}).map(
-                  ([internal, host]) => (
-                    <div key={internal} className="bg-vpn-input rounded-lg p-4">
-                      <p className="text-xs text-vpn-muted mb-1">{internal}</p>
-                      <p className="text-lg font-mono text-white">
-                        :{host || "—"}
-                      </p>
-                    </div>
-                  ),
+                  ([internal, host]) => {
+                    const [cPort, proto] = internal.split("/");
+                    return (
+                      <div
+                        key={internal}
+                        className="bg-vpn-input rounded-lg p-3 border border-vpn-border/30"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase">
+                            {proto || "tcp"}
+                          </span>
+                        </div>
+                        <p className="text-sm font-mono text-white">
+                          <span className="text-vpn-primary">
+                            {host || "—"}
+                          </span>
+                          <span className="text-vpn-muted mx-1">→</span>
+                          {cPort}
+                        </p>
+                        <p className="text-[10px] text-vpn-muted mt-0.5">
+                          host → container
+                        </p>
+                      </div>
+                    );
+                  },
                 )}
               </div>
               <div className="bg-vpn-input rounded-lg divide-y divide-vpn-border mt-3">

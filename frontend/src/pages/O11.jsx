@@ -39,6 +39,7 @@ export default function O11() {
     loading,
     refreshO11Containers,
     refreshAll,
+    proxyCount,
   } = useContainerData();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -164,12 +165,20 @@ export default function O11() {
       filter: "vpn",
     },
     {
-      label: "Proxied",
+      label: "Proxy Connected",
       value: proxyConnected,
       icon: Globe,
       color: "text-purple-400",
       bg: "bg-purple-500/10",
       filter: "proxied",
+    },
+    {
+      label: "Proxied",
+      value: proxyCount,
+      icon: Network,
+      color: "text-cyan-400",
+      bg: "bg-cyan-500/10",
+      filter: null,
     },
   ];
 
@@ -290,17 +299,27 @@ export default function O11() {
       {/* Ports & Network */}
       {(Object.keys(dep.ports || {}).length > 0 || dep.network_mode) && (
         <div className="grid grid-cols-2 gap-2 mb-3">
-          {Object.entries(dep.ports || {}).map(([internal, host]) => (
-            <div
-              key={internal}
-              className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50"
-            >
-              <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
-                {internal}
-              </p>
-              <p className="text-sm text-vpn-text font-mono">:{host || "—"}</p>
-            </div>
-          ))}
+          {Object.entries(dep.ports || {}).map(([internal, host]) => {
+            const [cPort, proto] = internal.split("/");
+            return (
+              <div
+                key={internal}
+                className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50"
+              >
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase mb-1">
+                  {proto || "tcp"}
+                </span>
+                <p className="text-sm font-mono text-white">
+                  <span className="text-vpn-primary">{host || "—"}</span>
+                  <span className="text-vpn-muted mx-1">→</span>
+                  {cPort}
+                </p>
+                <p className="text-[10px] text-vpn-muted mt-0.5">
+                  host → container
+                </p>
+              </div>
+            );
+          })}
           {dep.network_mode &&
             !dep.network_mode.startsWith("container:") &&
             dep.network_mode !== "default" && (
@@ -442,7 +461,7 @@ export default function O11() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         {stats.map(({ label, value, icon: Icon, color, bg, filter }) => (
           <div
             key={label}

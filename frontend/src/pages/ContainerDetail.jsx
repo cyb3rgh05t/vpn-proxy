@@ -19,6 +19,7 @@ import {
   Plus,
   Upload,
   File,
+  FolderOpen,
   Copy,
   Check,
 } from "lucide-react";
@@ -135,6 +136,7 @@ export default function ContainerDetail() {
 
   useEffect(() => {
     if (tab === "logs") fetchLogs();
+    if (tab === "files") fetchConfigFiles();
   }, [tab, fetchLogs]);
 
   useEffect(() => {
@@ -465,6 +467,7 @@ export default function ContainerDetail() {
       <div className="flex gap-1 mb-4 bg-vpn-card border border-vpn-border rounded-xl p-1">
         {[
           { key: "info", label: "Information" },
+          { key: "files", label: "Files" },
           { key: "logs", label: "Logs" },
         ].map(({ key, label }) => (
           <button
@@ -808,6 +811,105 @@ export default function ContainerDetail() {
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "files" && (
+          <div className="space-y-6">
+            {/* Upload Section */}
+            <div>
+              <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
+                <Upload className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                VPN Config Files
+              </h3>
+              <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-xl p-4 space-y-3">
+                <p className="text-xs text-vpn-muted">
+                  Upload OpenVPN or WireGuard config files. Stored in{" "}
+                  <span className="font-mono text-vpn-primary/70">
+                    /gluetun/
+                  </span>{" "}
+                  inside the container.
+                </p>
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={configFileInputRef}
+                    type="file"
+                    accept=".ovpn,.conf,.key,.crt,.pem,.txt,.cfg"
+                    multiple
+                    onChange={handleConfigUpload}
+                    className="hidden"
+                    id="config-file-upload"
+                  />
+                  <label
+                    htmlFor="config-file-upload"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all ${
+                      uploadingConfig
+                        ? "bg-vpn-input text-vpn-muted cursor-not-allowed"
+                        : "bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text"
+                    }`}
+                  >
+                    <Upload
+                      className={`w-4 h-4 ${uploadingConfig ? "animate-pulse" : ""}`}
+                    />
+                    {uploadingConfig ? "Uploading..." : "Choose Files"}
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* File List */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider">
+                  <FolderOpen className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                  Uploaded Files
+                </h3>
+                <button
+                  onClick={fetchConfigFiles}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+                >
+                  <RefreshCw className="w-3 h-3 text-vpn-primary" />
+                  Refresh
+                </button>
+              </div>
+
+              {configFiles.length === 0 ? (
+                <div className="text-center py-8 bg-vpn-input/30 border border-vpn-border/50 rounded-xl">
+                  <FolderOpen className="w-10 h-10 text-vpn-border mx-auto mb-2" />
+                  <p className="text-sm text-vpn-muted">
+                    No config files uploaded yet
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-vpn-input rounded-lg divide-y divide-vpn-border">
+                  {configFiles.map((f) => (
+                    <div
+                      key={f.name}
+                      className="flex items-center justify-between px-4 py-3 gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <File className="w-4 h-4 text-vpn-primary flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-white font-mono truncate">
+                            {f.name}
+                          </p>
+                          <p className="text-xs text-vpn-muted font-mono">
+                            {f.path}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleConfigFileDelete(f.name)}
+                        className="p-1.5 rounded-lg text-vpn-muted hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"
+                        title="Delete file"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -554,6 +554,63 @@ export default function O11ContainerDetail() {
               </div>
             )}
 
+            {/* Proxy Connection */}
+            {(() => {
+              const netNames = container.networks
+                ? Array.isArray(container.networks)
+                  ? container.networks
+                  : Object.keys(container.networks)
+                : [];
+              const proxyNets = netNames.filter((n) =>
+                n.toLowerCase().includes("proxy"),
+              );
+              if (!vpnParentName && proxyNets.length > 0) {
+                return (
+                  <div>
+                    <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
+                      <Globe className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                      Proxy Connection
+                    </h3>
+                    <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Globe className="w-4 h-4 text-purple-400" />
+                        <span className="text-sm text-purple-400 font-medium">
+                          Proxy Connected
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {proxyNets.map((netName) => {
+                          const netInfo =
+                            !Array.isArray(container.networks) &&
+                            container.networks?.[netName];
+                          return (
+                            <div
+                              key={netName}
+                              className="bg-vpn-input rounded-lg p-3"
+                            >
+                              <p className="text-xs text-vpn-muted mb-1">
+                                <Network className="w-3 h-3 inline mr-1 -mt-0.5" />
+                                Network
+                              </p>
+                              <p className="text-sm text-purple-400 font-medium">
+                                {netName}
+                              </p>
+                              {netInfo?.ip && (
+                                <p className="text-xs text-vpn-muted font-mono mt-1">
+                                  {netInfo.ip}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* Network */}
             <div>
               <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">

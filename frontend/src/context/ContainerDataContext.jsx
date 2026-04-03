@@ -70,8 +70,10 @@ export function ContainerDataProvider({ children }) {
       fetchAllDependents(),
     ]);
 
-    // Set O11 containers
-    setO11Containers(allDeps.filter((c) => /o11/i.test(c.name)));
+    // Set O11 containers — identified by the managed-by label
+    setO11Containers(
+      allDeps.filter((c) => c.labels?.["managed-by"] === "vpn-proxy-o11"),
+    );
 
     // Build depsMap client-side: group dependents by their vpn_parent → managed container id
     if (containerData?.length && allDeps.length) {

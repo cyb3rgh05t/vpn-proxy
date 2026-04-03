@@ -881,6 +881,9 @@ def list_all_docker_containers() -> list[dict]:
                 c_nets = c.attrs.get("NetworkSettings", {}).get("Networks", {})
                 connected_networks = list(c_nets.keys()) if c_nets else []
 
+                # Labels
+                container_labels = c.labels or {}
+
                 result.append(
                     {
                         "name": cname,
@@ -898,6 +901,7 @@ def list_all_docker_containers() -> list[dict]:
                         "hostname": hostname,
                         "mounts_count": len(binds),
                         "networks": connected_networks,
+                        "labels": container_labels,
                     }
                 )
             except Exception:

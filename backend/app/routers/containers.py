@@ -129,6 +129,72 @@ def debug_dependents():
     return docker_service.list_all_docker_containers_debug()
 
 
+@router.post("/dependents/create")
+def create_o11_container(
+    body: dict = Body(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a new O11 (generic Docker) container."""
+    name = (body.get("name") or "").strip()
+    image = (body.get("image") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Container name is required")
+    if not image:
+        raise HTTPException(status_code=400, detail="Docker image is required")
+
+    # Check if container with this name already exists
+    client = docker_service._get_client()
+    try:
+        client.containers.get(name)
+        raise HTTPException(
+            status_code=409,
+            detail=f"Container with name '{name}' already exists",
+        )
+    except docker_service.NotFound:
+        pass
+
+    try:
+        container_id = docker_service.create_o11_container(
+            name=name,
+            image=image,
+            network_mode=body.get("network_mode", "bridge"),
+            environment=body.get("environment"),
+            ports=body.get("ports"),
+            volumes=body.get("volumes"),
+            restart_policy=body.get("restart_policy", "unless-stopped"),
+            command=body.get("command"),
+            labels=body.get("labels"),
+        )
+        return {
+            "message": f"Container '{name}' created successfully",
+            "container_id": container_id,
+            "name": name,
+        }
+    except Exception as e:
+        logger.error("Failed to create O11 container %s: %s", name, e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create container: {e}",
+        )
+
+
+@router.get("/dependents/images")
+def list_docker_images(
+    current_user: User = Depends(get_current_user),
+):
+    """List locally available Docker images."""
+    client = docker_service._get_client()
+    images = []
+    try:
+        for img in client.images.list():
+            tags = img.tags or []
+            for tag in tags:
+                images.append(tag)
+    except Exception as e:
+        logger.error("Failed to list Docker images: %s", e)
+    return sorted(images)
+
+
 @router.post("/dependents/{container_name}/network-mode")
 def change_dependent_network_mode(
     container_name: str,

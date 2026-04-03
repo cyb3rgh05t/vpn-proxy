@@ -8,7 +8,7 @@ import docker
 import requests as http_requests
 from docker.types import RestartPolicy  # noqa
 import yaml
-from docker.errors import NotFound, APIError
+from docker.errors import ImageNotFound, NotFound, APIError
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -1327,6 +1327,90 @@ def list_docker_stacks() -> list[str]:
     except Exception as e:
         logger.error("Failed to list Docker stacks: %s", e)
     return sorted(stacks)
+
+
+def create_o11_container(
+    name: str,
+    image: str,
+    network_mode: str = "bridge",
+    environment: dict | None = None,
+    ports: dict | None = None,
+    volumes: list[dict] | None = None,
+    restart_policy: str = "unless-stopped",
+    command: str | None = None,
+    labels: dict | None = None,
+) -> str:
+    """Create a generic Docker container (O11 container).
+    Returns the container ID.
+    """
+    client = _get_client()
+
+    # Pull image if not available locally
+    try:
+        client.images.get(image)
+    except ImageNotFound:
+        logger.info("Pulling image %s ...", image)
+        client.images.pull(image)
+
+    env_vars = {}
+    if environment:
+        for k, v in environment.items():
+            if v is not None and str(v).strip():
+                env_vars[k] = str(v)
+
+    # Build port mappings: {"8080/tcp": 8080}
+    port_bindings = {}
+    if ports and not network_mode.startswith("container:"):
+        for p in ports:
+            host_port = int(p.get("host", 0))
+            container_port = int(p.get("container", 0))
+            protocol = p.get("protocol", "tcp").lower()
+            if host_port > 0 and container_port > 0 and protocol in ("tcp", "udp"):
+                port_bindings[f"{container_port}/{protocol}"] = host_port
+
+    # Build volume bindings: ["/host/path:/container/path:rw"]
+    volume_bindings = {}
+    if volumes:
+        for v in volumes:
+            source = v.get("source", "").strip()
+            target = v.get("target", "").strip()
+            mode = v.get("mode", "rw").strip()
+            if source and target:
+                volume_bindings[source] = {"bind": target, "mode": mode}
+
+    # Build container labels
+    container_labels = {"managed-by": "vpn-proxy-o11"}
+    if labels:
+        container_labels.update(labels)
+
+    run_kwargs: dict[str, Any] = {
+        "image": image,
+        "name": name,
+        "environment": env_vars if env_vars else None,
+        "ports": port_bindings if port_bindings else None,
+        "volumes": volume_bindings if volume_bindings else None,
+        "detach": True,
+        "restart_policy": {"Name": restart_policy, "MaximumRetryCount": 0},
+        "labels": container_labels,
+    }
+
+    if network_mode and network_mode != "bridge":
+        run_kwargs["network_mode"] = network_mode
+
+    if command and command.strip():
+        run_kwargs["command"] = command.strip()
+
+    # In container: mode, remove port bindings (parent handles ports)
+    if network_mode.startswith("container:"):
+        run_kwargs["ports"] = None
+
+    try:
+        container = client.containers.run(**run_kwargs)
+        logger.info("Created O11 container %s (image: %s)", name, image)
+        return container.id
+    except APIError as e:
+        logger.error("Failed to create O11 container %s: %s", name, e)
+        raise
 
 
 def discover_gluetun_containers() -> list[dict]:

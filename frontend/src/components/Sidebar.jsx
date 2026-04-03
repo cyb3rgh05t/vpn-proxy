@@ -20,6 +20,7 @@ const navItems = [
   { to: "/o11", icon: Boxes, label: "O11" },
   { to: "/monitoring", icon: Activity, label: "Monitoring" },
   { to: "/create", icon: PlusCircle, label: "New VPN-PROXY" },
+  { to: "/create-o11", icon: PlusCircle, label: "New O11" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 

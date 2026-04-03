@@ -251,7 +251,7 @@ def redeploy_container(
     extra_ports: list[dict] | None = None,
     network_name: str | None = None,
     new_name: str | None = None,
-) -> str:
+) -> str | None:
     """Redeploy a Gluetun container with updated config.
     Stops dependents, removes old container, creates new one, restarts dependents.
     If new_name is provided, the container is renamed (new Docker name + data dir).
@@ -1348,7 +1348,7 @@ def create_o11_container(
     restart_policy: str = "unless-stopped",
     command: str | None = None,
     labels: dict | None = None,
-) -> str:
+) -> str | None:
     """Create a generic Docker container (O11 container).
     Returns the container ID.
     """
@@ -1430,7 +1430,7 @@ def redeploy_o11_container(
     volumes: list[dict] | None = None,
     restart_policy: str | None = None,
     command: str | None = None,
-) -> str:
+) -> str | None:
     """Redeploy an O11 container with updated configuration.
     Preserves network_mode, labels, capabilities etc. from the existing container.
     Returns new container_id.

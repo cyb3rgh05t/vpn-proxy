@@ -11,6 +11,7 @@ import {
   Boxes,
   Network,
   Activity,
+  BookOpen,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -22,6 +23,7 @@ const navItems = [
   { to: "/create", icon: PlusCircle, label: "New VPN-Proxy" },
   { to: "/create-o11", icon: PlusCircle, label: "New O11" },
   { to: "/settings", icon: Settings, label: "Settings" },
+  { to: "/how-to", icon: BookOpen, label: "How To" },
 ];
 
 export default function Sidebar() {

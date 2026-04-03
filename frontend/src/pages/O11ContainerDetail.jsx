@@ -27,6 +27,10 @@ import {
   File,
   FolderOpen,
   X,
+  Pencil,
+  Rocket,
+  Plus,
+  Minus,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -75,6 +79,17 @@ export default function O11ContainerDetail() {
   const [descSaving, setDescSaving] = useState(false);
   const descFocused = useRef(false);
   const initialDescLoad = useRef(true);
+  const savedDesc = useRef("");
+
+  // Edit & Redeploy
+  const [editingConfig, setEditingConfig] = useState(false);
+  const [editImage, setEditImage] = useState("");
+  const [editEnv, setEditEnv] = useState([]);
+  const [editPorts, setEditPorts] = useState([]);
+  const [editVolumes, setEditVolumes] = useState([]);
+  const [editCommand, setEditCommand] = useState("");
+  const [editRestartPolicy, setEditRestartPolicy] = useState("unless-stopped");
+  const [redeploying, setRedeploying] = useState(false);
 
   const fetchContainer = useCallback(async () => {
     try {
@@ -94,8 +109,10 @@ export default function O11ContainerDetail() {
       const res = await api.get(
         `/containers/dependents/${encodeURIComponent(name)}/db-info`,
       );
+      const desc = res.data.description || "";
+      savedDesc.current = desc;
       if (initialDescLoad.current || !descFocused.current) {
-        setDescription(res.data.description || "");
+        setDescription(desc);
         initialDescLoad.current = false;
       }
     } catch {
@@ -105,13 +122,14 @@ export default function O11ContainerDetail() {
 
   const handleDescriptionSave = async () => {
     const trimmed = description.trim();
-    if (trimmed === (container?.description || "")) return;
+    if (trimmed === savedDesc.current) return;
     setDescSaving(true);
     try {
       await api.put(
         `/containers/dependents/${encodeURIComponent(name)}/description`,
         { description: trimmed || null },
       );
+      savedDesc.current = trimmed;
       toast.success("Description saved");
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to save description");
@@ -303,6 +321,83 @@ export default function O11ContainerDetail() {
     }
   };
 
+  const openEditModal = () => {
+    if (!container) return;
+    setEditImage(container.image || "");
+    // Convert env dict to array of {key, value}
+    const envEntries = Object.entries(container.env || {}).map(
+      ([key, value]) => ({
+        key,
+        value,
+      }),
+    );
+    setEditEnv(envEntries.length > 0 ? envEntries : [{ key: "", value: "" }]);
+    // Convert ports dict to array
+    const portEntries = Object.entries(container.ports || {}).map(
+      ([internal, host]) => {
+        const [cPort, proto] = internal.split("/");
+        return {
+          host: host || "",
+          container: cPort || "",
+          protocol: proto || "tcp",
+        };
+      },
+    );
+    setEditPorts(portEntries);
+    // Convert mounts to array
+    const volEntries = (container.mounts || []).map((m) => ({
+      source: m.source || "",
+      target: m.target || "",
+      mode: m.mode || "rw",
+    }));
+    setEditVolumes(volEntries);
+    setEditCommand(
+      Array.isArray(container.cmd)
+        ? container.cmd.join(" ")
+        : container.cmd || "",
+    );
+    setEditRestartPolicy(container.restart_policy?.Name || "unless-stopped");
+    setEditingConfig(true);
+  };
+
+  const handleRedeploy = async () => {
+    const ok = await confirm({
+      title: "Redeploy Container",
+      message: `Redeploy "${name}"? The container will be stopped, removed, then recreated with the new configuration.`,
+      confirmText: "Redeploy",
+      variant: "info",
+    });
+    if (!ok) return;
+    setRedeploying(true);
+    try {
+      // Build environment dict from array
+      const envDict = {};
+      for (const e of editEnv) {
+        if (e.key.trim()) envDict[e.key.trim()] = e.value;
+      }
+      const payload = {
+        image: editImage,
+        environment: envDict,
+        ports: editPorts.filter((p) => p.host && p.container),
+        volumes: editVolumes.filter((v) => v.source && v.target),
+        restart_policy: editRestartPolicy,
+        command: editCommand.trim() || null,
+      };
+      const res = await api.post(
+        `/containers/dependents/${encodeURIComponent(name)}/redeploy`,
+        payload,
+      );
+      toast.success(res.data?.message || "Container redeployed");
+      setEditingConfig(false);
+      fetchContainer();
+      refreshO11Containers();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to redeploy container");
+    } finally {
+      setRedeploying(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -418,8 +513,15 @@ export default function O11ContainerDetail() {
             Restart
           </button>
           <button
+            onClick={openEditModal}
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg text-sm transition-all shadow-sm ml-auto"
+          >
+            <Pencil className="w-4 h-4 text-vpn-primary" />
+            Edit & Redeploy
+          </button>
+          <button
             onClick={openNetworkModal}
-            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-blue-400 text-vpn-text rounded-lg text-sm transition-all shadow-sm ml-auto"
+            className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-blue-400 text-vpn-text rounded-lg text-sm transition-all shadow-sm"
           >
             <Network className="w-4 h-4 text-blue-400" />
             Change Network Mode
@@ -1127,6 +1229,313 @@ export default function O11ContainerDetail() {
                   className={`w-4 h-4 text-blue-400 ${networkModeLoading ? "animate-pulse" : ""}`}
                 />
                 {networkModeLoading ? "Applying..." : "Apply & Recreate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit & Redeploy Modal */}
+      {editingConfig && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-vpn-border">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-vpn-primary" />
+                Edit & Redeploy
+              </h2>
+              <button
+                onClick={() => setEditingConfig(false)}
+                className="p-2 rounded-lg text-vpn-muted hover:text-white hover:bg-vpn-input transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Warning */}
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-amber-400">
+                    Redeploying will stop and remove the container, then
+                    recreate it with the new configuration. Non-persistent data
+                    will be lost.
+                  </p>
+                </div>
+              </div>
+
+              {/* Image */}
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                  Docker Image
+                </label>
+                <input
+                  type="text"
+                  value={editImage}
+                  onChange={(e) => setEditImage(e.target.value)}
+                  placeholder="e.g. nginx:latest"
+                  className="w-full bg-vpn-input border border-vpn-border rounded-lg px-4 py-2.5 text-sm text-white font-mono placeholder-vpn-muted focus:outline-none focus:border-vpn-primary"
+                />
+              </div>
+
+              {/* Command */}
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                  Command (optional)
+                </label>
+                <input
+                  type="text"
+                  value={editCommand}
+                  onChange={(e) => setEditCommand(e.target.value)}
+                  placeholder="e.g. --config /app/config.yml"
+                  className="w-full bg-vpn-input border border-vpn-border rounded-lg px-4 py-2.5 text-sm text-white font-mono placeholder-vpn-muted focus:outline-none focus:border-vpn-primary"
+                />
+              </div>
+
+              {/* Restart Policy */}
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                  Restart Policy
+                </label>
+                <div className="flex gap-2">
+                  {["unless-stopped", "always", "on-failure", "no"].map(
+                    (policy) => (
+                      <button
+                        key={policy}
+                        type="button"
+                        onClick={() => setEditRestartPolicy(policy)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          editRestartPolicy === policy
+                            ? "bg-vpn-primary text-black"
+                            : "bg-vpn-input text-vpn-text hover:bg-vpn-border border border-vpn-border"
+                        }`}
+                      >
+                        {policy}
+                      </button>
+                    ),
+                  )}
+                </div>
+              </div>
+
+              {/* Environment Variables */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium text-vpn-muted">
+                    Environment Variables
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditEnv([...editEnv, { key: "", value: "" }])
+                    }
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-vpn-primary hover:bg-vpn-primary/10 rounded transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {editEnv.map((env, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={env.key}
+                        onChange={(e) => {
+                          const updated = [...editEnv];
+                          updated[i] = { ...env, key: e.target.value };
+                          setEditEnv(updated);
+                        }}
+                        placeholder="KEY"
+                        className="flex-1 bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-vpn-muted focus:outline-none focus:border-vpn-primary"
+                      />
+                      <span className="text-vpn-muted">=</span>
+                      <input
+                        type="text"
+                        value={env.value}
+                        onChange={(e) => {
+                          const updated = [...editEnv];
+                          updated[i] = { ...env, value: e.target.value };
+                          setEditEnv(updated);
+                        }}
+                        placeholder="value"
+                        className="flex-1 bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-vpn-muted focus:outline-none focus:border-vpn-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditEnv(editEnv.filter((_, j) => j !== i))
+                        }
+                        className="p-1.5 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ports */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium text-vpn-muted">
+                    Port Mappings
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditPorts([
+                        ...editPorts,
+                        { host: "", container: "", protocol: "tcp" },
+                      ])
+                    }
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-vpn-primary hover:bg-vpn-primary/10 rounded transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {editPorts.map((port, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={port.host}
+                        onChange={(e) => {
+                          const updated = [...editPorts];
+                          updated[i] = { ...port, host: e.target.value };
+                          setEditPorts(updated);
+                        }}
+                        placeholder="Host"
+                        className="w-24 bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-vpn-muted focus:outline-none focus:border-vpn-primary"
+                      />
+                      <span className="text-vpn-muted">→</span>
+                      <input
+                        type="text"
+                        value={port.container}
+                        onChange={(e) => {
+                          const updated = [...editPorts];
+                          updated[i] = { ...port, container: e.target.value };
+                          setEditPorts(updated);
+                        }}
+                        placeholder="Container"
+                        className="w-24 bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-vpn-muted focus:outline-none focus:border-vpn-primary"
+                      />
+                      <select
+                        value={port.protocol}
+                        onChange={(e) => {
+                          const updated = [...editPorts];
+                          updated[i] = { ...port, protocol: e.target.value };
+                          setEditPorts(updated);
+                        }}
+                        className="bg-vpn-input border border-vpn-border rounded-lg px-2 py-2 text-xs text-white focus:outline-none focus:border-vpn-primary"
+                      >
+                        <option value="tcp">TCP</option>
+                        <option value="udp">UDP</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditPorts(editPorts.filter((_, j) => j !== i))
+                        }
+                        className="p-1.5 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Volumes */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium text-vpn-muted">
+                    Volume Mounts
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditVolumes([
+                        ...editVolumes,
+                        { source: "", target: "", mode: "rw" },
+                      ])
+                    }
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-vpn-primary hover:bg-vpn-primary/10 rounded transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {editVolumes.map((vol, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={vol.source}
+                        onChange={(e) => {
+                          const updated = [...editVolumes];
+                          updated[i] = { ...vol, source: e.target.value };
+                          setEditVolumes(updated);
+                        }}
+                        placeholder="Host path"
+                        className="flex-1 bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-vpn-muted focus:outline-none focus:border-vpn-primary"
+                      />
+                      <span className="text-vpn-muted">→</span>
+                      <input
+                        type="text"
+                        value={vol.target}
+                        onChange={(e) => {
+                          const updated = [...editVolumes];
+                          updated[i] = { ...vol, target: e.target.value };
+                          setEditVolumes(updated);
+                        }}
+                        placeholder="Container path"
+                        className="flex-1 bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-vpn-muted focus:outline-none focus:border-vpn-primary"
+                      />
+                      <select
+                        value={vol.mode}
+                        onChange={(e) => {
+                          const updated = [...editVolumes];
+                          updated[i] = { ...vol, mode: e.target.value };
+                          setEditVolumes(updated);
+                        }}
+                        className="bg-vpn-input border border-vpn-border rounded-lg px-2 py-2 text-xs text-white focus:outline-none focus:border-vpn-primary"
+                      >
+                        <option value="rw">rw</option>
+                        <option value="ro">ro</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditVolumes(editVolumes.filter((_, j) => j !== i))
+                        }
+                        className="p-1.5 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-vpn-border">
+              <button
+                onClick={() => setEditingConfig(false)}
+                className="px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-muted text-vpn-text rounded-lg text-sm transition-all shadow-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRedeploy}
+                disabled={redeploying || !editImage.trim()}
+                className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-blue-400 text-vpn-text rounded-lg text-sm font-medium transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Rocket
+                  className={`w-4 h-4 text-blue-400 ${redeploying ? "animate-pulse" : ""}`}
+                />
+                {redeploying ? "Redeploying..." : "Save & Redeploy"}
               </button>
             </div>
           </div>

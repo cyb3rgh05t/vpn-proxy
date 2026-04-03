@@ -191,14 +191,16 @@ export default function O11() {
       {/* Header: Name + Status */}
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
-            {dep.name}
-          </h3>
-          {dep.description && (
-            <p className="text-xs text-vpn-muted mt-0.5 truncate">
-              {dep.description}
-            </p>
-          )}
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
+              {dep.name}
+            </h3>
+            {dep.description && (
+              <span className="shrink-0 px-2 py-0.5 bg-vpn-primary/10 border border-vpn-primary/30 rounded text-[10px] text-vpn-primary font-medium truncate max-w-[150px]">
+                {dep.description}
+              </span>
+            )}
+          </div>
         </div>
         <StatusBadge status={dep.status} />
       </div>

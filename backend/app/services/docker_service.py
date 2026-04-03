@@ -1422,6 +1422,152 @@ def create_o11_container(
         raise
 
 
+def redeploy_o11_container(
+    container_name: str,
+    image: str | None = None,
+    environment: dict | None = None,
+    ports: list[dict] | None = None,
+    volumes: list[dict] | None = None,
+    restart_policy: str | None = None,
+    command: str | None = None,
+) -> str:
+    """Redeploy an O11 container with updated configuration.
+    Preserves network_mode, labels, capabilities etc. from the existing container.
+    Returns new container_id.
+    """
+    client = _get_client()
+    try:
+        container = client.containers.get(container_name)
+    except NotFound:
+        raise RuntimeError(f"Container '{container_name}' not found")
+
+    attrs = container.attrs or {}
+    config = attrs.get("Config", {})
+    host_config = attrs.get("HostConfig", {})
+
+    old_image = config.get("Image", "")
+    new_image = image if image else old_image
+
+    # Pull new image if needed
+    try:
+        client.images.get(new_image)
+    except ImageNotFound:
+        logger.info("Pulling image %s ...", new_image)
+        client.images.pull(new_image)
+
+    # Preserve existing container properties
+    old_env = config.get("Env", [])
+    labels = config.get("Labels", {})
+    cmd = config.get("Cmd")
+    entrypoint = config.get("Entrypoint")
+    hostname = config.get("Hostname", "")
+    network_mode = host_config.get("NetworkMode", "")
+    old_volumes = host_config.get("Binds") or []
+    old_port_bindings = host_config.get("PortBindings") or {}
+    old_restart = host_config.get("RestartPolicy") or {}
+    cap_add = host_config.get("CapAdd") or []
+    cap_drop = host_config.get("CapDrop") or []
+    security_opt = host_config.get("SecurityOpt") or []
+    privileged = host_config.get("Privileged", False)
+    devices = host_config.get("Devices") or []
+
+    # Build new environment
+    if environment is not None:
+        new_env = [
+            f"{k}={v}"
+            for k, v in environment.items()
+            if v is not None and str(v).strip()
+        ]
+    else:
+        new_env = old_env
+
+    # Build new port bindings
+    if ports is not None:
+        new_port_bindings = {}
+        for p in ports:
+            host_port = int(p.get("host", 0))
+            container_port = int(p.get("container", 0))
+            protocol = p.get("protocol", "tcp").lower()
+            if host_port > 0 and container_port > 0 and protocol in ("tcp", "udp"):
+                new_port_bindings[f"{container_port}/{protocol}"] = [
+                    {"HostPort": str(host_port)}
+                ]
+    else:
+        new_port_bindings = old_port_bindings
+
+    # Build new volume bindings
+    if volumes is not None:
+        new_volumes = []
+        for v in volumes:
+            source = v.get("source", "").strip()
+            target = v.get("target", "").strip()
+            mode = v.get("mode", "rw").strip()
+            if source and target:
+                new_volumes.append(f"{source}:{target}:{mode}")
+    else:
+        new_volumes = old_volumes
+
+    # Build new restart policy
+    if restart_policy is not None:
+        new_restart = {"Name": restart_policy, "MaximumRetryCount": 0}
+    else:
+        new_restart = old_restart
+
+    # Build new command
+    if command is not None:
+        new_cmd = command.strip() if command.strip() else None
+    else:
+        new_cmd = cmd
+
+    was_running = container.status == "running"
+
+    # Stop and remove old container
+    if was_running:
+        container.stop(timeout=10)
+    container.remove()
+
+    # Build create kwargs
+    create_kwargs = {
+        "image": new_image,
+        "name": container_name,
+        "command": new_cmd,
+        "entrypoint": entrypoint,
+        "environment": new_env,
+        "labels": labels,
+        "network_mode": (
+            network_mode if network_mode and network_mode != "default" else None
+        ),
+        "volumes": new_volumes if new_volumes else None,
+        "restart_policy": new_restart,
+        "detach": True,
+    }
+
+    if cap_add:
+        create_kwargs["cap_add"] = cap_add
+    if cap_drop:
+        create_kwargs["cap_drop"] = cap_drop
+    if security_opt:
+        create_kwargs["security_opt"] = security_opt
+    if privileged:
+        create_kwargs["privileged"] = privileged
+    if devices:
+        create_kwargs["devices"] = devices
+
+    if network_mode.startswith("container:"):
+        create_kwargs["ports"] = {}
+    else:
+        create_kwargs["ports"] = new_port_bindings
+        if hostname:
+            create_kwargs["hostname"] = hostname
+
+    new_container = client.containers.create(**create_kwargs)
+    if was_running:
+        new_container.start()
+
+    logger.info("Redeployed O11 container %s (image: %s)", container_name, new_image)
+    return new_container.id
+
+
 def discover_gluetun_containers() -> list[dict]:
     """Find all existing Gluetun containers in Docker, regardless of who created them."""
     client = _get_client()

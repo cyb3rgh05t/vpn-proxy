@@ -20,12 +20,13 @@ export function ContainerDataProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Monitoring state (cached across page navigations)
+  // Monitoring state (multi-instance, cached across page navigations)
   const [monitoringConfigured, setMonitoringConfigured] = useState(null);
-  const [monitoringProviderId, setMonitoringProviderId] = useState("");
-  const [monitorData, setMonitorData] = useState(null);
-  const [networkData, setNetworkData] = useState(null);
-  const [proxyCount, setProxyCount] = useState(0);
+  const [o11Instances, setO11Instances] = useState([]); // [{id, name, provider_id, configured}]
+  const [activeInstanceId, setActiveInstanceId] = useState(null);
+  const [instanceMonitorData, setInstanceMonitorData] = useState({}); // {id: monitorData}
+  const [instanceNetworkData, setInstanceNetworkData] = useState({}); // {id: networkData}
+  const [instanceProxyCount, setInstanceProxyCount] = useState({}); // {id: count}
   const [monitoringLoading, setMonitoringLoading] = useState(true);
   const monitoringIntervalRef = useRef(null);
   const monitoringInitRef = useRef(false);
@@ -110,52 +111,125 @@ export function ContainerDataProvider({ children }) {
     setLoading(false);
   }, [fetchContainers, fetchAllDependents]);
 
-  // --- Monitoring fetch functions ---
+  // --- Monitoring fetch functions (multi-instance) ---
   const fetchMonitoringData = useCallback(
-    async (silent = false, overrideProviderId = null) => {
-      const pid = overrideProviderId || monitoringProviderId;
+    async (silent = false) => {
       try {
         if (!silent) setMonitoringLoading(true);
-        const requests = [api.get("/monitoring")];
-        if (pid) {
-          requests.push(
-            api.get("/monitoring/network-usage", {
-              params: { provider: pid },
-            }),
-          );
-          requests.push(
-            api.get("/monitoring/proxy-count", {
-              params: { provider: pid },
-            }),
-          );
+        const configured = o11Instances.filter((i) => i.configured);
+        if (configured.length === 0) return;
+
+        const results = await Promise.all(
+          configured.map(async (inst) => {
+            try {
+              const requests = [api.get(`/monitoring/instance/${inst.id}`)];
+              if (inst.provider_id) {
+                requests.push(
+                  api.get(`/monitoring/instance/${inst.id}/network-usage`, {
+                    params: { provider: inst.provider_id },
+                  }),
+                );
+                requests.push(
+                  api.get(`/monitoring/instance/${inst.id}/proxy-count`, {
+                    params: { provider: inst.provider_id },
+                  }),
+                );
+              }
+              const res = await Promise.all(requests);
+              return {
+                id: inst.id,
+                monitor: res[0].data,
+                network: res[1]?.data || null,
+                proxy: res[2]?.data?.count || 0,
+              };
+            } catch {
+              return { id: inst.id, monitor: null, network: null, proxy: 0 };
+            }
+          }),
+        );
+
+        const newMonitor = {};
+        const newNetwork = {};
+        const newProxy = {};
+        for (const r of results) {
+          newMonitor[r.id] = r.monitor;
+          newNetwork[r.id] = r.network;
+          newProxy[r.id] = r.proxy;
         }
-        const results = await Promise.all(requests);
-        setMonitorData(results[0].data);
-        if (results[1]) setNetworkData(results[1].data);
-        if (results[2]) setProxyCount(results[2].data.count || 0);
+        setInstanceMonitorData(newMonitor);
+        setInstanceNetworkData(newNetwork);
+        setInstanceProxyCount(newProxy);
       } catch {
-        // silently ignore on silent refresh
+        // silently ignore
       } finally {
         setMonitoringLoading(false);
       }
     },
-    [monitoringProviderId],
+    [o11Instances],
   );
 
   const initMonitoring = useCallback(async () => {
     if (monitoringInitRef.current) return;
     monitoringInitRef.current = true;
     try {
-      const [statusRes, settingsRes] = await Promise.all([
+      const [statusRes, instancesRes] = await Promise.all([
         api.get("/monitoring/status"),
-        api.get("/settings/o11"),
+        api.get("/settings/o11/instances"),
       ]);
-      const pid = settingsRes.data.o11_provider_id || "";
-      if (pid) setMonitoringProviderId(pid);
+      const instances = Array.isArray(instancesRes.data)
+        ? instancesRes.data
+        : [];
+      setO11Instances(instances);
       const isConfigured = statusRes.data.configured;
       setMonitoringConfigured(isConfigured);
-      if (isConfigured) {
-        await fetchMonitoringData(false, pid);
+      if (instances.length > 0) {
+        setActiveInstanceId(instances[0].id);
+      }
+      if (isConfigured && instances.length > 0) {
+        // Fetch data for all configured instances immediately
+        const configured = instances.filter((i) => i.configured);
+        if (configured.length > 0) {
+          const results = await Promise.all(
+            configured.map(async (inst) => {
+              try {
+                const requests = [api.get(`/monitoring/instance/${inst.id}`)];
+                if (inst.provider_id) {
+                  requests.push(
+                    api.get(`/monitoring/instance/${inst.id}/network-usage`, {
+                      params: { provider: inst.provider_id },
+                    }),
+                  );
+                  requests.push(
+                    api.get(`/monitoring/instance/${inst.id}/proxy-count`, {
+                      params: { provider: inst.provider_id },
+                    }),
+                  );
+                }
+                const res = await Promise.all(requests);
+                return {
+                  id: inst.id,
+                  monitor: res[0].data,
+                  network: res[1]?.data || null,
+                  proxy: res[2]?.data?.count || 0,
+                };
+              } catch {
+                return { id: inst.id, monitor: null, network: null, proxy: 0 };
+              }
+            }),
+          );
+          const newMonitor = {};
+          const newNetwork = {};
+          const newProxy = {};
+          for (const r of results) {
+            newMonitor[r.id] = r.monitor;
+            newNetwork[r.id] = r.network;
+            newProxy[r.id] = r.proxy;
+          }
+          setInstanceMonitorData(newMonitor);
+          setInstanceNetworkData(newNetwork);
+          setInstanceProxyCount(newProxy);
+        }
+        setMonitoringLoading(false);
       } else {
         setMonitoringLoading(false);
       }
@@ -163,7 +237,7 @@ export function ContainerDataProvider({ children }) {
       setMonitoringConfigured(false);
       setMonitoringLoading(false);
     }
-  }, [fetchMonitoringData]);
+  }, []);
 
   useEffect(() => {
     fetchAll();
@@ -194,13 +268,21 @@ export function ContainerDataProvider({ children }) {
         refreshContainers: fetchContainers,
         refreshO11Containers: fetchAll,
         refreshAll: fetchAll,
-        // Monitoring
+        // Monitoring (multi-instance)
         monitoringConfigured,
-        monitoringProviderId,
-        setMonitoringProviderId,
-        monitorData,
-        networkData,
-        proxyCount,
+        o11Instances,
+        activeInstanceId,
+        setActiveInstanceId,
+        instanceMonitorData,
+        instanceNetworkData,
+        instanceProxyCount,
+        // Convenience getters for active instance
+        monitorData: instanceMonitorData[activeInstanceId] || null,
+        networkData: instanceNetworkData[activeInstanceId] || null,
+        proxyCount: Object.values(instanceProxyCount).reduce(
+          (s, v) => s + v,
+          0,
+        ),
         monitoringLoading,
         refreshMonitoring: fetchMonitoringData,
       }}

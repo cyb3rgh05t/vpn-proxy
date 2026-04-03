@@ -13,12 +13,16 @@ _token_time: float = 0
 _lock = threading.Lock()
 _credentials: dict = {}
 
+# Per-instance token cache: instance_id -> (token, timestamp)
+_instance_tokens: dict[str, tuple[str, float]] = {}
+_instance_lock = threading.Lock()
+
 # Token refresh interval (23 hours – tokens expire at ~24h)
 TOKEN_TTL = 23 * 3600
 
 
 def _load_credentials() -> dict:
-    """Load O11 credentials from DB, falling back to env vars."""
+    """Load O11 credentials from DB (first instance), falling back to env vars."""
     global _credentials
     try:
         from app.database import SessionLocal
@@ -26,6 +30,25 @@ def _load_credentials() -> dict:
 
         db = SessionLocal()
         try:
+            # Try new multi-instance format first
+            row = (
+                db.query(AppSettings).filter(AppSettings.key == "o11_instances").first()
+            )
+            if row and row.value:
+                try:
+                    instances = json.loads(row.value)
+                    if instances:
+                        inst = instances[0]
+                        _credentials = {
+                            "o11_url": inst.get("url", ""),
+                            "o11_username": inst.get("username", ""),
+                            "o11_password": inst.get("password", ""),
+                        }
+                        return _credentials
+                except Exception:
+                    pass
+
+            # Fallback to legacy single-instance keys
             rows = (
                 db.query(AppSettings)
                 .filter(
@@ -139,6 +162,102 @@ def _ws_request(action: str, extra: dict | None = None) -> dict:
         return json.loads(data.decode("utf-8"))
 
 
+# --- Per-instance methods ---
+
+
+def _get_instance_token(
+    instance_id: str, url: str, username: str, password: str
+) -> str:
+    """Return a cached token for a specific instance, refreshing if needed."""
+    with _instance_lock:
+        cached = _instance_tokens.get(instance_id)
+        if cached:
+            tok, ts = cached
+            if tok and (time.time() - ts) < TOKEN_TTL:
+                return tok
+        tok = _login(url, username, password)
+        _instance_tokens[instance_id] = (tok, time.time())
+        return tok
+
+
+def _ws_request_for_instance(
+    instance_id: str,
+    url: str,
+    username: str,
+    password: str,
+    action: str,
+    extra: dict | None = None,
+) -> dict:
+    """WebSocket request against a specific O11 instance."""
+    token = _get_instance_token(instance_id, url, username, password)
+    base = url.rstrip("/")
+    ws_url = base.replace("http://", "ws://").replace("https://", "wss://") + "/ws"
+
+    ws = websocket.create_connection(
+        ws_url, timeout=10, header={"Authorization": token}
+    )
+    try:
+        payload: dict = {"Action": action}
+        if extra:
+            payload.update(extra)
+        ws.send(json.dumps(payload))
+        _opcode, data = ws.recv_data()
+    finally:
+        ws.close()
+
+    if not data:
+        return {}
+    try:
+        decompressed = gzip.decompress(data)
+        return json.loads(decompressed.decode("utf-8"))
+    except Exception:
+        return json.loads(data.decode("utf-8"))
+
+
+def get_monitoring_for_instance(
+    instance_id: str, url: str, username: str, password: str
+) -> dict:
+    """Fetch monitoring data for a specific instance."""
+    return _ws_request_for_instance(instance_id, url, username, password, "monitoring")
+
+
+def get_network_usage_for_instance(
+    instance_id: str,
+    url: str,
+    username: str,
+    password: str,
+    provider_id: str,
+) -> dict:
+    """Fetch network-usage data for a specific instance."""
+    return _ws_request_for_instance(
+        instance_id,
+        url,
+        username,
+        password,
+        "networkstatus",
+        {"ProviderId": provider_id},
+    )
+
+
+def get_proxy_count_for_instance(
+    instance_id: str,
+    url: str,
+    username: str,
+    password: str,
+    provider_id: str,
+) -> int:
+    """Return the number of unique active proxy URLs for a specific instance."""
+    data = get_network_usage_for_instance(
+        instance_id, url, username, password, provider_id
+    )
+    usage = data.get("Usage", {})
+    unique_urls = set()
+    for cat_data in usage.values():
+        proxy = cat_data.get("Proxy", {})
+        unique_urls.update(proxy.keys())
+    return len(unique_urls)
+
+
 def reload_credentials():
     """Force reload credentials from the DB (called after settings change)."""
     global _token, _token_time, _credentials
@@ -146,6 +265,8 @@ def reload_credentials():
         _credentials = {}
         _token = None
         _token_time = 0
+    with _instance_lock:
+        _instance_tokens.clear()
     _load_credentials()
 
 

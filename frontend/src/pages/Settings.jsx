@@ -26,6 +26,7 @@ import {
   Users,
   Wrench,
   Activity,
+  Pencil,
   Settings as SettingsIcon,
 } from "lucide-react";
 import api from "../services/api";
@@ -77,16 +78,19 @@ export default function Settings() {
   const [apiKeyLoading, setApiKeyLoading] = useState(false);
   const [keyCopied, setKeyCopied] = useState(false);
 
-  // O11 Monitoring
-  const [o11Settings, setO11Settings] = useState({
-    o11_url: "",
-    o11_username: "",
-    o11_password: "",
-    o11_provider_id: "",
-  });
+  // O11 Monitoring (multi-instance)
+  const [o11Instances, setO11Instances] = useState([]);
   const [o11Loading, setO11Loading] = useState(false);
-  const [o11Testing, setO11Testing] = useState(false);
-  const [o11Configured, setO11Configured] = useState(false);
+  const [o11Testing, setO11Testing] = useState(null); // instance id being tested
+  const [o11Editing, setO11Editing] = useState(null); // instance id being edited, or "new"
+  const [o11Form, setO11Form] = useState({
+    name: "",
+    url: "",
+    username: "",
+    password: "",
+    provider_id: "",
+  });
+  const [o11FormLoading, setO11FormLoading] = useState(false);
   const [showO11Password, setShowO11Password] = useState(false);
 
   useEffect(() => {
@@ -95,51 +99,104 @@ export default function Settings() {
     }
     fetchDockerStatus();
     fetchApiKeys();
-    fetchO11Settings();
+    fetchO11Instances();
   }, [user]);
 
-  const fetchO11Settings = async () => {
+  const fetchO11Instances = async () => {
     try {
-      const res = await api.get("/settings/o11");
-      setO11Settings({
-        o11_url: res.data.o11_url || "",
-        o11_username: res.data.o11_username || "",
-        o11_password: res.data.o11_password || "",
-        o11_provider_id: res.data.o11_provider_id || "",
-      });
-      setO11Configured(res.data.configured);
+      const res = await api.get("/settings/o11/instances");
+      setO11Instances(Array.isArray(res.data) ? res.data : []);
     } catch {
       // ignore
     }
   };
 
-  const handleSaveO11 = async (e) => {
+  const handleAddO11 = () => {
+    setO11Editing("new");
+    setO11Form({
+      name: "",
+      url: "",
+      username: "",
+      password: "",
+      provider_id: "",
+    });
+    setShowO11Password(false);
+  };
+
+  const handleEditO11 = (inst) => {
+    setO11Editing(inst.id);
+    setO11Form({
+      name: inst.name || "",
+      url: inst.url || "",
+      username: inst.username || "",
+      password: inst.password || "",
+      provider_id: inst.provider_id || "",
+    });
+    setShowO11Password(false);
+  };
+
+  const handleCancelO11Form = () => {
+    setO11Editing(null);
+    setO11Form({
+      name: "",
+      url: "",
+      username: "",
+      password: "",
+      provider_id: "",
+    });
+  };
+
+  const handleSaveO11Instance = async (e) => {
     e.preventDefault();
-    setO11Loading(true);
+    setO11FormLoading(true);
     try {
-      await api.put("/settings/o11", o11Settings);
-      toast.success("O11 settings saved");
-      fetchO11Settings();
+      if (o11Editing === "new") {
+        await api.post("/settings/o11/instances", o11Form);
+        toast.success("O11 instance added");
+      } else {
+        await api.put(`/settings/o11/instances/${o11Editing}`, o11Form);
+        toast.success("O11 instance updated");
+      }
+      setO11Editing(null);
+      fetchO11Instances();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to save O11 settings");
+      toast.error(err.response?.data?.detail || "Failed to save O11 instance");
     } finally {
-      setO11Loading(false);
+      setO11FormLoading(false);
     }
   };
 
-  const handleTestO11 = async () => {
-    setO11Testing(true);
+  const handleDeleteO11 = async (inst) => {
+    const ok = await confirm({
+      title: "Delete O11 Instance",
+      message: `Are you sure you want to delete "${inst.name}"?`,
+      confirmText: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      const res = await api.post("/settings/o11/test");
+      await api.delete(`/settings/o11/instances/${inst.id}`);
+      toast.success("O11 instance deleted");
+      if (o11Editing === inst.id) setO11Editing(null);
+      fetchO11Instances();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to delete instance");
+    }
+  };
+
+  const handleTestO11Instance = async (inst) => {
+    setO11Testing(inst.id);
+    try {
+      const res = await api.post(`/settings/o11/instances/${inst.id}/test`);
       if (res.data.success) {
-        toast.success("O11 connection successful");
+        toast.success(`"${inst.name}" connection successful`);
       } else {
-        toast.error(res.data.error || "O11 connection failed");
+        toast.error(res.data.error || `"${inst.name}" connection failed`);
       }
     } catch (err) {
-      toast.error(err.response?.data?.detail || "O11 connection test failed");
+      toast.error(err.response?.data?.detail || "Connection test failed");
     } finally {
-      setO11Testing(false);
+      setO11Testing(null);
     }
   };
 
@@ -697,7 +754,7 @@ export default function Settings() {
       {/* Monitoring Tab */}
       {settingsTab === "monitoring" && (
         <div className="space-y-6">
-          {/* O11 Monitoring Connection */}
+          {/* O11 Monitoring Instances */}
           <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -707,123 +764,216 @@ export default function Settings() {
                     O11 Monitoring
                   </h2>
                   <p className="text-xs text-vpn-muted">
-                    Connect to your O11 panel for stream monitoring
+                    Manage your O11 panel connections for stream monitoring
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {o11Configured && (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-400">
-                    <Wifi className="w-3 h-3" />
-                    Configured
-                  </span>
-                )}
-                <button
-                  onClick={handleTestO11}
-                  disabled={o11Testing || !o11Settings.o11_url}
-                  className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 text-vpn-primary ${o11Testing ? "animate-spin" : ""}`}
-                  />
-                  {o11Testing ? "Testing..." : "Test"}
-                </button>
-              </div>
+              <button
+                onClick={handleAddO11}
+                disabled={o11Editing === "new"}
+                className="flex items-center gap-2 px-4 py-2 bg-vpn-primary text-black text-sm rounded-lg font-semibold hover:bg-vpn-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="w-4 h-4" />
+                Add Instance
+              </button>
             </div>
 
-            <form onSubmit={handleSaveO11} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-                  O11 URL
-                </label>
-                <input
-                  type="url"
-                  value={o11Settings.o11_url}
-                  onChange={(e) =>
-                    setO11Settings({ ...o11Settings, o11_url: e.target.value })
-                  }
-                  placeholder="http://50.7.224.34:7000"
-                  className={inputClass}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    value={o11Settings.o11_username}
-                    onChange={(e) =>
-                      setO11Settings({
-                        ...o11Settings,
-                        o11_username: e.target.value,
-                      })
-                    }
-                    placeholder="Username"
-                    className={inputClass}
-                    autoComplete="off"
-                  />
+            {/* Add/Edit Form */}
+            {o11Editing && (
+              <form
+                onSubmit={handleSaveO11Instance}
+                className="bg-vpn-input border border-vpn-border rounded-xl p-4 mb-4 space-y-3"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-sm font-semibold text-white">
+                    {o11Editing === "new"
+                      ? "Add New Instance"
+                      : "Edit Instance"}
+                  </h3>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-                    Password
-                  </label>
-                  <div className="relative">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-vpn-muted mb-1">
+                      Name
+                    </label>
                     <input
-                      type={showO11Password ? "text" : "password"}
-                      value={o11Settings.o11_password}
+                      type="text"
+                      value={o11Form.name}
                       onChange={(e) =>
-                        setO11Settings({
-                          ...o11Settings,
-                          o11_password: e.target.value,
-                        })
+                        setO11Form({ ...o11Form, name: e.target.value })
                       }
-                      placeholder="Password"
-                      className={`${inputClass} pr-10`}
-                      autoComplete="new-password"
+                      placeholder="e.g. Panel US-East"
+                      className={inputClass}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowO11Password(!showO11Password)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-vpn-muted hover:text-vpn-text"
-                    >
-                      {showO11Password ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-vpn-muted mb-1">
+                      O11 URL
+                    </label>
+                    <input
+                      type="url"
+                      value={o11Form.url}
+                      onChange={(e) =>
+                        setO11Form({ ...o11Form, url: e.target.value })
+                      }
+                      placeholder="http://50.7.224.34:7000"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-vpn-muted mb-1">
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      value={o11Form.username}
+                      onChange={(e) =>
+                        setO11Form({ ...o11Form, username: e.target.value })
+                      }
+                      placeholder="Username"
+                      className={inputClass}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-vpn-muted mb-1">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showO11Password ? "text" : "password"}
+                        value={o11Form.password}
+                        onChange={(e) =>
+                          setO11Form({ ...o11Form, password: e.target.value })
+                        }
+                        placeholder="Password"
+                        className={`${inputClass} pr-10`}
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowO11Password(!showO11Password)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-vpn-muted hover:text-vpn-text"
+                      >
+                        {showO11Password ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-vpn-muted mb-1">
+                      Provider ID
+                    </label>
+                    <input
+                      type="text"
+                      value={o11Form.provider_id}
+                      onChange={(e) =>
+                        setO11Form({ ...o11Form, provider_id: e.target.value })
+                      }
+                      placeholder="e.g. demagentatv"
+                      className={inputClass}
+                    />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-vpn-muted mb-1.5">
-                    Provider ID
-                  </label>
-                  <input
-                    type="text"
-                    value={o11Settings.o11_provider_id}
-                    onChange={(e) =>
-                      setO11Settings({
-                        ...o11Settings,
-                        o11_provider_id: e.target.value,
-                      })
-                    }
-                    placeholder="e.g. demagentatv"
-                    className={inputClass}
-                  />
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCancelO11Form}
+                    className="px-4 py-2 text-sm text-vpn-muted hover:text-vpn-text transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={o11FormLoading || !o11Form.url}
+                    className="px-5 py-2 bg-vpn-primary text-black rounded-lg font-semibold text-sm hover:bg-vpn-primary-hover transition-colors disabled:opacity-50"
+                  >
+                    {o11FormLoading
+                      ? "Saving..."
+                      : o11Editing === "new"
+                        ? "Add"
+                        : "Save"}
+                  </button>
                 </div>
+              </form>
+            )}
+
+            {/* Instance List */}
+            {o11Instances.length === 0 && !o11Editing ? (
+              <div className="text-center py-8 text-vpn-muted">
+                <Activity className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No O11 instances configured</p>
+                <p className="text-xs mt-1">
+                  Click "Add Instance" to connect your first O11 panel
+                </p>
               </div>
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={o11Loading}
-                  className="px-6 py-2.5 bg-vpn-primary text-black rounded-lg font-semibold hover:bg-vpn-primary-hover transition-colors disabled:opacity-50"
-                >
-                  {o11Loading ? "Saving..." : "Save"}
-                </button>
+            ) : (
+              <div className="space-y-2">
+                {o11Instances.map((inst) => (
+                  <div
+                    key={inst.id}
+                    className="flex items-center justify-between bg-vpn-input rounded-xl px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-vpn-primary/20 text-vpn-primary shrink-0">
+                        <Activity className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-white text-sm font-medium truncate">
+                            {inst.name}
+                          </p>
+                          {inst.configured && (
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded text-[10px] text-emerald-400 shrink-0">
+                              <Wifi className="w-2.5 h-2.5" />
+                              OK
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-vpn-muted truncate">
+                          {inst.url}
+                          {inst.provider_id && (
+                            <span className="ml-2 text-vpn-primary/70">
+                              [{inst.provider_id}]
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 ml-3">
+                      <button
+                        onClick={() => handleTestO11Instance(inst)}
+                        disabled={o11Testing === inst.id || !inst.url}
+                        className="p-2 text-vpn-muted hover:text-vpn-primary hover:bg-vpn-primary/10 rounded-lg transition-colors disabled:opacity-50"
+                        title="Test connection"
+                      >
+                        <RefreshCw
+                          className={`w-4 h-4 ${o11Testing === inst.id ? "animate-spin text-vpn-primary" : ""}`}
+                        />
+                      </button>
+                      <button
+                        onClick={() => handleEditO11(inst)}
+                        disabled={o11Editing === inst.id}
+                        className="p-2 text-vpn-muted hover:text-vpn-text hover:bg-vpn-card rounded-lg transition-colors disabled:opacity-50"
+                        title="Edit"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteO11(inst)}
+                        className="p-2 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}

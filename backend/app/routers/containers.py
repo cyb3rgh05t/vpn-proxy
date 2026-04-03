@@ -481,6 +481,55 @@ def change_dependent_network_mode(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/dependents/{container_name}/redeploy")
+def redeploy_dependent(
+    container_name: str,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Redeploy an O11 container with updated configuration."""
+    try:
+        new_container_id = docker_service.redeploy_o11_container(
+            container_name=container_name,
+            image=body.get("image"),
+            environment=body.get("environment"),
+            ports=body.get("ports"),
+            volumes=body.get("volumes"),
+            restart_policy=body.get("restart_policy"),
+            command=body.get("command"),
+        )
+
+        # Update database record if it exists
+        record = (
+            db.query(O11Container).filter(O11Container.name == container_name).first()
+        )
+        if record:
+            if body.get("image"):
+                record.image = body["image"]
+            if body.get("environment") is not None:
+                record.environment = body["environment"]
+            if body.get("ports") is not None:
+                record.ports = body["ports"]
+            if body.get("volumes") is not None:
+                record.volumes = body["volumes"]
+            if body.get("restart_policy") is not None:
+                record.restart_policy = body["restart_policy"]
+            if body.get("command") is not None:
+                record.command = body["command"]
+            record.container_id = new_container_id
+            record.status = "running"
+            db.commit()
+
+        return {
+            "message": f"Container '{container_name}' redeployed successfully",
+            "container_id": new_container_id,
+        }
+    except Exception as e:
+        logger.error("Failed to redeploy container %s: %s", container_name, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/dependents/{container_name}")
 def delete_dependent(
     container_name: str,

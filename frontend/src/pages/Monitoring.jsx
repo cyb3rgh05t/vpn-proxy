@@ -200,8 +200,9 @@ export default function Monitoring() {
     containers,
     refreshContainers,
     monitoringConfigured: configured,
-    monitoringProviderId: providerId,
-    setMonitoringProviderId: setProviderId,
+    o11Instances,
+    activeInstanceId,
+    setActiveInstanceId,
     monitorData,
     networkData,
     monitoringLoading: loading,
@@ -212,6 +213,9 @@ export default function Monitoring() {
   const [networkSearch, setNetworkSearch] = useState("");
   const [tab, setTab] = useState("network");
   const [networkTab, setNetworkTab] = useState("all");
+
+  const activeInstance = o11Instances.find((i) => i.id === activeInstanceId);
+  const providerId = activeInstance?.provider_id || "";
 
   const fetchData = useCallback(async () => {
     setRefreshing(true);
@@ -266,7 +270,7 @@ export default function Monitoring() {
           <p className="text-vpn-muted max-w-md mx-auto">
             Go to{" "}
             <span className="text-vpn-primary font-medium">
-              Settings → System
+              Settings → Monitoring
             </span>{" "}
             to configure your O11 monitoring connection.
           </p>
@@ -283,16 +287,37 @@ export default function Monitoring() {
           <Activity className="w-7 h-7 text-vpn-primary" />
           Monitoring
         </h1>
-        <button
-          onClick={() => fetchData()}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RefreshCw
-            className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
-          />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {o11Instances.length > 1 && (
+            <div className="inline-flex gap-1 bg-vpn-card border border-vpn-border rounded-lg p-1">
+              {o11Instances
+                .filter((i) => i.configured)
+                .map((inst) => (
+                  <button
+                    key={inst.id}
+                    onClick={() => setActiveInstanceId(inst.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      activeInstanceId === inst.id
+                        ? "bg-vpn-primary text-black"
+                        : "text-vpn-muted hover:text-vpn-text"
+                    }`}
+                  >
+                    {inst.name}
+                  </button>
+                ))}
+            </div>
+          )}
+          <button
+            onClick={() => fetchData()}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw
+              className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* System Stats */}
@@ -420,20 +445,11 @@ export default function Monitoring() {
                     className="w-48 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted text-sm focus:outline-none focus:border-vpn-primary/50"
                   />
                 </div>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
-                  <input
-                    type="text"
-                    placeholder="Provider ID..."
-                    value={providerId}
-                    onChange={(e) => setProviderId(e.target.value)}
-                    onBlur={() => refreshMonitoring(false)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && refreshMonitoring(false)
-                    }
-                    className="w-48 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted text-sm focus:outline-none focus:border-vpn-primary/50"
-                  />
-                </div>
+                {providerId && (
+                  <span className="px-2.5 py-1.5 bg-vpn-primary/10 border border-vpn-primary/30 rounded-lg text-xs text-vpn-primary font-medium">
+                    {providerId}
+                  </span>
+                )}
               </div>
             </div>
             <NetworkUsageGrid

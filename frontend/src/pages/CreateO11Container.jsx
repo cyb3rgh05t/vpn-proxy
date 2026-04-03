@@ -25,7 +25,7 @@ export default function CreateO11Container() {
   const [form, setForm] = useState({
     name: "",
     image: "",
-    network_mode: "bridge",
+    network_mode: "network",
     vpn_container: "",
     restart_policy: "unless-stopped",
     command: "",
@@ -57,6 +57,22 @@ export default function CreateO11Container() {
       .catch(() => {});
   }, []);
 
+  // Fetch host base path when name changes
+  useEffect(() => {
+    const name = form.name.trim();
+    if (!name) {
+      setHostBasePath("");
+      return;
+    }
+    const timer = setTimeout(() => {
+      api
+        .get(`/containers/dependents/data-path/${encodeURIComponent(name)}`)
+        .then((res) => setHostBasePath(res.data.base_path))
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [form.name]);
+
   // --- Env Vars ---
   const addEnvVar = () => setEnvVars([...envVars, { key: "", value: "" }]);
   const removeEnvVar = (i) => setEnvVars(envVars.filter((_, idx) => idx !== i));
@@ -78,7 +94,10 @@ export default function CreateO11Container() {
 
   // --- Volumes ---
   const addVolume = () =>
-    setVolumes([...volumes, { source: "", target: "", mode: "rw" }]);
+    setVolumes([
+      ...volumes,
+      { source: hostBasePath || "", target: "/opt/o11", mode: "rw" },
+    ]);
   const removeVolume = (i) => setVolumes(volumes.filter((_, idx) => idx !== i));
   const updateVolume = (i, field, value) => {
     const updated = [...volumes];
@@ -165,7 +184,7 @@ export default function CreateO11Container() {
       if (!exists) {
         newVolumes.push({
           source: hostPath,
-          target: tp ? `/${tp}` : "/",
+          target: tp ? `/opt/o11/${tp}` : "/opt/o11",
           mode: "rw",
         });
       }
@@ -184,8 +203,10 @@ export default function CreateO11Container() {
     let networkMode = form.network_mode;
     if (form.network_mode === "vpn" && form.vpn_container) {
       networkMode = `container:${form.vpn_container}`;
-    } else if (form.network_mode === "custom" && form.vpn_container) {
+    } else if (form.network_mode === "network" && form.vpn_container) {
       networkMode = form.vpn_container;
+    } else if (form.network_mode === "network") {
+      networkMode = "bridge";
     }
 
     // Build environment dict
@@ -334,22 +355,17 @@ export default function CreateO11Container() {
           <div className="space-y-4">
             <div>
               <label className={labelClass}>Network Mode</label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {[
                   {
-                    value: "bridge",
-                    label: "Bridge",
-                    desc: "Default Docker network",
+                    value: "network",
+                    label: "Docker Network",
+                    desc: "Select a Docker network",
                   },
                   {
                     value: "vpn",
                     label: "VPN Route",
                     desc: "Through Gluetun VPN",
-                  },
-                  {
-                    value: "custom",
-                    label: "Custom",
-                    desc: "Existing Docker network",
                   },
                 ].map((opt) => (
                   <button
@@ -377,6 +393,24 @@ export default function CreateO11Container() {
               </div>
             </div>
 
+            {form.network_mode === "network" && (
+              <div>
+                <label className={labelClass}>Docker Network</label>
+                <CustomDropdown
+                  value={form.vpn_container}
+                  onChange={(val) => setForm({ ...form, vpn_container: val })}
+                  placeholder="Select network..."
+                  required
+                  options={networks
+                    .filter((n) => !["host", "none"].includes(n.name))
+                    .map((n) => ({
+                      value: n.name,
+                      label: `${n.name} (${n.driver})`,
+                    }))}
+                />
+              </div>
+            )}
+
             {isVpnMode && (
               <div>
                 <label className={labelClass}>
@@ -399,24 +433,6 @@ export default function CreateO11Container() {
                   All traffic from this container will be routed through the
                   selected VPN. Port mappings are handled by the VPN container.
                 </p>
-              </div>
-            )}
-
-            {form.network_mode === "custom" && (
-              <div>
-                <label className={labelClass}>Docker Network</label>
-                <CustomDropdown
-                  value={form.vpn_container}
-                  onChange={(val) => setForm({ ...form, vpn_container: val })}
-                  placeholder="Select network..."
-                  required
-                  options={networks
-                    .filter((n) => !["host", "none"].includes(n.name))
-                    .map((n) => ({
-                      value: n.name,
-                      label: `${n.name} (${n.driver})`,
-                    }))}
-                />
               </div>
             )}
           </div>

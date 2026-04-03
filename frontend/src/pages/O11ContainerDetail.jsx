@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -23,6 +23,10 @@ import {
   Settings,
   Save,
   AlertTriangle,
+  Upload,
+  File,
+  FolderOpen,
+  X,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -54,6 +58,13 @@ export default function O11ContainerDetail() {
   const [networkModeLoading, setNetworkModeLoading] = useState(false);
   const [gluetunContainers, setGluetunContainers] = useState([]);
   const [dockerNetworks, setDockerNetworks] = useState([]);
+
+  // File management
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadTargetPath, setUploadTargetPath] = useState("");
+  const [filesLoading, setFilesLoading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const fetchContainer = useCallback(async () => {
     try {
@@ -97,13 +108,72 @@ export default function O11ContainerDetail() {
     }
   }, []);
 
+  const fetchFiles = useCallback(async () => {
+    setFilesLoading(true);
+    try {
+      const res = await api.get(
+        `/containers/dependents/files/${encodeURIComponent(name)}`,
+      );
+      setUploadedFiles(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setUploadedFiles([]);
+    } finally {
+      setFilesLoading(false);
+    }
+  }, [name]);
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const targetClean = uploadTargetPath.trim().replace(/^\/+|\/+$/g, "");
+        const url = `/containers/dependents/upload-files/${encodeURIComponent(name)}${targetClean ? `?target_path=${encodeURIComponent(targetClean)}` : ""}`;
+        await api.post(url, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+      toast.success(
+        `${files.length} file${files.length > 1 ? "s" : ""} uploaded`,
+      );
+      fetchFiles();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to upload file");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeFile = async (storedPath) => {
+    try {
+      await api.delete(
+        `/containers/dependents/files/${encodeURIComponent(name)}/${storedPath}`,
+      );
+      toast.success("File deleted");
+      fetchFiles();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to delete file");
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   useEffect(() => {
     fetchContainer();
   }, [fetchContainer]);
 
   useEffect(() => {
     if (tab === "logs") fetchLogs();
-  }, [tab, fetchLogs]);
+    if (tab === "files") fetchFiles();
+  }, [tab, fetchLogs, fetchFiles]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -306,6 +376,7 @@ export default function O11ContainerDetail() {
       <div className="flex gap-1 mb-4 bg-vpn-card border border-vpn-border rounded-xl p-1">
         {[
           { key: "info", label: "Information" },
+          { key: "files", label: "Files" },
           { key: "logs", label: "Logs" },
         ].map(({ key, label }) => (
           <button
@@ -608,6 +679,132 @@ export default function O11ContainerDetail() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "files" && (
+          <div className="space-y-6">
+            {/* Upload Section */}
+            <div>
+              <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
+                <Upload className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                Upload Files
+              </h3>
+              <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-xl p-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-vpn-muted mb-1.5">
+                    Container Target Path (optional subfolder)
+                  </label>
+                  <input
+                    type="text"
+                    value={uploadTargetPath}
+                    onChange={(e) => setUploadTargetPath(e.target.value)}
+                    placeholder="e.g. config or data/epg"
+                    className="w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-vpn-muted focus:outline-none focus:border-vpn-primary transition-colors"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="file-upload-detail"
+                  />
+                  <label
+                    htmlFor="file-upload-detail"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all ${
+                      uploading
+                        ? "bg-vpn-input text-vpn-muted cursor-not-allowed"
+                        : "bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text"
+                    }`}
+                  >
+                    <Upload
+                      className={`w-4 h-4 ${uploading ? "animate-pulse" : ""}`}
+                    />
+                    {uploading ? "Uploading..." : "Choose Files"}
+                  </label>
+                  {uploadTargetPath.trim() && (
+                    <span className="text-xs text-vpn-muted">
+                      Target:{" "}
+                      <span className="text-vpn-primary font-mono">
+                        {uploadTargetPath.trim()}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* File List */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider">
+                  <FolderOpen className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                  Uploaded Files
+                </h3>
+                <button
+                  onClick={fetchFiles}
+                  disabled={filesLoading}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={`w-3 h-3 text-vpn-primary ${filesLoading ? "animate-spin" : ""}`}
+                  />
+                  Refresh
+                </button>
+              </div>
+
+              {filesLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-vpn-primary"></div>
+                </div>
+              ) : uploadedFiles.length === 0 ? (
+                <div className="text-center py-8 bg-vpn-input/30 border border-vpn-border/50 rounded-xl">
+                  <FolderOpen className="w-10 h-10 text-vpn-border mx-auto mb-2" />
+                  <p className="text-sm text-vpn-muted">
+                    No files uploaded yet
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-vpn-input rounded-lg divide-y divide-vpn-border">
+                  {uploadedFiles.map((f) => (
+                    <div
+                      key={f.stored_path}
+                      className="flex items-center justify-between px-4 py-3 gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <File className="w-4 h-4 text-vpn-primary flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-white font-mono truncate">
+                            {f.stored_path}
+                          </p>
+                          <p className="text-xs text-vpn-muted">
+                            {formatFileSize(f.size)}
+                            {f.target_path && (
+                              <span className="ml-2">
+                                Target:{" "}
+                                <span className="text-purple-400">
+                                  {f.target_path}
+                                </span>
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeFile(f.stored_path)}
+                        className="p-1.5 rounded-lg text-vpn-muted hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"
+                        title="Delete file"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

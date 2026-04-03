@@ -877,6 +877,10 @@ def list_all_docker_containers() -> list[dict]:
                 # Mounts count
                 binds = c.attrs.get("HostConfig", {}).get("Binds") or []
 
+                # Connected networks list
+                c_nets = c.attrs.get("NetworkSettings", {}).get("Networks", {})
+                connected_networks = list(c_nets.keys()) if c_nets else []
+
                 result.append(
                     {
                         "name": cname,
@@ -893,6 +897,7 @@ def list_all_docker_containers() -> list[dict]:
                         "network_mode": c_network_mode,
                         "hostname": hostname,
                         "mounts_count": len(binds),
+                        "networks": connected_networks,
                     }
                 )
             except Exception:

@@ -39,7 +39,6 @@ export default function O11() {
     loading,
     refreshO11Containers,
     refreshAll,
-    proxyCount,
   } = useContainerData();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -96,6 +95,10 @@ export default function O11() {
     }
   };
 
+  const isProxied = (c) =>
+    !c.vpn_parent &&
+    (c.networks || []).some((n) => n.toLowerCase().includes("proxy"));
+
   const running = containers.filter((d) =>
     ["running", "healthy"].includes(d.status),
   ).length;
@@ -103,6 +106,7 @@ export default function O11() {
     ["exited", "dead", "created"].includes(d.status),
   ).length;
   const vpnConnected = containers.filter((d) => d.vpn_parent).length;
+  const proxyConnected = containers.filter((d) => isProxied(d)).length;
 
   const matchesFilter = (status) => {
     if (!statusFilter) return true;
@@ -111,6 +115,7 @@ export default function O11() {
     if (statusFilter === "stopped")
       return ["exited", "dead", "created"].includes(status);
     if (statusFilter === "vpn") return true;
+    if (statusFilter === "proxied") return true;
     return true;
   };
 
@@ -118,6 +123,7 @@ export default function O11() {
     (c) =>
       matchesFilter(c.status) &&
       (statusFilter !== "vpn" || c.vpn_parent) &&
+      (statusFilter !== "proxied" || isProxied(c)) &&
       (searchQuery === "" ||
         c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.image?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -159,11 +165,11 @@ export default function O11() {
     },
     {
       label: "Proxied",
-      value: proxyCount,
+      value: proxyConnected,
       icon: Globe,
       color: "text-purple-400",
       bg: "bg-purple-500/10",
-      filter: null,
+      filter: "proxied",
     },
   ];
 
@@ -199,7 +205,7 @@ export default function O11() {
         </div>
       </div>
 
-      {/* VPN Connection */}
+      {/* VPN / Proxy Connection */}
       {dep.vpn_parent ? (
         <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg px-3 py-2.5 mb-3 space-y-2">
           <div className="flex items-center justify-between">
@@ -257,6 +263,20 @@ export default function O11() {
               )}
             </div>
           )}
+        </div>
+      ) : isProxied(dep) ? (
+        <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg px-3 py-2.5 mb-3">
+          <div className="flex items-center gap-2">
+            <Globe className="w-3.5 h-3.5 text-purple-400" />
+            <span className="text-xs text-purple-400 font-medium">
+              Proxy Connected
+            </span>
+            <span className="text-xs text-vpn-muted font-mono">
+              {(dep.networks || []).find((n) =>
+                n.toLowerCase().includes("proxy"),
+              ) || "proxy"}
+            </span>
+          </div>
         </div>
       ) : (
         <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-lg px-3 py-2.5 mb-3">
@@ -519,8 +539,39 @@ export default function O11() {
             </div>
           )}
 
-          {/* Non-VPN Containers */}
-          {filteredContainers.filter((c) => !c.vpn_parent).length > 0 && (
+          {/* Proxy Connected Containers */}
+          {filteredContainers.filter((c) => isProxied(c)).length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-purple-400" />
+                  <h2 className="text-lg font-semibold text-white">
+                    Proxy Connected
+                  </h2>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  {filteredContainers.filter((c) => isProxied(c)).length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredContainers
+                  .filter((c) => isProxied(c))
+                  .map((dep) => {
+                    const isRunning = ["running", "healthy"].includes(
+                      dep.status,
+                    );
+                    const isStopped = ["exited", "created", "dead"].includes(
+                      dep.status,
+                    );
+                    return renderContainerCard(dep, isRunning, isStopped, null);
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Non-VPN Non-Proxy Containers */}
+          {filteredContainers.filter((c) => !c.vpn_parent && !isProxied(c))
+            .length > 0 && (
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex items-center gap-2">
@@ -530,12 +581,16 @@ export default function O11() {
                   </h2>
                 </div>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-vpn-input text-vpn-muted border border-vpn-border">
-                  {filteredContainers.filter((c) => !c.vpn_parent).length}
+                  {
+                    filteredContainers.filter(
+                      (c) => !c.vpn_parent && !isProxied(c),
+                    ).length
+                  }
                 </span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filteredContainers
-                  .filter((c) => !c.vpn_parent)
+                  .filter((c) => !c.vpn_parent && !isProxied(c))
                   .map((dep) => {
                     const isRunning = ["running", "healthy"].includes(
                       dep.status,

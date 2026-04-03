@@ -407,7 +407,7 @@ def _get_gluetun_auth(container_id: str) -> dict[str, Any] | None:
 
 def _build_request_kwargs(auth: dict[str, Any] | None) -> dict[str, Any]:
     """Build kwargs dict for requests.get() based on auth info."""
-    kwargs: dict[str, Any] = {"timeout": 3}
+    kwargs: dict[str, Any] = {"timeout": 2}
     if auth is None:
         return kwargs
     if auth["type"] == "basic":
@@ -469,7 +469,7 @@ def _get_gluetun_base_url(
     Docker host gateway + published port (cross-network).
     """
     probe_kwargs = _build_request_kwargs(auth)
-    probe_kwargs["timeout"] = 2  # shorter timeout for probes
+    probe_kwargs["timeout"] = 1  # short timeout for probes
 
     # 1. Try internal IP on port 8000
     ip = _get_container_ip(container_id)

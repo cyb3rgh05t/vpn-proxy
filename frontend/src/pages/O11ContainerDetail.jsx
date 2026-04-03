@@ -373,7 +373,7 @@ export default function O11ContainerDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-vpn-card border border-vpn-border rounded-xl p-1">
+      <div className="flex gap-3 mb-4">
         {[
           { key: "info", label: "Information" },
           { key: "files", label: "Files" },
@@ -382,10 +382,10 @@ export default function O11ContainerDetail() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 py-2.5 rounded-lg border font-medium text-sm transition-colors ${
               tab === key
-                ? "bg-vpn-input text-white"
-                : "text-vpn-muted hover:text-vpn-text"
+                ? "bg-vpn-primary/20 border-vpn-primary text-vpn-primary"
+                : "bg-vpn-input border-vpn-border text-vpn-muted hover:border-vpn-muted"
             }`}
           >
             {label}

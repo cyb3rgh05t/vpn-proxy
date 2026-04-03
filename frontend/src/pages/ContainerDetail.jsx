@@ -42,6 +42,7 @@ export default function ContainerDetail() {
   const [actionLoading, setActionLoading] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [vpnInfo, setVpnInfo] = useState(null);
+  const [vpnInfoLoading, setVpnInfoLoading] = useState(true);
   const [description, setDescription] = useState("");
   const [descSaving, setDescSaving] = useState(false);
   const descFocused = useRef(false);
@@ -112,10 +113,14 @@ export default function ContainerDetail() {
 
   const fetchVpnInfo = useCallback(async () => {
     try {
-      const res = await api.get(`/containers/${id}/vpn-info`);
+      const res = await api.get(`/containers/${id}/vpn-info`, {
+        timeout: 8000,
+      });
       setVpnInfo(res.data);
     } catch {
       setVpnInfo(null);
+    } finally {
+      setVpnInfoLoading(false);
     }
   }, [id]);
 
@@ -464,7 +469,7 @@ export default function ContainerDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-vpn-card border border-vpn-border rounded-xl p-1">
+      <div className="flex gap-3 mb-4">
         {[
           { key: "info", label: "Information" },
           { key: "files", label: "Files" },
@@ -473,10 +478,10 @@ export default function ContainerDetail() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 py-2.5 rounded-lg border font-medium text-sm transition-colors ${
               tab === key
-                ? "bg-vpn-input text-white"
-                : "text-vpn-muted hover:text-vpn-text"
+                ? "bg-vpn-primary/20 border-vpn-primary text-vpn-primary"
+                : "bg-vpn-input border-vpn-border text-vpn-muted hover:border-vpn-muted"
             }`}
           >
             {label}
@@ -489,7 +494,21 @@ export default function ContainerDetail() {
         {tab === "info" && (
           <div className="space-y-6">
             {/* VPN Status */}
-            {isRunning && vpnInfo && (
+            {isRunning && vpnInfoLoading && (
+              <div>
+                <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
+                  <Shield className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                  VPN Status
+                </h3>
+                <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-xl p-4 flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-vpn-primary"></div>
+                  <span className="text-sm text-vpn-muted">
+                    Loading VPN status...
+                  </span>
+                </div>
+              </div>
+            )}
+            {isRunning && !vpnInfoLoading && vpnInfo && (
               <div>
                 <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
                   <Shield className="w-4 h-4 inline mr-1.5 -mt-0.5" />

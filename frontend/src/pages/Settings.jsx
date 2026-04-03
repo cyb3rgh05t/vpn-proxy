@@ -771,9 +771,9 @@ export default function Settings() {
               <button
                 onClick={handleAddO11}
                 disabled={o11Editing === "new"}
-                className="flex items-center gap-2 px-4 py-2 bg-vpn-primary text-black text-sm rounded-lg font-semibold hover:bg-vpn-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 text-vpn-primary" />
                 Add Instance
               </button>
             </div>
@@ -882,14 +882,14 @@ export default function Settings() {
                   <button
                     type="button"
                     onClick={handleCancelO11Form}
-                    className="px-4 py-2 text-sm text-vpn-muted hover:text-vpn-text transition-colors"
+                    className="px-4 py-2 bg-vpn-border hover:bg-vpn-muted/30 text-vpn-text text-sm rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={o11FormLoading || !o11Form.url}
-                    className="px-5 py-2 bg-vpn-primary text-black rounded-lg font-semibold text-sm hover:bg-vpn-primary-hover transition-colors disabled:opacity-50"
+                    className="px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm disabled:cursor-not-allowed"
                   >
                     {o11FormLoading
                       ? "Saving..."

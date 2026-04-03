@@ -165,7 +165,7 @@ export default function CreateO11Container() {
       if (!exists) {
         newVolumes.push({
           source: hostPath,
-          target: tp ? `/${tp}` : "/data",
+          target: tp ? `/${tp}` : "/",
           mode: "rw",
         });
       }

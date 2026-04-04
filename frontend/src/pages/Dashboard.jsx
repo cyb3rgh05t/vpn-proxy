@@ -170,16 +170,18 @@ export default function Dashboard() {
   }, [containers, vpnInfoMap, depsMap]);
 
   const StatCard = ({ label, value, icon: Icon, color, bg }) => (
-    <div className="bg-vpn-card border border-vpn-border rounded-xl p-4 min-w-0">
-      <div className="flex items-center gap-2 mb-2">
-        <div className={`p-1.5 rounded-md ${bg}`}>
-          <Icon className={`w-3.5 h-3.5 ${color}`} />
+    <div className="bg-vpn-card border border-vpn-border rounded-xl p-4 min-w-0 hover:border-vpn-primary/30 transition-colors">
+      <div className="flex items-center gap-2.5">
+        <div className={`p-2 rounded-lg ${bg}`}>
+          <Icon className={`w-4 h-4 ${color}`} />
         </div>
-        <p className="text-[11px] font-semibold text-vpn-muted uppercase tracking-wider truncate">
-          {label}
-        </p>
+        <div className="min-w-0">
+          <p className="text-xl font-bold text-white leading-tight">{value}</p>
+          <p className="text-[10px] font-semibold text-vpn-muted uppercase tracking-wider truncate">
+            {label}
+          </p>
+        </div>
       </div>
-      <p className="text-2xl font-bold text-white pl-0.5">{value}</p>
     </div>
   );
 
@@ -249,96 +251,83 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats: Gluetun + O11 side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        {/* Gluetun Stats */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Shield className="w-4 h-4 text-vpn-primary" />
-            <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider">
-              Gluetun VPN
-            </h3>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-            <StatCard
-              label="Total"
-              value={containers.length}
-              icon={Server}
-              color="text-vpn-primary"
-              bg="bg-vpn-primary/10"
-            />
-            <StatCard
-              label="Running"
-              value={gluetunRunning}
-              icon={Activity}
-              color="text-emerald-400"
-              bg="bg-emerald-500/10"
-            />
-            <StatCard
-              label="VPN Connected"
-              value={vpnConnected}
-              icon={Wifi}
-              color="text-emerald-400"
-              bg="bg-emerald-500/10"
-            />
-            <StatCard
-              label="VPN Disconnected"
-              value={vpnDisconnected}
-              icon={WifiOff}
-              color="text-amber-400"
-              bg="bg-amber-500/10"
-            />
-            <StatCard
-              label="Unhealthy"
-              value={gluetunUnhealthy}
-              icon={HeartCrack}
-              color="text-red-400"
-              bg="bg-red-500/10"
-            />
-            <StatCard
-              label="Stopped"
-              value={gluetunStopped}
-              icon={AlertTriangle}
-              color="text-amber-400"
-              bg="bg-amber-500/10"
-            />
-          </div>
-        </div>
-
-        {/* O11 Stats */}
-        {o11Containers.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Boxes className="w-4 h-4 text-vpn-primary" />
-              <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider">
-                O11 Containers
-              </h3>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {/* Stats Row */}
+      <div className="mb-6">
+        <div
+          className={`grid gap-3 ${
+            o11Containers.length > 0
+              ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9"
+              : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
+          }`}
+        >
+          <StatCard
+            label="VPN Total"
+            value={containers.length}
+            icon={Server}
+            color="text-vpn-primary"
+            bg="bg-vpn-primary/10"
+          />
+          <StatCard
+            label="VPN Running"
+            value={gluetunRunning}
+            icon={Activity}
+            color="text-emerald-400"
+            bg="bg-emerald-500/10"
+          />
+          <StatCard
+            label="Connected"
+            value={vpnConnected}
+            icon={Wifi}
+            color="text-emerald-400"
+            bg="bg-emerald-500/10"
+          />
+          <StatCard
+            label="Disconnected"
+            value={vpnDisconnected}
+            icon={WifiOff}
+            color="text-amber-400"
+            bg="bg-amber-500/10"
+          />
+          <StatCard
+            label="Unhealthy"
+            value={gluetunUnhealthy}
+            icon={HeartCrack}
+            color="text-red-400"
+            bg="bg-red-500/10"
+          />
+          <StatCard
+            label="Stopped"
+            value={gluetunStopped}
+            icon={AlertTriangle}
+            color="text-amber-400"
+            bg="bg-amber-500/10"
+          />
+          {o11Containers.length > 0 && (
+            <>
               <StatCard
-                label="Total"
+                label="O11 Total"
                 value={o11Containers.length}
                 icon={Boxes}
                 color="text-vpn-primary"
                 bg="bg-vpn-primary/10"
               />
               <StatCard
-                label="Running"
+                label="O11 Running"
                 value={o11Running}
                 icon={Activity}
                 color="text-emerald-400"
                 bg="bg-emerald-500/10"
               />
               <StatCard
-                label="Stopped"
+                label="O11 Stopped"
                 value={o11Stopped}
                 icon={AlertTriangle}
                 color="text-amber-400"
                 bg="bg-amber-500/10"
               />
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* World Map */}

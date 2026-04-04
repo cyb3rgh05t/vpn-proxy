@@ -26,11 +26,14 @@ import {
   Upload,
   File,
   FolderOpen,
+  Folder,
   X,
   Pencil,
   Rocket,
   Plus,
   Minus,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -72,6 +75,7 @@ export default function O11ContainerDetail() {
   const [uploading, setUploading] = useState(false);
   const [uploadTargetPath, setUploadTargetPath] = useState("");
   const [filesLoading, setFilesLoading] = useState(false);
+  const [collapsedFolders, setCollapsedFolders] = useState({});
   const fileInputRef = useRef(null);
 
   // Description
@@ -223,6 +227,26 @@ export default function O11ContainerDetail() {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const buildFileTree = (files) => {
+    const tree = { _files: [], _folders: {} };
+    for (const f of files) {
+      const parts = f.stored_path.split("/");
+      let node = tree;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!node._folders[parts[i]]) {
+          node._folders[parts[i]] = { _files: [], _folders: {} };
+        }
+        node = node._folders[parts[i]];
+      }
+      node._files.push(f);
+    }
+    return tree;
+  };
+
+  const toggleFolder = (path) => {
+    setCollapsedFolders((prev) => ({ ...prev, [path]: !prev[path] }));
   };
 
   useEffect(() => {
@@ -1007,40 +1031,88 @@ export default function O11ContainerDetail() {
                   </p>
                 </div>
               ) : (
-                <div className="bg-vpn-input rounded-lg divide-y divide-vpn-border">
-                  {uploadedFiles.map((f) => (
-                    <div
-                      key={f.stored_path}
-                      className="flex items-center justify-between px-4 py-3 gap-3"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <File className="w-4 h-4 text-vpn-primary flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm text-white font-mono truncate">
-                            {f.stored_path}
-                          </p>
-                          <p className="text-xs text-vpn-muted">
-                            {formatFileSize(f.size)}
-                            {f.target_path && (
-                              <span className="ml-2">
-                                Target:{" "}
-                                <span className="text-purple-400">
-                                  {f.target_path}
-                                </span>
+                <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-xl overflow-hidden">
+                  {(() => {
+                    const tree = buildFileTree(uploadedFiles);
+                    const renderNode = (node, path = "", depth = 0) => {
+                      const items = [];
+                      // Render folders first
+                      const folderNames = Object.keys(node._folders).sort();
+                      for (const folderName of folderNames) {
+                        const folderPath = path
+                          ? `${path}/${folderName}`
+                          : folderName;
+                        const isCollapsed = collapsedFolders[folderPath];
+                        const folderNode = node._folders[folderName];
+                        // Count total files in this folder recursively
+                        const countFiles = (n) => {
+                          let count = n._files.length;
+                          for (const sub of Object.values(n._folders))
+                            count += countFiles(sub);
+                          return count;
+                        };
+                        const fileCount = countFiles(folderNode);
+                        items.push(
+                          <div key={`folder-${folderPath}`}>
+                            <button
+                              onClick={() => toggleFolder(folderPath)}
+                              className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-vpn-card/50 transition-colors text-left"
+                              style={{ paddingLeft: `${depth * 20 + 16}px` }}
+                            >
+                              {isCollapsed ? (
+                                <ChevronRight className="w-3.5 h-3.5 text-vpn-muted flex-shrink-0" />
+                              ) : (
+                                <ChevronDown className="w-3.5 h-3.5 text-vpn-muted flex-shrink-0" />
+                              )}
+                              <Folder className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                              <span className="text-sm text-white font-medium">
+                                {folderName}
                               </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removeFile(f.stored_path)}
-                        className="p-1.5 rounded-lg text-vpn-muted hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"
-                        title="Delete file"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                              <span className="text-[10px] text-vpn-muted ml-1">
+                                {fileCount} {fileCount === 1 ? "file" : "files"}
+                              </span>
+                            </button>
+                            {!isCollapsed &&
+                              renderNode(folderNode, folderPath, depth + 1)}
+                          </div>,
+                        );
+                      }
+                      // Render files
+                      const sortedFiles = [...node._files].sort((a, b) =>
+                        a.name.localeCompare(b.name),
+                      );
+                      for (const f of sortedFiles) {
+                        items.push(
+                          <div
+                            key={f.stored_path}
+                            className="flex items-center justify-between gap-3 px-4 py-2 hover:bg-vpn-card/50 transition-colors group"
+                            style={{
+                              paddingLeft: `${depth * 20 + (Object.keys(node._folders).length > 0 || depth > 0 ? 40 : 16)}px`,
+                            }}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <File className="w-4 h-4 text-vpn-primary flex-shrink-0" />
+                              <span className="text-sm text-vpn-text font-mono truncate">
+                                {f.name}
+                              </span>
+                              <span className="text-[10px] text-vpn-muted flex-shrink-0">
+                                {formatFileSize(f.size)}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => removeFile(f.stored_path)}
+                              className="p-1.5 rounded-lg text-vpn-muted hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0 opacity-0 group-hover:opacity-100"
+                              title="Delete file"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>,
+                        );
+                      }
+                      return items;
+                    };
+                    return renderNode(tree);
+                  })()}
                 </div>
               )}
             </div>

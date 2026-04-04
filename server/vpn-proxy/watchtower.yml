@@ -1,0 +1,29 @@
+services:
+  watchtower:
+    hostname: "watchtower"
+    container_name: "watchtower"
+    image: "ghcr.io/containrrr/watchtower:latest"
+    environment:
+      - "PUID=1000"
+      - "PGID=1000"
+      - "TZ=Europe/Berlin"
+      - "WATCHTOWER_CLEANUP=true"
+      - "WATCHTOWER_REMOVE_VOLUMES=true"
+      - "WATCHTOWER_INCLUDE_STOPPED=false"
+      - "WATCHTOWER_NO_STARTUP_MESSAGE=true"
+      - "WATCHTOWER_POLL_INTERVAL=7200"
+      - "WATCHTOWER_ROLLING_RESTART=false"
+      - "WATCHTOWER_TIMEOUT=180s"
+    restart: "unless-stopped"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    security_opt:
+      - "no-new-privileges:true"
+    networks:
+      - proxy
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+networks:
+  proxy:
+    driver: bridge
+    external: true

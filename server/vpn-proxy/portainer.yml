@@ -1,0 +1,20 @@
+services:
+  p0rtainer:
+    container_name: "portainer"
+    image: "portainer/portainer-ce:latest"
+    restart: "unless-stopped"
+    environment:
+      - "PGID=1000"
+      - "PUID=1000"
+      - "TZ=Europe/Berlin"
+    networks:
+      - proxy
+    ports:
+      - "9000:9000"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/opt/appdata/portainer:/data"
+networks:
+  proxy:
+    driver: bridge
+    external: true

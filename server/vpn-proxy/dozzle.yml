@@ -1,0 +1,25 @@
+services:
+  dozzle:
+    hostname: "dozzle"
+    container_name: "dozzle"
+    image: "amir20/dozzle:latest"
+    environment:
+      - "PGID=1000"
+      - "PUID=1000"
+      - "TZ=Europe/Berlin"
+      - "UMASK=022"
+      - "DOZZLE_AUTH_PROVIDER=simple"
+    restart: "unless-stopped"
+    networks:
+      - proxy
+    ports:
+      - "8080:8080"
+    security_opt:
+      - "no-new-privileges:true"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/opt/appdata/dozzle/data:/data:rw"
+networks:
+  proxy:
+    driver: bridge
+    external: true

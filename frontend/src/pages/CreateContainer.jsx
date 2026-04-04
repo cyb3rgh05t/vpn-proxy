@@ -499,7 +499,7 @@ export default function CreateContainer() {
           <h2 className="text-lg font-semibold text-white mb-4">
             Access Ports
           </h2>
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <div className="flex items-center gap-2 mb-1.5">
                 <label className="text-sm font-medium text-vpn-muted">

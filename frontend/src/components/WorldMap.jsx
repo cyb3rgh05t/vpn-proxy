@@ -229,7 +229,7 @@ export default function WorldMap({ vpnConnections = [] }) {
   return (
     <div className="bg-vpn-card border border-vpn-border rounded-2xl overflow-hidden">
       {/* Header Bar */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-vpn-border/50">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-vpn-border/50">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-vpn-primary/10 flex items-center justify-center">
             <Globe className="w-3.5 h-3.5 text-vpn-primary" />
@@ -243,7 +243,7 @@ export default function WorldMap({ vpnConnections = [] }) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-vpn-bg/80 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[10px] text-vpn-muted font-medium">
@@ -278,7 +278,7 @@ export default function WorldMap({ vpnConnections = [] }) {
 
         <div
           className="bg-vpn-bg"
-          style={{ height: "425px", overflow: "hidden" }}
+          style={{ height: "clamp(250px, 40vw, 425px)", overflow: "hidden" }}
         >
           <ComposableMap
             projection="geoNaturalEarth1"

@@ -405,7 +405,7 @@ export default function ContainerDetail() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={async () => {
               setRefreshing(true);
@@ -640,9 +640,7 @@ export default function ContainerDetail() {
                     </div>
                   );
                 })()}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-vpn-input rounded-lg p-4">
-                  <p className="text-xs text-vpn-muted mb-1">HTTP Proxy Port</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <p className="text-lg font-mono text-white">
                     :{container.port_http_proxy}
                   </p>
@@ -694,8 +692,7 @@ export default function ContainerDetail() {
                   <p className="text-xs text-vpn-muted mb-2">
                     Additional Port Mappings
                   </p>
-                  <div className="grid grid-cols-3 gap-3">
-                    {container.extra_ports.map((ep, i) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div
                         key={i}
                         className="bg-vpn-input rounded-lg p-3 border border-vpn-border/30"

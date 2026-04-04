@@ -399,40 +399,42 @@ export default function Monitoring() {
         {/* Network Usage Tab */}
         {tab === "network" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="inline-flex gap-1 bg-vpn-card border border-vpn-border rounded-lg p-1">
-                {["all", ...CATEGORIES].map((cat) => {
-                  const count =
-                    cat === "all"
-                      ? CATEGORIES.reduce(
-                          (sum, c) =>
-                            sum + Object.keys(usage[c]?.Proxy || {}).length,
-                          0,
-                        )
-                      : Object.keys(usage[cat]?.Proxy || {}).length;
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => setNetworkTab(cat)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                        networkTab === cat
-                          ? "bg-vpn-primary text-black"
-                          : "text-vpn-muted hover:text-vpn-text"
-                      }`}
-                    >
-                      {cat === "all" ? "All" : cat}
-                      <span
-                        className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="overflow-x-auto">
+                <div className="inline-flex gap-1 bg-vpn-card border border-vpn-border rounded-lg p-1">
+                  {["all", ...CATEGORIES].map((cat) => {
+                    const count =
+                      cat === "all"
+                        ? CATEGORIES.reduce(
+                            (sum, c) =>
+                              sum + Object.keys(usage[c]?.Proxy || {}).length,
+                            0,
+                          )
+                        : Object.keys(usage[cat]?.Proxy || {}).length;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setNetworkTab(cat)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                           networkTab === cat
-                            ? "bg-black/20 text-black"
-                            : "bg-vpn-input text-vpn-muted"
+                            ? "bg-vpn-primary text-black"
+                            : "text-vpn-muted hover:text-vpn-text"
                         }`}
                       >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
+                        {cat === "all" ? "All" : cat}
+                        <span
+                          className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            networkTab === cat
+                              ? "bg-black/20 text-black"
+                              : "bg-vpn-input text-vpn-muted"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="relative">
@@ -442,7 +444,7 @@ export default function Monitoring() {
                     placeholder="Search streams..."
                     value={networkSearch}
                     onChange={(e) => setNetworkSearch(e.target.value)}
-                    className="w-48 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted text-sm focus:outline-none focus:border-vpn-primary/50"
+                    className="w-full sm:w-48 pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text placeholder-vpn-muted text-sm focus:outline-none focus:border-vpn-primary/50"
                   />
                 </div>
                 {providerId && (

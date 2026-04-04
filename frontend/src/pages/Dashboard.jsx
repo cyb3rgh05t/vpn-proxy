@@ -188,7 +188,7 @@ export default function Dashboard() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             <LayoutDashboard className="w-7 h-7 text-vpn-primary" />
@@ -198,7 +198,7 @@ export default function Dashboard() {
             Manage your Gluetun VPN containers
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <button
             onClick={async () => {
               setDiscovering(true);
@@ -512,7 +512,7 @@ export default function Dashboard() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 capitalize">
                           {conn.provider}
                         </span>

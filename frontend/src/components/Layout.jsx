@@ -17,7 +17,7 @@ export default function Layout() {
       <Sidebar />
       <main
         ref={mainRef}
-        className="flex-1 overflow-y-auto p-6 lg:p-8 bg-vpn-bg"
+        className="flex-1 overflow-y-auto p-4 pt-16 sm:p-6 sm:pt-6 lg:p-8 bg-vpn-bg"
       >
         <Outlet />
       </main>

@@ -493,28 +493,30 @@ export default function Settings() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="inline-flex gap-1 bg-vpn-card border border-vpn-border rounded-xl p-1">
-        {[
-          { id: "system", label: "System", icon: Wrench },
-          { id: "images", label: "Container Images", icon: Box },
-          { id: "monitoring", label: "Monitoring", icon: Activity },
-          { id: "users", label: "User Management", icon: Users },
-          { id: "howto", label: "How To", icon: BookOpen },
-          { id: "about", label: "About", icon: Info },
-        ].map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setSettingsTab(id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              settingsTab === id
-                ? "bg-vpn-primary text-black"
-                : "text-vpn-muted hover:text-vpn-primary"
-            }`}
-          >
-            <Icon className="w-4 h-4" />
-            {label}
-          </button>
-        ))}
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="inline-flex gap-1 bg-vpn-card border border-vpn-border rounded-xl p-1">
+          {[
+            { id: "system", label: "System", icon: Wrench },
+            { id: "images", label: "Container Images", icon: Box },
+            { id: "monitoring", label: "Monitoring", icon: Activity },
+            { id: "users", label: "User Management", icon: Users },
+            { id: "howto", label: "How To", icon: BookOpen },
+            { id: "about", label: "About", icon: Info },
+          ].map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setSettingsTab(id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                settingsTab === id
+                  ? "bg-vpn-primary text-black"
+                  : "text-vpn-muted hover:text-vpn-primary"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* System Tab */}
@@ -975,7 +977,7 @@ export default function Settings() {
                 <h3 className="text-lg font-semibold text-white">
                   {o11Editing === "new" ? "Add New Instance" : "Edit Instance"}
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-vpn-muted mb-1.5">
                       Name
@@ -1171,7 +1173,7 @@ export default function Settings() {
           {/* Account Info */}
           <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
             <h2 className="text-lg font-semibold text-white mb-4">Account</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-vpn-input rounded-lg p-4">
                 <p className="text-xs text-vpn-muted mb-1">Username</p>
                 <p className="text-white font-medium">{user?.username}</p>

@@ -131,12 +131,34 @@ export default function Dashboard() {
 
   // --- VPN connections overview ---
   const vpnConnections = useMemo(() => {
+    const serverIp = window.location.hostname;
     return containers
       .map((c) => {
         const info = vpnInfoMap[String(c.id)];
         const deps = depsMap[c.id] || [];
         const httpEnabled = c.config?.HTTPPROXY?.toLowerCase() === "on";
         const ssEnabled = c.config?.SHADOWSOCKS?.toLowerCase() === "on";
+
+        // Compute external URLs from extra_ports mappings
+        let httpProxyExternal = null;
+        let shadowsocksExternal = null;
+        if (httpEnabled && c.port_http_proxy) {
+          const mapping = c.extra_ports?.find(
+            (ep) => parseInt(ep.container) === c.port_http_proxy,
+          );
+          if (mapping) {
+            httpProxyExternal = `${serverIp}:${mapping.host}`;
+          }
+        }
+        if (ssEnabled && c.port_shadowsocks) {
+          const mapping = c.extra_ports?.find(
+            (ep) => parseInt(ep.container) === c.port_shadowsocks,
+          );
+          if (mapping) {
+            shadowsocksExternal = `${serverIp}:${mapping.host}`;
+          }
+        }
+
         return {
           id: c.id,
           name: c.name,
@@ -157,9 +179,11 @@ export default function Dashboard() {
           httpProxy: httpEnabled
             ? `${c.ip_address || "—"}:${c.port_http_proxy}`
             : null,
+          httpProxyExternal,
           shadowsocks: ssEnabled
             ? `${c.ip_address || "—"}:${c.port_shadowsocks}`
             : null,
+          shadowsocksExternal,
         };
       })
       .filter(
@@ -569,10 +593,22 @@ export default function Dashboard() {
                           HTTP {conn.httpProxy}
                         </span>
                       )}
+                      {conn.httpProxyExternal && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                          <Globe className="w-2.5 h-2.5" />
+                          HTTP {conn.httpProxyExternal}
+                        </span>
+                      )}
                       {conn.shadowsocks && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">
                           <Network className="w-2.5 h-2.5" />
                           SS {conn.shadowsocks}
+                        </span>
+                      )}
+                      {conn.shadowsocksExternal && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                          <Globe className="w-2.5 h-2.5" />
+                          SS {conn.shadowsocksExternal}
                         </span>
                       )}
                       {conn.deps.length > 0 && (

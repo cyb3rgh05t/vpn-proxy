@@ -12,7 +12,6 @@ import ContainerDetail from "./pages/ContainerDetail";
 import O11ContainerDetail from "./pages/O11ContainerDetail";
 import Settings from "./pages/Settings";
 import Monitoring from "./pages/Monitoring";
-import HowTo from "./pages/HowTo";
 
 function App() {
   const { user, loading } = useAuth();
@@ -39,7 +38,6 @@ function App() {
           <Route path="/o11/:name" element={<O11ContainerDetail />} />
           <Route path="/monitoring" element={<Monitoring />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/how-to" element={<HowTo />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" />} />

@@ -21,6 +21,7 @@ export default function CreateO11Container() {
   const [error, setError] = useState("");
   const [networks, setNetworks] = useState([]);
   const [vpnContainers, setVpnContainers] = useState([]);
+  const [predefinedImages, setPredefinedImages] = useState([]);
 
   const [form, setForm] = useState({
     name: "",
@@ -54,6 +55,15 @@ export default function CreateO11Container() {
     api
       .get("/containers")
       .then((res) => setVpnContainers(Array.isArray(res.data) ? res.data : []))
+      .catch(() => {});
+    api
+      .get("/settings/container-images")
+      .then((res) => {
+        const imgs = Array.isArray(res.data?.o11_images)
+          ? res.data.o11_images
+          : [];
+        setPredefinedImages(imgs);
+      })
       .catch(() => {});
   }, []);
 
@@ -307,16 +317,30 @@ export default function CreateO11Container() {
             </div>
             <div>
               <label className={labelClass}>Docker Image</label>
-              <input
-                type="text"
-                value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })}
-                className={inputClass}
-                placeholder="e.g. linuxserver/qbittorrent:latest"
-                required
-              />
+              {predefinedImages.length > 0 ? (
+                <CustomDropdown
+                  value={form.image}
+                  onChange={(val) => setForm({ ...form, image: val })}
+                  options={predefinedImages.map((img) => ({
+                    value: img,
+                    label: img,
+                  }))}
+                  placeholder="Select a predefined image..."
+                />
+              ) : (
+                <input
+                  type="text"
+                  value={form.image}
+                  onChange={(e) => setForm({ ...form, image: e.target.value })}
+                  className={inputClass}
+                  placeholder="e.g. linuxserver/qbittorrent:latest"
+                  required
+                />
+              )}
               <p className="text-xs text-vpn-muted mt-1">
-                Image will be pulled automatically if not available locally.
+                {predefinedImages.length > 0
+                  ? "Select from predefined images configured in Settings."
+                  : "No predefined images configured. Add them in Settings → Container Images."}
               </p>
             </div>
             <div>

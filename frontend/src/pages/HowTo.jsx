@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   BookOpen,
   ChevronDown,
@@ -9,24 +8,7 @@ import {
   Activity,
   Settings,
   LayoutDashboard,
-  PlusCircle,
-  Search,
-  Play,
-  Square,
-  RotateCw,
-  Trash2,
-  Pencil,
-  Rocket,
-  Network,
-  Download,
-  Upload,
-  Key,
-  UserPlus,
-  Eye,
-  Copy,
   Globe,
-  Server,
-  FileText,
   ArrowRight,
 } from "lucide-react";
 
@@ -1018,21 +1000,13 @@ function RenderContent({ items }) {
 }
 
 export default function HowTo() {
-  const navigate = useNavigate();
-  const [expandedSections, setExpandedSections] = useState(
-    () => new Set(sections.map((s) => s.id)),
+  const [activeTab, setActiveTab] = useState(sections[0].id);
+  const [expandedSubs, setExpandedSubs] = useState(
+    () =>
+      new Set(
+        sections[0].subsections.length ? [sections[0].subsections[0].id] : [],
+      ),
   );
-  const [expandedSubs, setExpandedSubs] = useState(() => new Set());
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const toggleSection = (id) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   const toggleSub = (id) => {
     setExpandedSubs((prev) => {
@@ -1043,197 +1017,65 @@ export default function HowTo() {
     });
   };
 
-  const expandAll = () => {
-    setExpandedSections(new Set(sections.map((s) => s.id)));
-    const allSubs = new Set();
-    sections.forEach((s) =>
-      s.subsections.forEach((sub) => allSubs.add(sub.id)),
-    );
-    setExpandedSubs(allSubs);
-  };
-
-  const collapseAll = () => {
-    setExpandedSections(new Set());
-    setExpandedSubs(new Set());
-  };
-
-  // Filter sections based on search
-  const filteredSections = searchQuery.trim()
-    ? sections
-        .map((section) => {
-          const q = searchQuery.toLowerCase();
-          const filteredSubs = section.subsections.filter((sub) => {
-            const titleMatch = sub.title.toLowerCase().includes(q);
-            const contentMatch = sub.content.some((item) => {
-              if (item.value && item.value.toLowerCase().includes(q))
-                return true;
-              if (
-                item.items &&
-                item.items.some((i) =>
-                  typeof i === "string"
-                    ? i.toLowerCase().includes(q)
-                    : (i.bold + " " + i.text).toLowerCase().includes(q),
-                )
-              )
-                return true;
-              return false;
-            });
-            return titleMatch || contentMatch;
-          });
-          if (
-            filteredSubs.length > 0 ||
-            section.title.toLowerCase().includes(q)
-          ) {
-            return {
-              ...section,
-              subsections:
-                filteredSubs.length > 0 ? filteredSubs : section.subsections,
-            };
-          }
-          return null;
-        })
-        .filter(Boolean)
-    : sections;
+  const activeSection = sections.find((s) => s.id === activeTab);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <BookOpen className="w-6 h-6 text-vpn-primary" />
-          <div>
-            <h1 className="text-2xl font-bold text-white">How To Guide</h1>
-            <p className="text-sm text-vpn-muted">
-              Everything you need to know about the VPN Proxy Manager
-            </p>
-          </div>
-        </div>
+      {/* Tab Navigation */}
+      <div className="inline-flex gap-1 bg-vpn-card border border-vpn-border rounded-xl p-1 flex-wrap">
+        {sections.map(({ id, title, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => {
+              setActiveTab(id);
+              const sec = sections.find((s) => s.id === id);
+              setExpandedSubs(
+                new Set(sec?.subsections.length ? [sec.subsections[0].id] : []),
+              );
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === id
+                ? "bg-vpn-primary text-black"
+                : "text-vpn-muted hover:text-vpn-primary"
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {title}
+          </button>
+        ))}
       </div>
 
-      {/* Search & Controls */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
-          <input
-            type="text"
-            placeholder="Search topics..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-vpn-input border border-vpn-border rounded-lg text-vpn-text text-sm placeholder-vpn-muted focus:outline-none focus:border-vpn-primary"
-          />
-        </div>
-        <button
-          onClick={expandAll}
-          className="px-3 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm font-medium rounded-lg transition-all"
-        >
-          Expand All
-        </button>
-        <button
-          onClick={collapseAll}
-          className="px-3 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm font-medium rounded-lg transition-all"
-        >
-          Collapse All
-        </button>
-      </div>
-
-      {/* Table of Contents */}
-      <div className="bg-vpn-card border border-vpn-border rounded-xl p-4">
-        <h2 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
-          Contents
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          {filteredSections.map((section) => {
-            const Icon = section.icon;
+      {/* Active Section Content */}
+      {activeSection && (
+        <div className="space-y-3">
+          {activeSection.subsections.map((sub) => {
+            const isSubExpanded = expandedSubs.has(sub.id);
             return (
-              <button
-                key={section.id}
-                onClick={() => {
-                  setExpandedSections((prev) => new Set([...prev, section.id]));
-                  document
-                    .getElementById(`section-${section.id}`)
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-vpn-text hover:bg-vpn-primary/10 hover:text-vpn-primary transition-colors text-left"
+              <div
+                key={sub.id}
+                className="bg-vpn-card border border-vpn-border rounded-xl overflow-hidden"
               >
-                <Icon className="w-4 h-4 text-vpn-primary shrink-0" />
-                {section.title}
-              </button>
+                <button
+                  onClick={() => toggleSub(sub.id)}
+                  className="w-full flex items-center gap-2 px-5 py-3.5 hover:bg-vpn-primary/5 transition-colors"
+                >
+                  {isSubExpanded ? (
+                    <ChevronDown className="w-4 h-4 text-vpn-primary shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-vpn-primary shrink-0" />
+                  )}
+                  <span className="text-sm font-semibold text-vpn-text text-left flex-1">
+                    {sub.title}
+                  </span>
+                </button>
+                {isSubExpanded && (
+                  <div className="px-5 pb-4 pt-1 border-t border-vpn-border">
+                    <RenderContent items={sub.content} />
+                  </div>
+                )}
+              </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* Sections */}
-      {filteredSections.map((section) => {
-        const Icon = section.icon;
-        const isExpanded = expandedSections.has(section.id);
-
-        return (
-          <div
-            key={section.id}
-            id={`section-${section.id}`}
-            className="bg-vpn-card border border-vpn-border rounded-xl overflow-hidden"
-          >
-            {/* Section Header */}
-            <button
-              onClick={() => toggleSection(section.id)}
-              className="w-full flex items-center gap-3 px-5 py-4 hover:bg-vpn-primary/5 transition-colors"
-            >
-              <Icon className="w-5 h-5 text-vpn-primary shrink-0" />
-              <h2 className="text-lg font-bold text-white flex-1 text-left">
-                {section.title}
-              </h2>
-              {isExpanded ? (
-                <ChevronDown className="w-5 h-5 text-vpn-muted" />
-              ) : (
-                <ChevronRight className="w-5 h-5 text-vpn-muted" />
-              )}
-            </button>
-
-            {/* Subsections */}
-            {isExpanded && (
-              <div className="px-5 pb-4 space-y-2">
-                {section.subsections.map((sub) => {
-                  const isSubExpanded = expandedSubs.has(sub.id);
-                  return (
-                    <div
-                      key={sub.id}
-                      className="border border-vpn-border rounded-lg overflow-hidden"
-                    >
-                      <button
-                        onClick={() => toggleSub(sub.id)}
-                        className="w-full flex items-center gap-2 px-4 py-3 hover:bg-vpn-primary/5 transition-colors"
-                      >
-                        {isSubExpanded ? (
-                          <ChevronDown className="w-4 h-4 text-vpn-primary shrink-0" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-vpn-primary shrink-0" />
-                        )}
-                        <span className="text-sm font-semibold text-vpn-text text-left flex-1">
-                          {sub.title}
-                        </span>
-                      </button>
-                      {isSubExpanded && (
-                        <div className="px-4 pb-4 pt-1 border-t border-vpn-border">
-                          <RenderContent items={sub.content} />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {/* No results */}
-      {filteredSections.length === 0 && (
-        <div className="text-center py-12">
-          <Search className="w-12 h-12 text-vpn-muted mx-auto mb-3" />
-          <p className="text-vpn-muted text-sm">
-            No topics found for "{searchQuery}"
-          </p>
         </div>
       )}
     </div>

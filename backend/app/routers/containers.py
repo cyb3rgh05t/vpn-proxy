@@ -22,11 +22,18 @@ from app.services.providers import (
     get_provider_fields,
     get_gluetun_env_variables,
 )
+from app.models.app_settings import AppSettings
 from app.utils.security import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
+
+
+def _get_gluetun_image(db: Session) -> str:
+    """Get the configured Gluetun image from DB, falling back to config default."""
+    row = db.query(AppSettings).filter(AppSettings.key == "gluetun_image").first()
+    return (row.value or settings.GLUETUN_IMAGE) if row else settings.GLUETUN_IMAGE
 
 
 @router.post("/discover")
@@ -40,7 +47,10 @@ def discover_and_import(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
-    discovered = docker_service.discover_gluetun_containers()
+    try:
+        discovered = docker_service.discover_gluetun_containers()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
     imported = 0
     skipped = 0
     for info in discovered:
@@ -105,7 +115,10 @@ def list_networks(
     current_user: User = Depends(get_current_user),
 ):
     """List available Docker networks."""
-    return docker_service.list_docker_networks()
+    try:
+        return docker_service.list_docker_networks()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
 
 
 @router.get("/stacks")
@@ -113,7 +126,10 @@ def list_stacks(
     current_user: User = Depends(get_current_user),
 ):
     """List available Docker Compose stacks."""
-    return docker_service.list_docker_stacks()
+    try:
+        return docker_service.list_docker_stacks()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
 
 
 @router.get("/dependents")
@@ -121,13 +137,19 @@ def list_all_dependents(
     current_user: User = Depends(get_current_user),
 ):
     """List all Docker containers (non-Gluetun) with VPN connection info."""
-    return docker_service.list_all_docker_containers()
+    try:
+        return docker_service.list_all_docker_containers()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
 
 
 @router.get("/dependents/debug")
 def debug_dependents():
     """Debug endpoint: show VPN detection details for all containers. No auth required."""
-    return docker_service.list_all_docker_containers_debug()
+    try:
+        return docker_service.list_all_docker_containers_debug()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
 
 
 @router.get("/dependents/db-info-batch")
@@ -164,7 +186,10 @@ def create_o11_container(
         raise HTTPException(status_code=400, detail="Docker image is required")
 
     # Check if container with this name already exists
-    client = docker_service._get_client()
+    try:
+        client = docker_service._get_client()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
     try:
         client.containers.get(name)
         raise HTTPException(
@@ -537,7 +562,10 @@ def delete_dependent(
     current_user: User = Depends(get_current_user),
 ):
     """Delete (remove) a dependent Docker container by name and clean up local data."""
-    all_containers = docker_service.list_all_docker_containers()
+    try:
+        all_containers = docker_service.list_all_docker_containers()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
     if not any(d["name"] == container_name for d in all_containers):
         raise HTTPException(status_code=404, detail="Container not found")
     try:
@@ -577,7 +605,10 @@ def control_any_dependent(
     if action not in ("start", "stop", "restart"):
         raise HTTPException(status_code=400, detail="Invalid action")
     # Verify the container exists in our list
-    all_containers = docker_service.list_all_docker_containers()
+    try:
+        all_containers = docker_service.list_all_docker_containers()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
     if not any(d["name"] == container_name for d in all_containers):
         raise HTTPException(status_code=404, detail="Container not found")
     try:
@@ -726,6 +757,7 @@ def create_container(
         )
 
     try:
+        gluetun_image = _get_gluetun_image(db)
         container_id = docker_service.create_container(
             name=req.name,
             vpn_provider=req.vpn_provider,
@@ -735,6 +767,7 @@ def create_container(
             port_shadowsocks=req.port_shadowsocks,
             extra_ports=req.extra_ports,
             network_name=req.network_name,
+            gluetun_image=gluetun_image,
         )
     except Exception as e:
         raise HTTPException(
@@ -987,6 +1020,7 @@ def redeploy_container(
     db.refresh(c)
 
     try:
+        gluetun_image = _get_gluetun_image(db)
         new_id = docker_service.redeploy_container(
             name=old_name,
             old_container_id=c.container_id,
@@ -998,6 +1032,7 @@ def redeploy_container(
             extra_ports=c.extra_ports if c.extra_ports else None,
             network_name=c.network_name,
             new_name=new_name if new_name and new_name != old_name else None,
+            gluetun_image=gluetun_image,
         )
         c.container_id = new_id
         c.status = "running"
@@ -1029,7 +1064,10 @@ def get_logs(
     c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
-    logs = docker_service.get_container_logs(c.container_id, tail=tail)
+    try:
+        logs = docker_service.get_container_logs(c.container_id, tail=tail)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
     return {"logs": logs}
 
 
@@ -1042,7 +1080,10 @@ def get_status(
     c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
-    return docker_service.get_container_status(c.container_id)
+    try:
+        return docker_service.get_container_status(c.container_id)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
 
 
 @router.get("/{container_id}/vpn-info")
@@ -1055,7 +1096,10 @@ def get_vpn_info(
     c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
-    return docker_service.get_gluetun_vpn_info(c.container_id, debug=debug)
+    try:
+        return docker_service.get_gluetun_vpn_info(c.container_id, debug=debug)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
 
 
 @router.get("/{container_id}/debug-mount")
@@ -1134,16 +1178,21 @@ def export_compose(
     c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Container not found")
-    yaml_content = docker_service.generate_compose_yaml(
-        name=c.name,
-        vpn_provider=c.vpn_provider,
-        vpn_type=c.vpn_type,
-        config=c.config,
-        port_http_proxy=c.port_http_proxy,
-        port_shadowsocks=c.port_shadowsocks,
-        extra_ports=c.extra_ports if c.extra_ports else None,
-        network_name=c.network_name,
-    )
+    gluetun_image = _get_gluetun_image(db)
+    try:
+        yaml_content = docker_service.generate_compose_yaml(
+            name=c.name,
+            vpn_provider=c.vpn_provider,
+            vpn_type=c.vpn_type,
+            config=c.config,
+            port_http_proxy=c.port_http_proxy,
+            port_shadowsocks=c.port_shadowsocks,
+            extra_ports=c.extra_ports if c.extra_ports else None,
+            network_name=c.network_name,
+            gluetun_image=gluetun_image,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
     return yaml_content
 
 
@@ -1156,7 +1205,10 @@ def get_dependents(
     c = db.query(VPNContainer).filter(VPNContainer.id == container_id).first()
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
-    return docker_service.get_dependent_containers(c.container_id)
+    try:
+        return docker_service.get_dependent_containers(c.container_id)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
 
 
 @router.post("/{container_id}/dependents/{docker_name}/{action}")
@@ -1173,7 +1225,10 @@ def control_dependent(
     if not c or not c.container_id:
         raise HTTPException(status_code=404, detail="Container not found")
     # Verify the target is actually a dependent of this container
-    dependents = docker_service.get_dependent_containers(c.container_id)
+    try:
+        dependents = docker_service.get_dependent_containers(c.container_id)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
     if not any(d["name"] == docker_name for d in dependents):
         raise HTTPException(
             status_code=403, detail="Container is not a dependent of this VPN container"

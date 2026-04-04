@@ -28,8 +28,14 @@ import {
   Activity,
   Pencil,
   Settings as SettingsIcon,
+  Box,
+  X,
+  BookOpen,
+  Info,
 } from "lucide-react";
 import api from "../services/api";
+import HowTo from "./HowTo";
+import About from "./About";
 
 export default function Settings() {
   const { user, refreshUser } = useAuth();
@@ -93,6 +99,13 @@ export default function Settings() {
   const [o11FormLoading, setO11FormLoading] = useState(false);
   const [showO11Password, setShowO11Password] = useState(false);
 
+  // Container Images
+  const [gluetunImage, setGluetunImage] = useState("qmcgaw/gluetun:latest");
+  const [o11Images, setO11Images] = useState([]);
+  const [newO11Image, setNewO11Image] = useState("");
+  const [imagesLoading, setImagesLoading] = useState(false);
+  const [imagesSaving, setImagesSaving] = useState(false);
+
   useEffect(() => {
     if (user?.is_admin) {
       fetchUsers();
@@ -100,6 +113,7 @@ export default function Settings() {
     fetchDockerStatus();
     fetchApiKeys();
     fetchO11Instances();
+    fetchContainerImages();
   }, [user]);
 
   const fetchO11Instances = async () => {
@@ -109,6 +123,53 @@ export default function Settings() {
     } catch {
       // ignore
     }
+  };
+
+  const fetchContainerImages = async () => {
+    setImagesLoading(true);
+    try {
+      const res = await api.get("/settings/container-images");
+      setGluetunImage(res.data.gluetun_image || "qmcgaw/gluetun:latest");
+      setO11Images(
+        Array.isArray(res.data.o11_images) ? res.data.o11_images : [],
+      );
+    } catch {
+      // ignore
+    } finally {
+      setImagesLoading(false);
+    }
+  };
+
+  const handleSaveContainerImages = async () => {
+    setImagesSaving(true);
+    try {
+      await api.put("/settings/container-images", {
+        gluetun_image: gluetunImage.trim(),
+        o11_images: o11Images,
+      });
+      toast.success("Container images saved");
+    } catch (err) {
+      toast.error(
+        err.response?.data?.detail || "Failed to save container images",
+      );
+    } finally {
+      setImagesSaving(false);
+    }
+  };
+
+  const addO11Image = () => {
+    const img = newO11Image.trim();
+    if (!img) return;
+    if (o11Images.includes(img)) {
+      toast.error("Image already exists");
+      return;
+    }
+    setO11Images([...o11Images, img]);
+    setNewO11Image("");
+  };
+
+  const removeO11Image = (index) => {
+    setO11Images(o11Images.filter((_, i) => i !== index));
   };
 
   const handleAddO11 = () => {
@@ -435,8 +496,11 @@ export default function Settings() {
       <div className="inline-flex gap-1 bg-vpn-card border border-vpn-border rounded-xl p-1">
         {[
           { id: "system", label: "System", icon: Wrench },
+          { id: "images", label: "Container Images", icon: Box },
           { id: "monitoring", label: "Monitoring", icon: Activity },
           { id: "users", label: "User Management", icon: Users },
+          { id: "howto", label: "How To", icon: BookOpen },
+          { id: "about", label: "About", icon: Info },
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -751,6 +815,130 @@ export default function Settings() {
         </div>
       )}
 
+      {/* Container Images Tab */}
+      {settingsTab === "images" && (
+        <div className="space-y-6">
+          {/* Gluetun Image */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Shield className="w-5 h-5 text-vpn-primary" />
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Gluetun VPN Image
+                </h2>
+                <p className="text-xs text-vpn-muted">
+                  Docker image used for all VPN-Proxy containers
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={gluetunImage}
+                onChange={(e) => setGluetunImage(e.target.value)}
+                className={inputClass}
+                placeholder="qmcgaw/gluetun:latest"
+              />
+              <p className="text-xs text-vpn-muted">
+                This image is used when creating or redeploying VPN containers.
+                Default:{" "}
+                <span className="text-vpn-primary font-mono">
+                  qmcgaw/gluetun:latest
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* O11 Container Images */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Container className="w-5 h-5 text-vpn-primary" />
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  O11 Container Images
+                </h2>
+                <p className="text-xs text-vpn-muted">
+                  Predefined Docker images available when creating O11
+                  containers
+                </p>
+              </div>
+            </div>
+
+            {/* Add new image */}
+            <div className="flex items-center gap-2 mb-4">
+              <input
+                type="text"
+                value={newO11Image}
+                onChange={(e) => setNewO11Image(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addO11Image();
+                  }
+                }}
+                className={inputClass}
+                placeholder="e.g. linuxserver/qbittorrent:latest"
+              />
+              <button
+                onClick={addO11Image}
+                disabled={!newO11Image.trim()}
+                className="flex items-center gap-2 px-4 py-2.5 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              >
+                <Plus className="w-4 h-4 text-vpn-primary" />
+                Add
+              </button>
+            </div>
+
+            {/* Image list */}
+            {o11Images.length === 0 ? (
+              <div className="text-center py-6 text-vpn-muted text-sm">
+                No O11 images configured yet. Add images above to make them
+                available in the create form.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {o11Images.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between gap-3 px-4 py-3 bg-vpn-input border border-vpn-border rounded-lg"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Box className="w-4 h-4 text-vpn-primary shrink-0" />
+                      <span className="text-sm text-vpn-text font-mono truncate">
+                        {img}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => removeO11Image(idx)}
+                      className="p-1.5 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                      title="Remove image"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={handleSaveContainerImages}
+              disabled={imagesSaving}
+              className="flex items-center gap-2 px-6 py-2.5 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {imagesSaving ? (
+                <RefreshCw className="w-4 h-4 text-vpn-primary animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4 text-vpn-primary" />
+              )}
+              {imagesSaving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Monitoring Tab */}
       {settingsTab === "monitoring" && (
         <div className="space-y-6">
@@ -782,18 +970,14 @@ export default function Settings() {
             {o11Editing && (
               <form
                 onSubmit={handleSaveO11Instance}
-                className="bg-vpn-input border border-vpn-border rounded-xl p-4 mb-4 space-y-3"
+                className="bg-vpn-card border border-vpn-border rounded-2xl p-6 mb-4 space-y-4"
               >
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-sm font-semibold text-white">
-                    {o11Editing === "new"
-                      ? "Add New Instance"
-                      : "Edit Instance"}
-                  </h3>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+                <h3 className="text-lg font-semibold text-white">
+                  {o11Editing === "new" ? "Add New Instance" : "Edit Instance"}
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-vpn-muted mb-1">
+                    <label className="block text-sm font-medium text-vpn-muted mb-1.5">
                       Name
                     </label>
                     <input
@@ -807,7 +991,7 @@ export default function Settings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-vpn-muted mb-1">
+                    <label className="block text-sm font-medium text-vpn-muted mb-1.5">
                       O11 URL
                     </label>
                     <input
@@ -821,7 +1005,7 @@ export default function Settings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-vpn-muted mb-1">
+                    <label className="block text-sm font-medium text-vpn-muted mb-1.5">
                       Username
                     </label>
                     <input
@@ -836,7 +1020,7 @@ export default function Settings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-vpn-muted mb-1">
+                    <label className="block text-sm font-medium text-vpn-muted mb-1.5">
                       Password
                     </label>
                     <div className="relative">
@@ -864,7 +1048,7 @@ export default function Settings() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-vpn-muted mb-1">
+                    <label className="block text-sm font-medium text-vpn-muted mb-1.5">
                       Provider ID
                     </label>
                     <input
@@ -882,15 +1066,20 @@ export default function Settings() {
                   <button
                     type="button"
                     onClick={handleCancelO11Form}
-                    className="px-4 py-2 bg-vpn-border hover:bg-vpn-muted/30 text-vpn-text text-sm rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-vpn-border hover:bg-vpn-muted/30 text-vpn-text text-sm rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={o11FormLoading || !o11Form.url}
-                    className="px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm disabled:cursor-not-allowed"
                   >
+                    {o11FormLoading ? (
+                      <RefreshCw className="w-4 h-4 text-vpn-primary animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4 text-vpn-primary" />
+                    )}
                     {o11FormLoading
                       ? "Saving..."
                       : o11Editing === "new"
@@ -1257,6 +1446,12 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* How To Tab */}
+      {settingsTab === "howto" && <HowTo />}
+
+      {/* About Tab */}
+      {settingsTab === "about" && <About />}
     </div>
   );
 }

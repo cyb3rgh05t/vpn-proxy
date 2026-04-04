@@ -292,3 +292,54 @@ def test_o11_instance(
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# --- Container Images settings ---
+
+DEFAULT_GLUETUN_IMAGE = "qmcgaw/gluetun:latest"
+
+
+@router.get("/container-images")
+def get_container_images(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get predefined container images for Gluetun and O11."""
+    gluetun_image = _get_setting(db, "gluetun_image") or DEFAULT_GLUETUN_IMAGE
+    o11_images_raw = _get_setting(db, "o11_images")
+    o11_images = []
+    if o11_images_raw:
+        try:
+            o11_images = json.loads(o11_images_raw)
+        except Exception:
+            pass
+    return {
+        "gluetun_image": gluetun_image,
+        "o11_images": o11_images,
+    }
+
+
+@router.put("/container-images")
+def update_container_images(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update predefined container images."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    if "gluetun_image" in data:
+        image = (data["gluetun_image"] or "").strip()
+        _set_setting(db, "gluetun_image", image if image else DEFAULT_GLUETUN_IMAGE)
+
+    if "o11_images" in data:
+        images = data["o11_images"]
+        if isinstance(images, list):
+            # Filter out empty strings
+            clean = [
+                img.strip() for img in images if isinstance(img, str) and img.strip()
+            ]
+            _set_setting(db, "o11_images", json.dumps(clean))
+
+    return {"status": "ok"}

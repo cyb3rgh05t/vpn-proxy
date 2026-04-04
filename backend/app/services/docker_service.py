@@ -3,6 +3,7 @@ import logging
 import os
 import secrets
 import socket
+import time
 from typing import Any
 import docker
 import requests as http_requests
@@ -85,10 +86,16 @@ def filter_config(config: dict) -> dict:
 
 
 def _get_client():
+    _docker_error_throttle: dict = getattr(_get_client, "_throttle", {})
     try:
         return docker.from_env()
     except Exception as e:
-        logger.error("Failed to connect to Docker daemon: %s", e)
+        now = time.monotonic()
+        last_logged = _docker_error_throttle.get("ts", 0)
+        if now - last_logged > 30:
+            logger.error("Failed to connect to Docker daemon: %s", e)
+            _docker_error_throttle["ts"] = now
+            _get_client._throttle = _docker_error_throttle  # type: ignore[attr-defined]
         raise RuntimeError(
             "Cannot connect to Docker. Ensure the Docker socket is accessible."
         ) from e
@@ -113,6 +120,7 @@ def create_container(
     port_shadowsocks: int = 8388,
     extra_ports: list[dict] | None = None,
     network_name: str | None = None,
+    gluetun_image: str | None = None,
 ):
     client = _get_client()
     container_name = f"gluetun-{name}"
@@ -174,7 +182,7 @@ def create_container(
 
     try:
         run_kwargs: dict[str, Any] = {
-            "image": settings.GLUETUN_IMAGE,
+            "image": gluetun_image or settings.GLUETUN_IMAGE,
             "name": container_name,
             "cap_add": ["NET_ADMIN"],
             "devices": ["/dev/net/tun:/dev/net/tun"],
@@ -251,6 +259,7 @@ def redeploy_container(
     extra_ports: list[dict] | None = None,
     network_name: str | None = None,
     new_name: str | None = None,
+    gluetun_image: str | None = None,
 ) -> str | None:
     """Redeploy a Gluetun container with updated config.
     Stops dependents, removes old container, creates new one, restarts dependents.
@@ -285,6 +294,7 @@ def redeploy_container(
         port_shadowsocks=port_shadowsocks,
         extra_ports=extra_ports,
         network_name=network_name,
+        gluetun_image=gluetun_image,
     )
     logger.info("Created new container %s for %s", new_id[:12], deploy_name)
 
@@ -1254,6 +1264,7 @@ def generate_compose_yaml(
     port_shadowsocks: int = 8388,
     extra_ports: list[dict] | None = None,
     network_name: str | None = None,
+    gluetun_image: str | None = None,
 ) -> str:
     container_name = f"gluetun-{name}"
     api_key = secrets.token_urlsafe(32)
@@ -1285,7 +1296,7 @@ def generate_compose_yaml(
                 port_list.append(f"{host}:{container_port}/{protocol}")
 
     service: dict[str, Any] = {
-        "image": settings.GLUETUN_IMAGE,
+        "image": gluetun_image or settings.GLUETUN_IMAGE,
         "container_name": container_name,
         "cap_add": ["NET_ADMIN"],
         "devices": ["/dev/net/tun:/dev/net/tun"],

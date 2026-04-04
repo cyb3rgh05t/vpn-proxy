@@ -15,8 +15,8 @@ import {
   ExternalLink,
   Container,
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import api from "../services/api";
+import { useState } from "react";
+import { useContainerData } from "../context/ContainerDataContext";
 
 const navItemsTop = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -35,16 +35,7 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [portainerUrl, setPortainerUrl] = useState("");
-
-  useEffect(() => {
-    api
-      .get("/settings/portainer-url")
-      .then((res) => {
-        setPortainerUrl(res.data.portainer_url || "");
-      })
-      .catch(() => {});
-  }, []);
+  const { portainerUrl } = useContainerData();
 
   const handleLogout = () => {
     logout();

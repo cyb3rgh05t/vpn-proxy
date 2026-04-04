@@ -31,6 +31,13 @@ export function ContainerDataProvider({ children }) {
   const monitoringIntervalRef = useRef(null);
   const monitoringInitRef = useRef(false);
 
+  // Settings state (shared across components)
+  const [portainerUrl, setPortainerUrl] = useState("");
+  const [containerImages, setContainerImages] = useState({
+    gluetun_image: "qmcgaw/gluetun:latest",
+    o11_images: [],
+  });
+
   const fetchContainers = useCallback(async () => {
     try {
       const res = await api.get("/containers");
@@ -172,14 +179,24 @@ export function ContainerDataProvider({ children }) {
     if (monitoringInitRef.current) return;
     monitoringInitRef.current = true;
     try {
-      const [statusRes, instancesRes] = await Promise.all([
-        api.get("/monitoring/status"),
-        api.get("/settings/o11/instances"),
-      ]);
+      const [statusRes, instancesRes, portainerRes, imagesRes] =
+        await Promise.all([
+          api.get("/monitoring/status"),
+          api.get("/settings/o11/instances"),
+          api.get("/settings/portainer-url").catch(() => ({ data: {} })),
+          api.get("/settings/container-images").catch(() => ({ data: {} })),
+        ]);
       const instances = Array.isArray(instancesRes.data)
         ? instancesRes.data
         : [];
       setO11Instances(instances);
+      setPortainerUrl(portainerRes.data?.portainer_url || "");
+      setContainerImages({
+        gluetun_image: imagesRes.data?.gluetun_image || "qmcgaw/gluetun:latest",
+        o11_images: Array.isArray(imagesRes.data?.o11_images)
+          ? imagesRes.data.o11_images
+          : [],
+      });
       const isConfigured = statusRes.data.configured;
       setMonitoringConfigured(isConfigured);
       if (instances.length > 0) {
@@ -239,6 +256,38 @@ export function ContainerDataProvider({ children }) {
     }
   }, []);
 
+  const refreshSettings = useCallback(async () => {
+    try {
+      const [instancesRes, statusRes, portainerRes, imagesRes] =
+        await Promise.all([
+          api.get("/settings/o11/instances"),
+          api.get("/monitoring/status"),
+          api.get("/settings/portainer-url").catch(() => ({ data: {} })),
+          api.get("/settings/container-images").catch(() => ({ data: {} })),
+        ]);
+      const instances = Array.isArray(instancesRes.data)
+        ? instancesRes.data
+        : [];
+      setO11Instances(instances);
+      setMonitoringConfigured(statusRes.data.configured);
+      setPortainerUrl(portainerRes.data?.portainer_url || "");
+      setContainerImages({
+        gluetun_image: imagesRes.data?.gluetun_image || "qmcgaw/gluetun:latest",
+        o11_images: Array.isArray(imagesRes.data?.o11_images)
+          ? imagesRes.data.o11_images
+          : [],
+      });
+      if (
+        instances.length > 0 &&
+        !instances.find((i) => i.id === activeInstanceId)
+      ) {
+        setActiveInstanceId(instances[0].id);
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [activeInstanceId]);
+
   useEffect(() => {
     fetchAll();
     initMonitoring();
@@ -285,6 +334,10 @@ export function ContainerDataProvider({ children }) {
         ),
         monitoringLoading,
         refreshMonitoring: fetchMonitoringData,
+        // Settings (shared)
+        portainerUrl,
+        containerImages,
+        refreshSettings,
       }}
     >
       {children}

@@ -37,11 +37,13 @@ import {
 import api from "../services/api";
 import HowTo from "./HowTo";
 import About from "./About";
+import { useContainerData } from "../context/ContainerDataContext";
 
 export default function Settings() {
   const { user, refreshUser } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
+  const { refreshSettings } = useContainerData();
 
   const [settingsTab, setSettingsTab] = useState("system");
 
@@ -154,6 +156,7 @@ export default function Settings() {
         o11_images: o11Images,
       });
       toast.success("Container images saved");
+      refreshSettings();
     } catch (err) {
       toast.error(
         err.response?.data?.detail || "Failed to save container images",
@@ -179,6 +182,7 @@ export default function Settings() {
         portainer_url: portainerUrl,
       });
       toast.success("Portainer URL saved");
+      refreshSettings();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to save Portainer URL");
     } finally {
@@ -249,6 +253,7 @@ export default function Settings() {
       }
       setO11Editing(null);
       fetchO11Instances();
+      refreshSettings();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to save O11 instance");
     } finally {
@@ -269,6 +274,7 @@ export default function Settings() {
       toast.success("O11 instance deleted");
       if (o11Editing === inst.id) setO11Editing(null);
       fetchO11Instances();
+      refreshSettings();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to delete instance");
     }

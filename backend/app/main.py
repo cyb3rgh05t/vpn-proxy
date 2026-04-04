@@ -19,8 +19,9 @@ from app.routers import (
     monitoring,
     settings as settings_router,
 )
+from app.utils.logger import setup_logging, print_banner
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
@@ -175,12 +176,13 @@ def run_migrations():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print_banner()
     logger.info("Creating database tables...")
     Base.metadata.create_all(bind=engine)
     run_migrations()
     auto_discover_containers()
     auto_discover_o11_containers()
-    logger.info("VPN Proxy Manager started.")
+    logger.info("VPN Proxy Manager is ready!")
     yield
     logger.info("VPN Proxy Manager shutting down.")
 

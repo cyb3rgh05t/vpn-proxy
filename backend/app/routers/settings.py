@@ -343,3 +343,29 @@ def update_container_images(
             _set_setting(db, "o11_images", json.dumps(clean))
 
     return {"status": "ok"}
+
+
+# --- Portainer URL setting ---
+
+
+@router.get("/portainer-url")
+def get_portainer_url(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get the configured Portainer URL."""
+    return {"portainer_url": _get_setting(db, "portainer_url")}
+
+
+@router.put("/portainer-url")
+def update_portainer_url(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update the Portainer URL."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    url = (data.get("portainer_url") or "").strip().rstrip("/")
+    _set_setting(db, "portainer_url", url)
+    return {"status": "ok"}

@@ -12,8 +12,11 @@ import {
   Network,
   Activity,
   User,
+  ExternalLink,
+  Container,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../services/api";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -29,6 +32,16 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [portainerUrl, setPortainerUrl] = useState("");
+
+  useEffect(() => {
+    api
+      .get("/settings/portainer-url")
+      .then((res) => {
+        setPortainerUrl(res.data.portainer_url || "");
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -65,6 +78,19 @@ export default function Sidebar() {
             <span>{label}</span>
           </NavLink>
         ))}
+        {portainerUrl && (
+          <a
+            href={portainerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-vpn-muted hover:text-vpn-primary"
+            onClick={() => setMobileOpen(false)}
+          >
+            <Container className="w-5 h-5" />
+            <span className="flex-1">Portainer</span>
+            <ExternalLink className="w-3.5 h-3.5 opacity-50" />
+          </a>
+        )}
       </nav>
 
       <div className="px-3 py-4">

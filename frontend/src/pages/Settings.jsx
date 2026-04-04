@@ -32,6 +32,7 @@ import {
   X,
   BookOpen,
   Info,
+  ExternalLink,
 } from "lucide-react";
 import api from "../services/api";
 import HowTo from "./HowTo";
@@ -106,6 +107,10 @@ export default function Settings() {
   const [imagesLoading, setImagesLoading] = useState(false);
   const [imagesSaving, setImagesSaving] = useState(false);
 
+  // Portainer URL
+  const [portainerUrl, setPortainerUrl] = useState("");
+  const [portainerSaving, setPortainerSaving] = useState(false);
+
   useEffect(() => {
     if (user?.is_admin) {
       fetchUsers();
@@ -114,6 +119,7 @@ export default function Settings() {
     fetchApiKeys();
     fetchO11Instances();
     fetchContainerImages();
+    fetchPortainerUrl();
   }, [user]);
 
   const fetchO11Instances = async () => {
@@ -154,6 +160,29 @@ export default function Settings() {
       );
     } finally {
       setImagesSaving(false);
+    }
+  };
+
+  const fetchPortainerUrl = async () => {
+    try {
+      const res = await api.get("/settings/portainer-url");
+      setPortainerUrl(res.data.portainer_url || "");
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSavePortainerUrl = async () => {
+    setPortainerSaving(true);
+    try {
+      await api.put("/settings/portainer-url", {
+        portainer_url: portainerUrl,
+      });
+      toast.success("Portainer URL saved");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to save Portainer URL");
+    } finally {
+      setPortainerSaving(false);
     }
   };
 
@@ -661,6 +690,58 @@ export default function Settings() {
                 )}
               </div>
             ) : null}
+          </div>
+
+          {/* Portainer URL */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Container className="w-5 h-5 text-vpn-primary" />
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Portainer URL
+                </h2>
+                <p className="text-xs text-vpn-muted">
+                  Set the URL of your Portainer instance. When configured, a
+                  link appears in the sidebar.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="url"
+                  value={portainerUrl}
+                  onChange={(e) => setPortainerUrl(e.target.value)}
+                  className={inputClass}
+                  placeholder="https://your-portainer:9443"
+                />
+                {portainerUrl && (
+                  <a
+                    href={portainerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 bg-vpn-input border border-vpn-border hover:border-vpn-primary rounded-lg text-vpn-muted hover:text-vpn-primary transition-colors shrink-0"
+                    title="Open Portainer"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSavePortainerUrl}
+                  disabled={portainerSaving}
+                  className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm disabled:cursor-not-allowed"
+                >
+                  {portainerSaving ? (
+                    <RefreshCw className="w-4 h-4 text-vpn-primary animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4 text-vpn-primary" />
+                  )}
+                  {portainerSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* API Keys */}

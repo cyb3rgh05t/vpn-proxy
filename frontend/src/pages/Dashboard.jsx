@@ -125,10 +125,10 @@ export default function Dashboard() {
           portForwardCount: 0,
           ips: new Set(),
           serverLocations: new Set(),
-          connectedNames: [],
-          disconnectedNames: [],
-          unhealthyNames: [],
-          stoppedNames: [],
+          connectedItems: [],
+          disconnectedItems: [],
+          unhealthyItems: [],
+          stoppedItems: [],
         };
       map[p].total++;
       if (c.vpn_type) map[p].types.add(c.vpn_type);
@@ -138,18 +138,18 @@ export default function Dashboard() {
       if (isRunning) map[p].running++;
       if (isConnected) {
         map[p].connected++;
-        map[p].connectedNames.push(c.name);
+        map[p].connectedItems.push({ id: c.id, name: c.name });
       } else if (isRunning) {
         map[p].disconnected++;
-        map[p].disconnectedNames.push(c.name);
+        map[p].disconnectedItems.push({ id: c.id, name: c.name });
       }
       if (["exited", "dead", "removed"].includes(c.status)) {
         map[p].stopped++;
-        map[p].stoppedNames.push(c.name);
+        map[p].stoppedItems.push({ id: c.id, name: c.name });
       }
       if (c.status === "unhealthy") {
         map[p].unhealthy++;
-        map[p].unhealthyNames.push(c.name);
+        map[p].unhealthyItems.push({ id: c.id, name: c.name });
       }
       if (info?.country) map[p].countries.add(info.country);
       if (info?.region) map[p].cities.add(info.region);
@@ -495,9 +495,14 @@ export default function Dashboard() {
                             <Shield className="w-4 h-4 text-purple-400" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm text-white font-semibold capitalize truncate">
-                              {p.name}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-white font-semibold capitalize truncate">
+                                {p.name}
+                              </p>
+                              <span className="text-[10px] text-vpn-muted bg-vpn-input px-1.5 py-0.5 rounded-full font-medium tabular-nums">
+                                {p.total} {p.total === 1 ? "container" : "containers"}
+                              </span>
+                            </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               {p.types.map((t) => (
                                 <span
@@ -595,33 +600,81 @@ export default function Dashboard() {
                           </span>
                         </div>
 
-                        {/* Container names per status */}
-                        {(p.unhealthyNames.length > 0 ||
-                          p.disconnectedNames.length > 0 ||
-                          p.stoppedNames.length > 0) && (
-                          <div className="space-y-1 mb-2.5 text-[10px]">
-                            {p.disconnectedNames.length > 0 && (
-                              <div className="flex items-start gap-1.5">
-                                <WifiOff className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5" />
-                                <span className="text-amber-400/80 truncate">
-                                  {p.disconnectedNames.join(", ")}
-                                </span>
+                        {/* Clickable container mini-cards per status */}
+                        {(p.unhealthyItems.length > 0 ||
+                          p.disconnectedItems.length > 0 ||
+                          p.stoppedItems.length > 0) && (
+                          <div className="space-y-1.5 mb-2.5">
+                            {p.disconnectedItems.length > 0 && (
+                              <div>
+                                <p className="text-[9px] text-amber-400/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
+                                  <WifiOff className="w-2.5 h-2.5" />
+                                  Disconnected
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {p.disconnectedItems.map((item) => (
+                                    <button
+                                      key={item.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/vpn-proxy#container-${item.id}`);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 transition-colors"
+                                    >
+                                      <WifiOff className="w-2.5 h-2.5" />
+                                      {item.name}
+                                      <ChevronRight className="w-2.5 h-2.5 opacity-50" />
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                             )}
-                            {p.unhealthyNames.length > 0 && (
-                              <div className="flex items-start gap-1.5">
-                                <HeartCrack className="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5" />
-                                <span className="text-red-400/80 truncate">
-                                  {p.unhealthyNames.join(", ")}
-                                </span>
+                            {p.unhealthyItems.length > 0 && (
+                              <div>
+                                <p className="text-[9px] text-red-400/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
+                                  <HeartCrack className="w-2.5 h-2.5" />
+                                  Unhealthy
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {p.unhealthyItems.map((item) => (
+                                    <button
+                                      key={item.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/vpn-proxy#container-${item.id}`);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
+                                    >
+                                      <HeartCrack className="w-2.5 h-2.5" />
+                                      {item.name}
+                                      <ChevronRight className="w-2.5 h-2.5 opacity-50" />
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                             )}
-                            {p.stoppedNames.length > 0 && (
-                              <div className="flex items-start gap-1.5">
-                                <AlertTriangle className="w-3 h-3 text-vpn-muted flex-shrink-0 mt-0.5" />
-                                <span className="text-vpn-muted/80 truncate">
-                                  {p.stoppedNames.join(", ")}
-                                </span>
+                            {p.stoppedItems.length > 0 && (
+                              <div>
+                                <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
+                                  <AlertTriangle className="w-2.5 h-2.5" />
+                                  Stopped
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {p.stoppedItems.map((item) => (
+                                    <button
+                                      key={item.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/vpn-proxy#container-${item.id}`);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-vpn-input text-vpn-muted border border-vpn-border/50 hover:bg-vpn-input/80 hover:border-vpn-border transition-colors"
+                                    >
+                                      <AlertTriangle className="w-2.5 h-2.5" />
+                                      {item.name}
+                                      <ChevronRight className="w-2.5 h-2.5 opacity-50" />
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                             )}
                           </div>

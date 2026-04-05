@@ -45,6 +45,7 @@ export default function VpnProxy() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState("");
+  const [bulkProgress, setBulkProgress] = useState(null); // { action, total, done, success, failed }
 
   // Scroll to container card when navigated with hash
   useEffect(() => {
@@ -198,23 +199,41 @@ export default function VpnProxy() {
   const selectedCount = selectedIds.size;
 
   // Bulk actions
+  const actionLabels = {
+    start: "Starting",
+    stop: "Stopping",
+    restart: "Restarting",
+    redeploy: "Redeploying",
+    delete: "Deleting",
+  };
+
   const bulkAction = async (action) => {
     if (selectedCount === 0) return;
     setBulkLoading(action);
-    let success = 0;
-    let failed = 0;
+    const progress = {
+      action,
+      total: selectedCount,
+      done: 0,
+      success: 0,
+      failed: 0,
+    };
+    setBulkProgress({ ...progress });
     for (const id of selectedIds) {
       try {
         await api.post(`/containers/${id}/${action}`);
-        success++;
+        progress.success++;
       } catch {
-        failed++;
+        progress.failed++;
       }
+      progress.done++;
+      setBulkProgress({ ...progress });
     }
     toast.success(
-      `${action}: ${success} succeeded${failed ? `, ${failed} failed` : ""}`,
+      `${action}: ${progress.success} succeeded${progress.failed ? `, ${progress.failed} failed` : ""}`,
     );
     setBulkLoading("");
+    setBulkProgress(null);
+    exitSelectMode();
     refreshContainers();
   };
 
@@ -229,20 +248,29 @@ export default function VpnProxy() {
     });
     if (!ok) return;
     setBulkLoading("delete");
-    let success = 0;
-    let failed = 0;
+    const progress = {
+      action: "delete",
+      total: selectedCount,
+      done: 0,
+      success: 0,
+      failed: 0,
+    };
+    setBulkProgress({ ...progress });
     for (const id of selectedIds) {
       try {
         await api.delete(`/containers/${id}`);
-        success++;
+        progress.success++;
       } catch {
-        failed++;
+        progress.failed++;
       }
+      progress.done++;
+      setBulkProgress({ ...progress });
     }
     toast.success(
-      `Deleted: ${success} succeeded${failed ? `, ${failed} failed` : ""}`,
+      `Deleted: ${progress.success} succeeded${progress.failed ? `, ${progress.failed} failed` : ""}`,
     );
     setBulkLoading("");
+    setBulkProgress(null);
     exitSelectMode();
     refreshContainers();
   };
@@ -258,20 +286,30 @@ export default function VpnProxy() {
     });
     if (!ok) return;
     setBulkLoading("redeploy");
-    let success = 0;
-    let failed = 0;
+    const progress = {
+      action: "redeploy",
+      total: selectedCount,
+      done: 0,
+      success: 0,
+      failed: 0,
+    };
+    setBulkProgress({ ...progress });
     for (const id of selectedIds) {
       try {
         await api.post(`/containers/${id}/redeploy`, {});
-        success++;
+        progress.success++;
       } catch {
-        failed++;
+        progress.failed++;
       }
+      progress.done++;
+      setBulkProgress({ ...progress });
     }
     toast.success(
-      `Redeploy: ${success} succeeded${failed ? `, ${failed} failed` : ""}`,
+      `Redeploy: ${progress.success} succeeded${progress.failed ? `, ${progress.failed} failed` : ""}`,
     );
     setBulkLoading("");
+    setBulkProgress(null);
+    exitSelectMode();
     refreshContainers();
   };
 
@@ -678,6 +716,47 @@ export default function VpnProxy() {
             </div>
           )}
         </>
+      )}
+
+      {/* Bulk Progress Dialog */}
+      {bulkProgress && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl">
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-4">
+                <RefreshCw className="w-10 h-10 text-vpn-primary animate-spin" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-1">
+                {actionLabels[bulkProgress.action] || bulkProgress.action}{" "}
+                Containers
+              </h3>
+              <p className="text-sm text-vpn-muted mb-6">
+                {bulkProgress.done} of {bulkProgress.total} completed
+              </p>
+              {/* Progress Bar */}
+              <div className="w-full bg-vpn-input rounded-full h-3 mb-4 overflow-hidden">
+                <div
+                  className="h-full bg-vpn-primary rounded-full transition-all duration-300"
+                  style={{
+                    width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="flex items-center gap-4 text-sm">
+                {bulkProgress.success > 0 && (
+                  <span className="text-emerald-400">
+                    {bulkProgress.success} succeeded
+                  </span>
+                )}
+                {bulkProgress.failed > 0 && (
+                  <span className="text-red-400">
+                    {bulkProgress.failed} failed
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

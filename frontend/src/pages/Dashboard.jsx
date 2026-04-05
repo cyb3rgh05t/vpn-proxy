@@ -500,7 +500,8 @@ export default function Dashboard() {
                                 {p.name}
                               </p>
                               <span className="text-[10px] text-vpn-muted bg-vpn-input px-1.5 py-0.5 rounded-full font-medium tabular-nums">
-                                {p.total} {p.total === 1 ? "container" : "containers"}
+                                {p.total}{" "}
+                                {p.total === 1 ? "container" : "containers"}
                               </span>
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
@@ -617,7 +618,9 @@ export default function Dashboard() {
                                       key={item.id}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        navigate(`/vpn-proxy#container-${item.id}`);
+                                        navigate(
+                                          `/vpn-proxy#container-${item.id}`,
+                                        );
                                       }}
                                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 transition-colors"
                                     >
@@ -641,7 +644,9 @@ export default function Dashboard() {
                                       key={item.id}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        navigate(`/vpn-proxy#container-${item.id}`);
+                                        navigate(
+                                          `/vpn-proxy#container-${item.id}`,
+                                        );
                                       }}
                                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
                                     >
@@ -665,7 +670,9 @@ export default function Dashboard() {
                                       key={item.id}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        navigate(`/vpn-proxy#container-${item.id}`);
+                                        navigate(
+                                          `/vpn-proxy#container-${item.id}`,
+                                        );
                                       }}
                                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-vpn-input text-vpn-muted border border-vpn-border/50 hover:bg-vpn-input/80 hover:border-vpn-border transition-colors"
                                     >

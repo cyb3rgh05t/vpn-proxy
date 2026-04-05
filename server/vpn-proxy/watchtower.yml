@@ -14,6 +14,7 @@ services:
       - "WATCHTOWER_POLL_INTERVAL=7200"
       - "WATCHTOWER_ROLLING_RESTART=false"
       - "WATCHTOWER_TIMEOUT=180s"
+      - "DOCKER_API_VERSION=1.44"
     restart: "unless-stopped"
     labels:
       - "com.centurylinklabs.watchtower.enable=true"

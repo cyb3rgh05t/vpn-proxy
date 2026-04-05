@@ -110,24 +110,47 @@ export default function Dashboard() {
       if (!map[p])
         map[p] = {
           total: 0,
+          running: 0,
           connected: 0,
+          disconnected: 0,
           stopped: 0,
           unhealthy: 0,
           types: new Set(),
           countries: new Set(),
           cities: new Set(),
           proxyCount: 0,
+          httpProxyCount: 0,
+          shadowsocksCount: 0,
           clientCount: 0,
           portForwardCount: 0,
           ips: new Set(),
           serverLocations: new Set(),
+          connectedNames: [],
+          disconnectedNames: [],
+          unhealthyNames: [],
+          stoppedNames: [],
         };
       map[p].total++;
       if (c.vpn_type) map[p].types.add(c.vpn_type);
       const info = vpnInfoMap[String(c.id)];
-      if (info?.vpn_status === "running") map[p].connected++;
-      if (["exited", "dead", "removed"].includes(c.status)) map[p].stopped++;
-      if (c.status === "unhealthy") map[p].unhealthy++;
+      const isRunning = ["running", "healthy"].includes(c.status);
+      const isConnected = info?.vpn_status === "running" && info?.public_ip;
+      if (isRunning) map[p].running++;
+      if (isConnected) {
+        map[p].connected++;
+        map[p].connectedNames.push(c.name);
+      } else if (isRunning) {
+        map[p].disconnected++;
+        map[p].disconnectedNames.push(c.name);
+      }
+      if (["exited", "dead", "removed"].includes(c.status)) {
+        map[p].stopped++;
+        map[p].stoppedNames.push(c.name);
+      }
+      if (c.status === "unhealthy") {
+        map[p].unhealthy++;
+        map[p].unhealthyNames.push(c.name);
+      }
       if (info?.country) map[p].countries.add(info.country);
       if (info?.region) map[p].cities.add(info.region);
       if (info?.public_ip) map[p].ips.add(info.public_ip);
@@ -140,11 +163,14 @@ export default function Dashboard() {
         c.config.SERVER_CITIES.split(",").forEach((s) => {
           if (s.trim()) map[p].serverLocations.add(s.trim());
         });
-      if (
-        c.config?.HTTPPROXY?.toLowerCase() === "on" ||
-        c.config?.SHADOWSOCKS?.toLowerCase() === "on"
-      )
+      if (c.config?.HTTPPROXY?.toLowerCase() === "on") {
         map[p].proxyCount++;
+        map[p].httpProxyCount++;
+      }
+      if (c.config?.SHADOWSOCKS?.toLowerCase() === "on") {
+        map[p].proxyCount++;
+        map[p].shadowsocksCount++;
+      }
       const deps = depsMap[c.id] || [];
       map[p].clientCount += deps.length;
     }
@@ -483,21 +509,124 @@ export default function Dashboard() {
                               ))}
                             </div>
                           </div>
+                          <ChevronRight className="w-4 h-4 text-vpn-muted flex-shrink-0" />
                         </div>
-                        {/* Progress bar */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="flex-1 h-1.5 bg-vpn-input rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-emerald-500 rounded-full transition-all"
-                              style={{
-                                width: `${p.total > 0 ? (p.connected / p.total) * 100 : 0}%`,
-                              }}
-                            />
+
+                        {/* Status mini-cards */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2.5">
+                          <div className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-2.5 py-1.5">
+                            <Wifi className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-emerald-400 leading-tight">
+                                {p.connected}
+                              </p>
+                              <p className="text-[9px] text-emerald-400/60 uppercase tracking-wider">
+                                Connected
+                              </p>
+                            </div>
                           </div>
-                          <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">
+                          <div className="flex items-center gap-2 bg-amber-500/5 border border-amber-500/10 rounded-lg px-2.5 py-1.5">
+                            <WifiOff className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-amber-400 leading-tight">
+                                {p.disconnected}
+                              </p>
+                              <p className="text-[9px] text-amber-400/60 uppercase tracking-wider">
+                                Disconnected
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 bg-red-500/5 border border-red-500/10 rounded-lg px-2.5 py-1.5">
+                            <HeartCrack className="w-3 h-3 text-red-400 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-red-400 leading-tight">
+                                {p.unhealthy}
+                              </p>
+                              <p className="text-[9px] text-red-400/60 uppercase tracking-wider">
+                                Unhealthy
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 bg-vpn-input/50 border border-vpn-border/30 rounded-lg px-2.5 py-1.5">
+                            <AlertTriangle className="w-3 h-3 text-vpn-muted flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-vpn-muted leading-tight">
+                                {p.stopped}
+                              </p>
+                              <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider">
+                                Stopped
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="flex items-center gap-2 mb-2.5">
+                          <div className="flex-1 h-1.5 bg-vpn-input rounded-full overflow-hidden flex">
+                            {p.total > 0 && (
+                              <>
+                                <div
+                                  className="h-full bg-emerald-500 transition-all"
+                                  style={{
+                                    width: `${(p.connected / p.total) * 100}%`,
+                                  }}
+                                />
+                                {p.disconnected > 0 && (
+                                  <div
+                                    className="h-full bg-amber-500 transition-all"
+                                    style={{
+                                      width: `${(p.disconnected / p.total) * 100}%`,
+                                    }}
+                                  />
+                                )}
+                                {p.unhealthy > 0 && (
+                                  <div
+                                    className="h-full bg-red-500 transition-all"
+                                    style={{
+                                      width: `${(p.unhealthy / p.total) * 100}%`,
+                                    }}
+                                  />
+                                )}
+                              </>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-emerald-400 font-semibold tabular-nums whitespace-nowrap">
                             {p.connected}/{p.total}
                           </span>
                         </div>
+
+                        {/* Container names per status */}
+                        {(p.unhealthyNames.length > 0 ||
+                          p.disconnectedNames.length > 0 ||
+                          p.stoppedNames.length > 0) && (
+                          <div className="space-y-1 mb-2.5 text-[10px]">
+                            {p.disconnectedNames.length > 0 && (
+                              <div className="flex items-start gap-1.5">
+                                <WifiOff className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5" />
+                                <span className="text-amber-400/80 truncate">
+                                  {p.disconnectedNames.join(", ")}
+                                </span>
+                              </div>
+                            )}
+                            {p.unhealthyNames.length > 0 && (
+                              <div className="flex items-start gap-1.5">
+                                <HeartCrack className="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5" />
+                                <span className="text-red-400/80 truncate">
+                                  {p.unhealthyNames.join(", ")}
+                                </span>
+                              </div>
+                            )}
+                            {p.stoppedNames.length > 0 && (
+                              <div className="flex items-start gap-1.5">
+                                <AlertTriangle className="w-3 h-3 text-vpn-muted flex-shrink-0 mt-0.5" />
+                                <span className="text-vpn-muted/80 truncate">
+                                  {p.stoppedNames.join(", ")}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Info badges */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {p.countries.length > 0 && (
@@ -509,16 +638,30 @@ export default function Dashboard() {
                                 : "countries"}
                             </span>
                           )}
-                          {p.proxyCount > 0 && (
+                          {p.cities.length > 0 && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
+                              <Globe className="w-2.5 h-2.5" />
+                              {p.cities.length}{" "}
+                              {p.cities.length === 1 ? "region" : "regions"}
+                            </span>
+                          )}
+                          {p.httpProxyCount > 0 && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20">
                               <Network className="w-2.5 h-2.5" />
-                              {p.proxyCount} proxy
+                              {p.httpProxyCount} HTTP proxy
+                            </span>
+                          )}
+                          {p.shadowsocksCount > 0 && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                              <Network className="w-2.5 h-2.5" />
+                              {p.shadowsocksCount} Shadowsocks
                             </span>
                           )}
                           {p.clientCount > 0 && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
                               <Users className="w-2.5 h-2.5" />
-                              {p.clientCount}
+                              {p.clientCount}{" "}
+                              {p.clientCount === 1 ? "client" : "clients"}
                             </span>
                           )}
                           {p.portForwardCount > 0 && (
@@ -531,18 +674,6 @@ export default function Dashboard() {
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                               <Globe className="w-2.5 h-2.5" />
                               {p.ips.length} {p.ips.length === 1 ? "IP" : "IPs"}
-                            </span>
-                          )}
-                          {p.unhealthy > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-red-500/10 text-red-400 border border-red-500/20">
-                              <HeartCrack className="w-2.5 h-2.5" />
-                              {p.unhealthy}
-                            </span>
-                          )}
-                          {p.stopped > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
-                              <AlertTriangle className="w-2.5 h-2.5" />
-                              {p.stopped} off
                             </span>
                           )}
                         </div>

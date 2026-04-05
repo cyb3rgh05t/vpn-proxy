@@ -1,82 +1,410 @@
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Square, RotateCcw, Trash2, Eye } from "lucide-react";
+import {
+  Play,
+  Square,
+  RotateCcw,
+  Trash2,
+  Eye,
+  Network,
+  Globe,
+  Shield,
+  Wifi,
+  WifiOff,
+  MapPin,
+  ArrowUpDown,
+  Copy,
+  Check,
+} from "lucide-react";
 import StatusBadge from "./StatusBadge";
 import api from "../services/api";
+import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 
-export default function ContainerCard({ container, onRefresh }) {
+export default function ContainerCard({ container, vpnInfo, onRefresh }) {
   const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [dependents, setDependents] = useState([]);
+  const [actionLoading, setActionLoading] = useState("");
+  const [copiedUrl, setCopiedUrl] = useState(null);
+
+  const copyToClipboard = useCallback(
+    (url) => {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        setCopiedUrl(url);
+        toast.success("Proxy URL copied!");
+        setTimeout(() => setCopiedUrl(null), 2000);
+      } catch {
+        toast.error("Failed to copy URL");
+      }
+    },
+    [toast],
+  );
+
+  const fetchDependents = useCallback(async () => {
+    try {
+      const res = await api.get(`/containers/${container.id}/dependents`);
+      setDependents(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setDependents([]);
+    }
+  }, [container.id]);
+
+  useEffect(() => {
+    fetchDependents();
+    const interval = setInterval(fetchDependents, 15000);
+    return () => clearInterval(interval);
+  }, [fetchDependents]);
 
   const handleAction = async (e, action) => {
     e.stopPropagation();
+    setActionLoading(action);
     try {
-      await api.post(`/containers/${container.id}/${action}`);
+      const res = await api.post(`/containers/${container.id}/${action}`);
+      toast.success(res.data?.message || `Container ${action}ed successfully`);
       onRefresh();
     } catch (err) {
-      alert(err.response?.data?.detail || `Failed to ${action} container`);
+      toast.error(
+        err.response?.data?.detail || `Failed to ${action} container`,
+      );
+    } finally {
+      setActionLoading("");
     }
   };
 
   const handleDelete = async (e) => {
     e.stopPropagation();
-    if (
-      !confirm(`Delete container "${container.name}"? This cannot be undone.`)
-    )
-      return;
+    const ok = await confirm({
+      title: "Delete Container",
+      message: `Delete container "${container.name}"? This cannot be undone.`,
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await api.delete(`/containers/${container.id}`);
+      toast.success(`Container "${container.name}" deleted`);
       onRefresh();
     } catch (err) {
-      alert(err.response?.data?.detail || "Failed to delete container");
+      toast.error(err.response?.data?.detail || "Failed to delete container");
     }
   };
 
-  const isRunning = container.status === "running";
+  const handleDepAction = async (e, depName, action) => {
+    e.stopPropagation();
+    try {
+      await api.post(
+        `/containers/${container.id}/dependents/${depName}/${action}`,
+      );
+      toast.success(`${depName} ${action}ed successfully`);
+      fetchDependents();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.detail || `Failed to ${action} ${depName}`,
+      );
+    }
+  };
+
+  const isRunning = ["running", "healthy", "unhealthy", "starting"].includes(
+    container.status,
+  );
   const isStopped = ["exited", "created", "removed", "dead"].includes(
     container.status,
   );
 
+  const serverLocation =
+    container.config?.SERVER_COUNTRIES ||
+    container.config?.SERVER_CITIES ||
+    container.config?.SERVER_REGIONS ||
+    null;
+
   return (
     <div
       onClick={() => navigate(`/containers/${container.id}`)}
-      className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-all cursor-pointer group"
+      className="bg-vpn-card border border-vpn-border rounded-xl p-5 hover:border-vpn-muted transition-all cursor-pointer group"
     >
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-white group-hover:text-blue-400 transition-colors">
-            {container.name}
-          </h3>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {container.vpn_provider}
-          </p>
+      {/* Header: Name + Status */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-lg font-semibold text-white group-hover:text-vpn-primary transition-colors truncate">
+              {container.name}
+            </h3>
+            {container.description && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-vpn-primary/15 text-vpn-primary border border-vpn-primary/30 truncate max-w-[180px]">
+                {container.description}
+              </span>
+            )}
+          </div>
+          {container.docker_name &&
+            container.docker_name !== `gluetun-${container.name}` &&
+            container.docker_name !== container.name && (
+              <p className="text-xs text-amber-400/70 mt-0.5 truncate max-w-[200px] font-mono">
+                {container.docker_name}
+              </p>
+            )}
         </div>
         <StatusBadge status={container.status} />
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-        <div className="text-slate-500">
-          Type: <span className="text-slate-300">{container.vpn_type}</span>
+      {/* VPN Connection Info */}
+      <div className="bg-vpn-input/50 rounded-lg p-3 mb-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            <Shield className="w-3.5 h-3.5 text-vpn-primary" />
+            <span className="text-vpn-text font-medium capitalize">
+              {container.vpn_provider}
+            </span>
+            <span className="text-vpn-muted">·</span>
+            <span className="text-vpn-muted text-xs uppercase">
+              {container.vpn_type}
+            </span>
+          </div>
+          {vpnInfo?.vpn_status && (
+            <span
+              className={`flex items-center gap-1 text-xs font-medium ${
+                vpnInfo.vpn_status === "running" && vpnInfo.public_ip
+                  ? "text-emerald-400"
+                  : "text-red-400"
+              }`}
+            >
+              {vpnInfo.vpn_status === "running" && vpnInfo.public_ip ? (
+                <Wifi className="w-3 h-3" />
+              ) : (
+                <WifiOff className="w-3 h-3" />
+              )}
+              {vpnInfo.vpn_status === "running" && vpnInfo.public_ip
+                ? "Connected"
+                : "Disconnected"}
+            </span>
+          )}
         </div>
-        <div className="text-slate-500">
-          HTTP:{" "}
-          <span className="text-slate-300">:{container.port_http_proxy}</span>
-        </div>
-        <div className="text-slate-500">
-          SOCKS:{" "}
-          <span className="text-slate-300">:{container.port_shadowsocks}</span>
-        </div>
-        <div className="text-slate-500">
-          Control:{" "}
-          <span className="text-slate-300">:{container.port_control}</span>
-        </div>
+
+        {/* IP & Location Row */}
+        {(vpnInfo?.public_ip || serverLocation) && (
+          <div className="flex items-center gap-3 flex-wrap">
+            {vpnInfo?.public_ip && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Globe className="w-3 h-3 text-vpn-primary" />
+                <span className="text-vpn-primary font-mono">
+                  {vpnInfo.public_ip}
+                </span>
+              </div>
+            )}
+            {(vpnInfo?.country || serverLocation) && (
+              <div className="flex items-center gap-1 text-xs text-vpn-muted">
+                <MapPin className="w-3 h-3" />
+                <span>{vpnInfo?.country || serverLocation}</span>
+                {vpnInfo?.region && (
+                  <span className="text-vpn-muted/60">· {vpnInfo.region}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Port Forwarding */}
+        {vpnInfo?.port_forwarded && (
+          <div className="flex items-center gap-1.5 text-xs text-vpn-muted">
+            <ArrowUpDown className="w-3 h-3 text-amber-400" />
+            <span>
+              Port Forwarded:{" "}
+              <span className="text-amber-400 font-mono">
+                {vpnInfo.port_forwarded}
+              </span>
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center gap-2 pt-3 border-t border-slate-800">
+      {/* Ports & Network */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {container.config?.HTTPPROXY?.toLowerCase() === "on" &&
+          (() => {
+            const internalPort = container.port_http_proxy || 8888;
+            const user = container.config?.HTTPPROXY_USER;
+            const pass = container.config?.HTTPPROXY_PASSWORD;
+            const auth = user && pass ? `${user}:${pass}@` : "";
+            const authDisplay = user && pass ? `${user}:***@` : "";
+            const ip = container.ip_address || "<ip>";
+            const internalUrl = `http://${auth}${ip}:${internalPort}`;
+            const proxyMapping = container.extra_ports?.find(
+              (ep) => parseInt(ep.container) === internalPort,
+            );
+            const externalPort = proxyMapping
+              ? parseInt(proxyMapping.host)
+              : null;
+            const serverIp = window.location.hostname;
+            const externalUrl = externalPort
+              ? `http://${auth}${serverIp}:${externalPort}`
+              : null;
+
+            return (
+              <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2 space-y-1.5">
+                <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+                  HTTP Proxy
+                </p>
+                {/* Internal URL */}
+                <div
+                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/int"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyToClipboard(internalUrl);
+                  }}
+                  title="Click to copy internal proxy URL"
+                >
+                  <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                    Internal
+                  </span>
+                  <p className="text-[9px] text-emerald-400/70 font-mono truncate flex-1">
+                    http://{authDisplay}
+                    {ip}:{internalPort}
+                  </p>
+                  {copiedUrl === internalUrl ? (
+                    <Check className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
+                  )}
+                </div>
+                {/* External URL - only if mapped */}
+                {externalUrl && (
+                  <div
+                    className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/ext"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyToClipboard(externalUrl);
+                    }}
+                    title="Click to copy external proxy URL"
+                  >
+                    <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                      External
+                    </span>
+                    <p className="text-[9px] text-blue-400/70 font-mono truncate flex-1">
+                      http://{authDisplay}
+                      {serverIp}:{externalPort}
+                    </p>
+                    {copiedUrl === externalUrl ? (
+                      <Check className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+                    ) : (
+                      <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        {container.config?.SHADOWSOCKS?.toLowerCase() === "on" && (
+          <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
+            <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+              Shadowsocks
+            </p>
+            <p className="text-sm text-vpn-text font-mono">
+              :{container.port_shadowsocks}
+            </p>
+          </div>
+        )}
+        {container.extra_ports?.length > 0 && (
+          <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
+            <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+              Extra Ports
+            </p>
+            <p className="text-sm text-vpn-text">
+              {container.extra_ports.length} mapped
+            </p>
+          </div>
+        )}
+        {container.network_name && (
+          <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50">
+            <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+              Network
+            </p>
+            <p className="text-sm text-vpn-text truncate">
+              {container.network_name}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Dependent Containers */}
+      {dependents.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs text-vpn-muted mb-2 flex items-center gap-1">
+            <Network className="w-3.5 h-3.5" />
+            Network Clients ({dependents.length})
+          </p>
+          <div className="space-y-1.5">
+            {dependents.map((dep) => (
+              <div
+                key={dep.id}
+                className="flex items-center justify-between bg-vpn-input rounded-lg px-3 py-2"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      dep.status === "running"
+                        ? "bg-emerald-500"
+                        : dep.status === "exited"
+                          ? "bg-red-500"
+                          : "bg-amber-500"
+                    }`}
+                  />
+                  <span className="text-xs text-white truncate">
+                    {dep.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                  {["exited", "created", "dead"].includes(dep.status) && (
+                    <button
+                      onClick={(e) => handleDepAction(e, dep.name, "start")}
+                      className="p-1 rounded text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90"
+                      title="Start"
+                    >
+                      <Play className="w-3 h-3" />
+                    </button>
+                  )}
+                  {dep.status === "running" && (
+                    <button
+                      onClick={(e) => handleDepAction(e, dep.name, "stop")}
+                      className="p-1 rounded text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90"
+                      title="Stop"
+                    >
+                      <Square className="w-3 h-3" />
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => handleDepAction(e, dep.name, "restart")}
+                    className="p-1 rounded text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90"
+                    title="Restart"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 pt-3 border-t border-vpn-border">
         <button
           onClick={(e) => {
             e.stopPropagation();
             navigate(`/containers/${container.id}`);
           }}
-          className="p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          className="p-2 rounded-lg text-vpn-muted hover:bg-vpn-input hover:text-white transition-all active:scale-90"
           title="View Details"
         >
           <Eye className="w-4 h-4" />
@@ -84,31 +412,41 @@ export default function ContainerCard({ container, onRefresh }) {
         {isStopped && (
           <button
             onClick={(e) => handleAction(e, "start")}
-            className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+            disabled={!!actionLoading}
+            className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-90 disabled:opacity-50"
             title="Start"
           >
-            <Play className="w-4 h-4" />
+            <Play
+              className={`w-4 h-4 ${actionLoading === "start" ? "animate-pulse" : ""}`}
+            />
           </button>
         )}
         {isRunning && (
           <button
             onClick={(e) => handleAction(e, "stop")}
-            className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-colors"
+            disabled={!!actionLoading}
+            className="p-2 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all active:scale-90 disabled:opacity-50"
             title="Stop"
           >
-            <Square className="w-4 h-4" />
+            <Square
+              className={`w-4 h-4 ${actionLoading === "stop" ? "animate-pulse" : ""}`}
+            />
           </button>
         )}
         <button
           onClick={(e) => handleAction(e, "restart")}
-          className="p-2 rounded-lg text-blue-400 hover:bg-blue-500/10 transition-colors"
+          disabled={!!actionLoading}
+          className="p-2 rounded-lg text-vpn-primary hover:bg-vpn-primary/10 transition-all active:scale-90 disabled:opacity-50"
           title="Restart"
         >
-          <RotateCcw className="w-4 h-4" />
+          <RotateCcw
+            className={`w-4 h-4 ${actionLoading === "restart" ? "animate-spin" : ""}`}
+          />
         </button>
         <button
           onClick={handleDelete}
-          className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors ml-auto"
+          disabled={!!actionLoading}
+          className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-all active:scale-90 ml-auto disabled:opacity-50"
           title="Delete"
         >
           <Trash2 className="w-4 h-4" />

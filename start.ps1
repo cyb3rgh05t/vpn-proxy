@@ -16,9 +16,9 @@ if (Test-Path $venvActivate) {
 }
 
 # Start Backend (use cmd /c for .cmd/.bat shims on Windows)
-Write-Host "[Starting] Backend on http://localhost:8000" -ForegroundColor Green
+Write-Host "[Starting] Backend on http://localhost:5000" -ForegroundColor Green
 $backend = Start-Process -FilePath "cmd.exe" `
-    -ArgumentList "/c", "cd /d `"$ScriptDir\backend`" && uvicorn app.main:app --reload --port 8000" `
+    -ArgumentList "/c", "cd /d `"$ScriptDir\backend`" && uvicorn app.main:app --reload --port 5000" `
     -PassThru -NoNewWindow
 
 Start-Sleep -Seconds 3

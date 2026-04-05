@@ -16,12 +16,16 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (
-      error.response?.status === 401 &&
-      !error.config?.url?.includes("/auth/")
-    ) {
-      localStorage.removeItem("token");
-      window.location.href = "/login";
+    const isAuthUrl = error.config?.url?.includes("/auth/");
+    if (!isAuthUrl) {
+      if (
+        error.response?.status === 401 ||
+        error.response?.status === 403 ||
+        (!error.response && localStorage.getItem("token"))
+      ) {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   },

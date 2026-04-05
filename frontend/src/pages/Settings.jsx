@@ -698,16 +698,16 @@ export default function Settings() {
             ) : null}
           </div>
 
-          {/* Portainer URL */}
+          {/* Docker Socket URL */}
           <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-4">
               <Container className="w-5 h-5 text-vpn-primary" />
               <div>
                 <h2 className="text-lg font-semibold text-white">
-                  Portainer URL
+                  Docker Socket URL
                 </h2>
                 <p className="text-xs text-vpn-muted">
-                  Set the URL of your Portainer instance. When configured, a
+                  Set the URL of your Docker Socket instance. When configured, a
                   link appears in the sidebar.
                 </p>
               </div>
@@ -727,7 +727,7 @@ export default function Settings() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2.5 bg-vpn-input border border-vpn-border hover:border-vpn-primary rounded-lg text-vpn-muted hover:text-vpn-primary transition-colors shrink-0"
-                    title="Open Portainer"
+                    title="Open Docker Socket"
                   >
                     <ExternalLink className="w-4 h-4" />
                   </a>

@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_LABEL = "managed-by"
 CONTAINER_LABEL_VALUE = "vpn-proxy"
+COMPOSE_PROJECT_LABEL = "com.docker.compose.project"
+COMPOSE_PROJECT_VALUE = "vpn-proxy"
 
 # Whitelist of env vars to show in the UI config section
 ALLOWED_CONFIG_KEYS = {
@@ -191,7 +193,11 @@ def create_container(
             "volumes": {gluetun_mount: {"bind": "/gluetun", "mode": "rw"}},
             "detach": True,
             "restart_policy": {"Name": "unless-stopped", "MaximumRetryCount": 0},
-            "labels": {CONTAINER_LABEL: CONTAINER_LABEL_VALUE, "vpn-proxy-name": name},
+            "labels": {
+                CONTAINER_LABEL: CONTAINER_LABEL_VALUE,
+                COMPOSE_PROJECT_LABEL: COMPOSE_PROJECT_VALUE,
+                "vpn-proxy-name": name,
+            },
         }
         if network_name:
             run_kwargs["network"] = network_name
@@ -1169,6 +1175,7 @@ def change_container_network_mode(container_name: str, new_network_mode: str) ->
     image = config.get("Image", "")
     env = config.get("Env", [])
     labels = config.get("Labels", {})
+    labels[COMPOSE_PROJECT_LABEL] = COMPOSE_PROJECT_VALUE
     cmd = config.get("Cmd")
     entrypoint = config.get("Entrypoint")
     hostname = config.get("Hostname", "")
@@ -1399,7 +1406,10 @@ def create_o11_container(
                 volume_bindings[source] = {"bind": target, "mode": mode}
 
     # Build container labels
-    container_labels = {"managed-by": "vpn-proxy-o11"}
+    container_labels = {
+        "managed-by": "vpn-proxy-o11",
+        COMPOSE_PROJECT_LABEL: COMPOSE_PROJECT_VALUE,
+    }
     if labels:
         container_labels.update(labels)
 
@@ -1469,6 +1479,7 @@ def redeploy_o11_container(
     # Preserve existing container properties
     old_env = config.get("Env", [])
     labels = config.get("Labels", {})
+    labels[COMPOSE_PROJECT_LABEL] = COMPOSE_PROJECT_VALUE
     cmd = config.get("Cmd")
     entrypoint = config.get("Entrypoint")
     hostname = config.get("Hostname", "")

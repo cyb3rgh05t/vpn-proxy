@@ -11,10 +11,17 @@ import {
   Network,
   Wifi,
   WifiOff,
+  CheckSquare,
+  Square,
+  Play,
+  RotateCcw,
+  Trash2,
+  X,
 } from "lucide-react";
 import api from "../services/api";
 import ContainerCard from "../components/ContainerCard";
 import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 import { useContainerData } from "../context/ContainerDataContext";
 import { useLocation, useSearchParams } from "react-router-dom";
 
@@ -24,6 +31,7 @@ export default function VpnProxy() {
   const scrolledRef = useRef(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const {
     containers,
     vpnInfoMap,
@@ -32,6 +40,11 @@ export default function VpnProxy() {
     refreshContainers,
     refreshAll,
   } = useContainerData();
+
+  // Selection state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkLoading, setBulkLoading] = useState("");
 
   // Scroll to container card when navigated with hash
   useEffect(() => {
@@ -158,6 +171,110 @@ export default function VpnProxy() {
         c.description?.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
+  // Selection helpers
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(filteredContainers.map((c) => c.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const selectedContainers = containers.filter((c) => selectedIds.has(c.id));
+  const selectedCount = selectedIds.size;
+
+  // Bulk actions
+  const bulkAction = async (action) => {
+    if (selectedCount === 0) return;
+    setBulkLoading(action);
+    let success = 0;
+    let failed = 0;
+    for (const id of selectedIds) {
+      try {
+        await api.post(`/containers/${id}/${action}`);
+        success++;
+      } catch {
+        failed++;
+      }
+    }
+    toast.success(
+      `${action}: ${success} succeeded${failed ? `, ${failed} failed` : ""}`,
+    );
+    setBulkLoading("");
+    refreshContainers();
+  };
+
+  const bulkDelete = async () => {
+    if (selectedCount === 0) return;
+    const names = selectedContainers.map((c) => c.name).join(", ");
+    const ok = await confirm({
+      title: "Delete Selected Containers",
+      message: `Delete ${selectedCount} container(s): ${names}? This cannot be undone.`,
+      confirmText: "Delete All",
+      variant: "danger",
+    });
+    if (!ok) return;
+    setBulkLoading("delete");
+    let success = 0;
+    let failed = 0;
+    for (const id of selectedIds) {
+      try {
+        await api.delete(`/containers/${id}`);
+        success++;
+      } catch {
+        failed++;
+      }
+    }
+    toast.success(
+      `Deleted: ${success} succeeded${failed ? `, ${failed} failed` : ""}`,
+    );
+    setBulkLoading("");
+    exitSelectMode();
+    refreshContainers();
+  };
+
+  const bulkRedeploy = async () => {
+    if (selectedCount === 0) return;
+    const names = selectedContainers.map((c) => c.name).join(", ");
+    const ok = await confirm({
+      title: "Redeploy Selected Containers",
+      message: `Redeploy ${selectedCount} container(s): ${names}? Dependents will be restarted automatically.`,
+      confirmText: "Redeploy All",
+      variant: "info",
+    });
+    if (!ok) return;
+    setBulkLoading("redeploy");
+    let success = 0;
+    let failed = 0;
+    for (const id of selectedIds) {
+      try {
+        await api.post(`/containers/${id}/redeploy`, {});
+        success++;
+      } catch {
+        failed++;
+      }
+    }
+    toast.success(
+      `Redeploy: ${success} succeeded${failed ? `, ${failed} failed` : ""}`,
+    );
+    setBulkLoading("");
+    refreshContainers();
+  };
+
   const proxyContainers = filteredContainers.filter(
     (c) =>
       c.config?.HTTPPROXY?.toLowerCase() === "on" ||
@@ -183,6 +300,19 @@ export default function VpnProxy() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 sm:gap-3">
+          <button
+            onClick={() =>
+              selectMode ? exitSelectMode() : setSelectMode(true)
+            }
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-all shadow-sm ${
+              selectMode
+                ? "bg-vpn-primary/20 border-vpn-primary text-vpn-primary"
+                : "bg-vpn-card border-vpn-border hover:border-vpn-primary text-vpn-text"
+            }`}
+          >
+            <CheckSquare className="w-4 h-4 text-vpn-primary" />
+            {selectMode ? "Cancel" : "Select"}
+          </button>
           <button
             onClick={async () => {
               setDiscovering(true);
@@ -316,6 +446,93 @@ export default function VpnProxy() {
         </div>
       )}
 
+      {/* Bulk Action Bar */}
+      {selectMode && (
+        <div className="bg-vpn-card border border-vpn-border rounded-xl p-3 mb-6 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={
+                selectedCount === filteredContainers.length
+                  ? deselectAll
+                  : selectAll
+              }
+              className="flex items-center gap-2 px-3 py-1.5 bg-vpn-input border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm rounded-lg transition-all"
+            >
+              {selectedCount === filteredContainers.length ? (
+                <CheckSquare className="w-4 h-4 text-vpn-primary" />
+              ) : (
+                <Square className="w-4 h-4 text-vpn-muted" />
+              )}
+              {selectedCount === filteredContainers.length
+                ? "Deselect All"
+                : "Select All"}
+            </button>
+            <span className="text-sm text-vpn-muted">
+              {selectedCount} of {filteredContainers.length} selected
+            </span>
+          </div>
+          {selectedCount > 0 && (
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={() => bulkAction("start")}
+                disabled={!!bulkLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-vpn-input border border-vpn-border hover:border-emerald-400 text-emerald-400 text-sm rounded-lg transition-all disabled:opacity-50"
+                title="Start Selected"
+              >
+                <Play
+                  className={`w-3.5 h-3.5 ${bulkLoading === "start" ? "animate-pulse" : ""}`}
+                />
+                Start
+              </button>
+              <button
+                onClick={() => bulkAction("stop")}
+                disabled={!!bulkLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-vpn-input border border-vpn-border hover:border-amber-400 text-amber-400 text-sm rounded-lg transition-all disabled:opacity-50"
+                title="Stop Selected"
+              >
+                <Square
+                  className={`w-3.5 h-3.5 ${bulkLoading === "stop" ? "animate-pulse" : ""}`}
+                />
+                Stop
+              </button>
+              <button
+                onClick={() => bulkAction("restart")}
+                disabled={!!bulkLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-vpn-input border border-vpn-border hover:border-vpn-primary text-vpn-primary text-sm rounded-lg transition-all disabled:opacity-50"
+                title="Restart Selected"
+              >
+                <RotateCcw
+                  className={`w-3.5 h-3.5 ${bulkLoading === "restart" ? "animate-spin" : ""}`}
+                />
+                Restart
+              </button>
+              <button
+                onClick={bulkRedeploy}
+                disabled={!!bulkLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-vpn-input border border-vpn-border hover:border-blue-400 text-blue-400 text-sm rounded-lg transition-all disabled:opacity-50"
+                title="Redeploy Selected"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${bulkLoading === "redeploy" ? "animate-spin" : ""}`}
+                />
+                Redeploy
+              </button>
+              <button
+                onClick={bulkDelete}
+                disabled={!!bulkLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-vpn-input border border-vpn-border hover:border-red-400 text-red-400 text-sm rounded-lg transition-all disabled:opacity-50"
+                title="Delete Selected"
+              >
+                <Trash2
+                  className={`w-3.5 h-3.5 ${bulkLoading === "delete" ? "animate-pulse" : ""}`}
+                />
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Container Grid */}
       {loading ? (
         <div className="flex justify-center py-12">
@@ -373,7 +590,32 @@ export default function VpnProxy() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {proxyContainers.map((container) => (
-                  <div key={container.id} id={`container-${container.id}`}>
+                  <div
+                    key={container.id}
+                    id={`container-${container.id}`}
+                    className="relative"
+                  >
+                    {selectMode && (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSelect(container.id);
+                        }}
+                        className={`absolute inset-0 z-10 rounded-xl cursor-pointer border-2 transition-all ${
+                          selectedIds.has(container.id)
+                            ? "border-vpn-primary bg-vpn-primary/10"
+                            : "border-transparent hover:border-vpn-primary/50"
+                        }`}
+                      >
+                        <div className="absolute top-3 right-3">
+                          {selectedIds.has(container.id) ? (
+                            <CheckSquare className="w-5 h-5 text-vpn-primary" />
+                          ) : (
+                            <Square className="w-5 h-5 text-vpn-muted" />
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <ContainerCard
                       container={container}
                       vpnInfo={vpnInfoMap[String(container.id)]}
@@ -399,7 +641,32 @@ export default function VpnProxy() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {vpnOnlyContainers.map((container) => (
-                  <div key={container.id} id={`container-${container.id}`}>
+                  <div
+                    key={container.id}
+                    id={`container-${container.id}`}
+                    className="relative"
+                  >
+                    {selectMode && (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSelect(container.id);
+                        }}
+                        className={`absolute inset-0 z-10 rounded-xl cursor-pointer border-2 transition-all ${
+                          selectedIds.has(container.id)
+                            ? "border-vpn-primary bg-vpn-primary/10"
+                            : "border-transparent hover:border-vpn-primary/50"
+                        }`}
+                      >
+                        <div className="absolute top-3 right-3">
+                          {selectedIds.has(container.id) ? (
+                            <CheckSquare className="w-5 h-5 text-vpn-primary" />
+                          ) : (
+                            <Square className="w-5 h-5 text-vpn-muted" />
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <ContainerCard
                       container={container}
                       vpnInfo={vpnInfoMap[String(container.id)]}

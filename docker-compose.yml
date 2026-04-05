@@ -10,6 +10,7 @@ services:
       - "SECRET_KEY=mysupersecretkey"
       - "DATABASE_URL=sqlite:///./data/vpnproxy.db"
       - "GLUETUN_IMAGE=qmcgaw/gluetun:latest"
+      - "HOST_DATA_DIR=/opt/appdata/vpn-proxy/data"
     restart: "unless-stopped"
     networks:
       - proxy

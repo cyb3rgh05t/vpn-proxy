@@ -251,7 +251,6 @@ export default function Settings() {
     try {
       await api.put("/settings/telegram", telegramConfig);
       toast.success("Telegram settings saved");
-      fetchTelegramConfig();
     } catch (err) {
       toast.error(
         err.response?.data?.detail || "Failed to save Telegram settings",

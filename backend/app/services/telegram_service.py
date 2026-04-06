@@ -18,9 +18,12 @@ _running = False
 _thread: threading.Thread | None = None
 _initial_check_done = False
 
-# Cooldown: don't notify about the same container more than once per 5 minutes
+# Cooldown tracking
 _last_notified: dict[str, float] = {}  # "container_id:event" -> timestamp
-NOTIFY_COOLDOWN = 300  # seconds
+
+# Defaults
+DEFAULT_CHECK_INTERVAL = 30  # seconds
+DEFAULT_COOLDOWN_MINUTES = 60  # minutes
 
 
 def _get_settings() -> dict:
@@ -75,6 +78,8 @@ def get_config() -> dict:
         "notify_unhealthy": s.get("notify_unhealthy", True),
         "notify_stopped": s.get("notify_stopped", False),
         "notify_recovered": s.get("notify_recovered", True),
+        "check_interval": s.get("check_interval", DEFAULT_CHECK_INTERVAL),
+        "cooldown_minutes": s.get("cooldown_minutes", DEFAULT_COOLDOWN_MINUTES),
     }
 
 
@@ -95,6 +100,10 @@ def update_config(data: dict):
         current["notify_stopped"] = bool(data["notify_stopped"])
     if "notify_recovered" in data:
         current["notify_recovered"] = bool(data["notify_recovered"])
+    if "check_interval" in data:
+        current["check_interval"] = max(10, int(data["check_interval"]))
+    if "cooldown_minutes" in data:
+        current["cooldown_minutes"] = max(1, int(data["cooldown_minutes"]))
     _save_settings(current)
     reload()
 
@@ -189,9 +198,11 @@ def test_message(bot_token: str | None = None, chat_id: str | None = None) -> di
 
 def _should_notify(key: str) -> bool:
     """Check cooldown for a notification key."""
+    s = _get_settings()
+    cooldown_seconds = s.get("cooldown_minutes", DEFAULT_COOLDOWN_MINUTES) * 60
     now = time.time()
     last = _last_notified.get(key, 0)
-    if now - last < NOTIFY_COOLDOWN:
+    if now - last < cooldown_seconds:
         return False
     _last_notified[key] = now
     return True
@@ -403,7 +414,9 @@ def _run_loop():
             _check_containers()
         except Exception as e:
             logger.error("Notification loop error: %s", e)
-        time.sleep(30)
+        s = _get_settings()
+        interval = s.get("check_interval", DEFAULT_CHECK_INTERVAL)
+        time.sleep(max(10, interval))
 
 
 def start():

@@ -124,6 +124,8 @@ export default function Settings() {
     notify_unhealthy: true,
     notify_stopped: false,
     notify_recovered: true,
+    check_interval: 30,
+    cooldown_minutes: 60,
   });
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [telegramSaving, setTelegramSaving] = useState(false);
@@ -233,6 +235,8 @@ export default function Settings() {
           res.data.notify_recovered !== undefined
             ? res.data.notify_recovered
             : true,
+        check_interval: res.data.check_interval || 30,
+        cooldown_minutes: res.data.cooldown_minutes || 60,
       });
       setTelegramTokenMasked(res.data.bot_token_masked || "");
     } catch {
@@ -1590,6 +1594,71 @@ export default function Settings() {
                         </button>
                       ),
                     )}
+                  </div>
+                </div>
+
+                {/* Check Interval & Cooldown */}
+                <div>
+                  <p className="text-sm font-medium text-vpn-muted mb-3">
+                    Timing
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                        Check Interval
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="10"
+                          value={telegramConfig.check_interval}
+                          onChange={(e) =>
+                            setTelegramConfig((prev) => ({
+                              ...prev,
+                              check_interval: Math.max(
+                                10,
+                                parseInt(e.target.value) || 10,
+                              ),
+                            }))
+                          }
+                          className={`${inputClass} pr-20`}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-vpn-muted">
+                          seconds
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-vpn-muted mt-1">
+                        How often container states are checked (min: 10s)
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                        Notification Cooldown
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="1"
+                          value={telegramConfig.cooldown_minutes}
+                          onChange={(e) =>
+                            setTelegramConfig((prev) => ({
+                              ...prev,
+                              cooldown_minutes: Math.max(
+                                1,
+                                parseInt(e.target.value) || 1,
+                              ),
+                            }))
+                          }
+                          className={`${inputClass} pr-20`}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-vpn-muted">
+                          minutes
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-vpn-muted mt-1">
+                        Don&apos;t repeat same alert within this period
+                      </p>
+                    </div>
                   </div>
                 </div>
 

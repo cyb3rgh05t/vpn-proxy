@@ -33,6 +33,8 @@ import {
   BookOpen,
   Info,
   ExternalLink,
+  Bell,
+  Send,
 } from "lucide-react";
 import api from "../services/api";
 import HowTo from "./HowTo";
@@ -113,6 +115,22 @@ export default function Settings() {
   const [portainerUrl, setPortainerUrl] = useState("");
   const [portainerSaving, setPortainerSaving] = useState(false);
 
+  // Telegram Notifications
+  const [telegramConfig, setTelegramConfig] = useState({
+    enabled: false,
+    bot_token: "",
+    chat_id: "",
+    notify_disconnected: true,
+    notify_unhealthy: true,
+    notify_stopped: false,
+    notify_recovered: true,
+  });
+  const [telegramLoading, setTelegramLoading] = useState(false);
+  const [telegramSaving, setTelegramSaving] = useState(false);
+  const [telegramTesting, setTelegramTesting] = useState(false);
+  const [showBotToken, setShowBotToken] = useState(false);
+  const [telegramTokenMasked, setTelegramTokenMasked] = useState("");
+
   useEffect(() => {
     if (user?.is_admin) {
       fetchUsers();
@@ -122,6 +140,7 @@ export default function Settings() {
     fetchO11Instances();
     fetchContainerImages();
     fetchPortainerUrl();
+    fetchTelegramConfig();
   }, [user]);
 
   const fetchO11Instances = async () => {
@@ -187,6 +206,70 @@ export default function Settings() {
       toast.error(err.response?.data?.detail || "Failed to save Portainer URL");
     } finally {
       setPortainerSaving(false);
+    }
+  };
+
+  const fetchTelegramConfig = async () => {
+    setTelegramLoading(true);
+    try {
+      const res = await api.get("/settings/telegram");
+      setTelegramConfig({
+        enabled: res.data.enabled || false,
+        bot_token: res.data.bot_token || "",
+        chat_id: res.data.chat_id || "",
+        notify_disconnected:
+          res.data.notify_disconnected !== undefined
+            ? res.data.notify_disconnected
+            : true,
+        notify_unhealthy:
+          res.data.notify_unhealthy !== undefined
+            ? res.data.notify_unhealthy
+            : true,
+        notify_stopped:
+          res.data.notify_stopped !== undefined
+            ? res.data.notify_stopped
+            : false,
+        notify_recovered:
+          res.data.notify_recovered !== undefined
+            ? res.data.notify_recovered
+            : true,
+      });
+      setTelegramTokenMasked(res.data.bot_token_masked || "");
+    } catch {
+      // ignore
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleSaveTelegram = async () => {
+    setTelegramSaving(true);
+    try {
+      await api.put("/settings/telegram", telegramConfig);
+      toast.success("Telegram settings saved");
+      fetchTelegramConfig();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.detail || "Failed to save Telegram settings",
+      );
+    } finally {
+      setTelegramSaving(false);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    setTelegramTesting(true);
+    try {
+      const res = await api.post("/settings/telegram/test");
+      if (res.data.success) {
+        toast.success("Test message sent successfully!");
+      } else {
+        toast.error(res.data.error || "Test failed");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Test failed");
+    } finally {
+      setTelegramTesting(false);
     }
   };
 
@@ -534,6 +617,7 @@ export default function Settings() {
             { id: "system", label: "System", icon: Wrench },
             { id: "images", label: "Container Images", icon: Box },
             { id: "monitoring", label: "Monitoring", icon: Activity },
+            { id: "notifications", label: "Notifications", icon: Bell },
             { id: "users", label: "User Management", icon: Users },
             { id: "howto", label: "How To", icon: BookOpen },
             { id: "about", label: "About", icon: Info },
@@ -1255,6 +1339,349 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* Notifications Tab */}
+      {settingsTab === "notifications" && (
+        <div className="space-y-6">
+          {/* Telegram Notifications */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Bell className="w-5 h-5 text-vpn-primary" />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">
+                    Telegram Notifications
+                  </h2>
+                  <p className="text-xs text-vpn-muted">
+                    Get notified when VPN containers disconnect, become
+                    unhealthy, or recover
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {telegramConfig.enabled && (
+                  <button
+                    onClick={handleTestTelegram}
+                    disabled={
+                      telegramTesting ||
+                      !telegramConfig.bot_token ||
+                      !telegramConfig.chat_id
+                    }
+                    className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm font-medium rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send
+                      className={`w-4 h-4 text-vpn-primary ${telegramTesting ? "animate-pulse" : ""}`}
+                    />
+                    {telegramTesting ? "Sending..." : "Test"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {telegramLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-vpn-primary"></div>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Enable Toggle */}
+                <div className="flex items-center justify-between bg-vpn-input rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        telegramConfig.enabled
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-vpn-border text-vpn-muted"
+                      }`}
+                    >
+                      <Bell className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-white text-sm font-medium">
+                        Enable Notifications
+                      </p>
+                      <p className="text-xs text-vpn-muted">
+                        Send alerts via Telegram when container status changes
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() =>
+                      setTelegramConfig((prev) => ({
+                        ...prev,
+                        enabled: !prev.enabled,
+                      }))
+                    }
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      telegramConfig.enabled
+                        ? "bg-vpn-primary"
+                        : "bg-vpn-border"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        telegramConfig.enabled
+                          ? "translate-x-6"
+                          : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Bot Token & Chat ID */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                      Bot Token
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showBotToken ? "text" : "password"}
+                        value={telegramConfig.bot_token}
+                        onChange={(e) =>
+                          setTelegramConfig((prev) => ({
+                            ...prev,
+                            bot_token: e.target.value,
+                          }))
+                        }
+                        className={`${inputClass} pr-10`}
+                        placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowBotToken(!showBotToken)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-vpn-muted hover:text-vpn-text"
+                      >
+                        {showBotToken ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-vpn-muted mt-1">
+                      Get it from{" "}
+                      <a
+                        href="https://t.me/BotFather"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-vpn-primary hover:underline"
+                      >
+                        @BotFather
+                      </a>
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-vpn-muted mb-1.5">
+                      Chat ID
+                    </label>
+                    <input
+                      type="text"
+                      value={telegramConfig.chat_id}
+                      onChange={(e) =>
+                        setTelegramConfig((prev) => ({
+                          ...prev,
+                          chat_id: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                      placeholder="Your Telegram Chat ID"
+                    />
+                    <p className="text-[10px] text-vpn-muted mt-1">
+                      Get it from{" "}
+                      <a
+                        href="https://t.me/userinfobot"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-vpn-primary hover:underline"
+                      >
+                        @userinfobot
+                      </a>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Notification Events */}
+                <div>
+                  <p className="text-sm font-medium text-vpn-muted mb-3">
+                    Notify on these events
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      {
+                        key: "notify_disconnected",
+                        label: "VPN Disconnected",
+                        desc: "Container running but VPN connection lost",
+                        icon: WifiOff,
+                        color: "text-amber-400",
+                        bg: "bg-amber-500/10",
+                        border: "border-amber-500/20",
+                      },
+                      {
+                        key: "notify_unhealthy",
+                        label: "Container Unhealthy",
+                        desc: "Docker health check is failing",
+                        icon: AlertCircle,
+                        color: "text-red-400",
+                        bg: "bg-red-500/10",
+                        border: "border-red-500/20",
+                      },
+                      {
+                        key: "notify_stopped",
+                        label: "Container Stopped",
+                        desc: "Container exited or was removed",
+                        icon: AlertCircle,
+                        color: "text-vpn-muted",
+                        bg: "bg-vpn-input",
+                        border: "border-vpn-border/50",
+                      },
+                      {
+                        key: "notify_recovered",
+                        label: "VPN Recovered",
+                        desc: "Container back online with VPN connected",
+                        icon: CheckCircle,
+                        color: "text-emerald-400",
+                        bg: "bg-emerald-500/10",
+                        border: "border-emerald-500/20",
+                      },
+                    ].map(
+                      ({ key, label, desc, icon: Icon, color, bg, border }) => (
+                        <button
+                          key={key}
+                          onClick={() =>
+                            setTelegramConfig((prev) => ({
+                              ...prev,
+                              [key]: !prev[key],
+                            }))
+                          }
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
+                            telegramConfig[key]
+                              ? `${bg} ${border}`
+                              : "bg-vpn-input/50 border-vpn-border/30 opacity-60"
+                          }`}
+                        >
+                          <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
+                          <div className="min-w-0">
+                            <p
+                              className={`text-sm font-medium ${
+                                telegramConfig[key]
+                                  ? "text-white"
+                                  : "text-vpn-muted"
+                              }`}
+                            >
+                              {label}
+                            </p>
+                            <p className="text-[10px] text-vpn-muted">{desc}</p>
+                          </div>
+                          <div
+                            className={`ml-auto w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
+                              telegramConfig[key]
+                                ? "bg-vpn-primary border-vpn-primary"
+                                : "border-vpn-border"
+                            }`}
+                          >
+                            {telegramConfig[key] && (
+                              <CheckCircle className="w-3 h-3 text-black" />
+                            )}
+                          </div>
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={handleSaveTelegram}
+                    disabled={telegramSaving}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-vpn-card border border-vpn-border hover:border-vpn-primary disabled:opacity-50 text-vpn-text font-medium rounded-lg transition-all shadow-sm disabled:cursor-not-allowed"
+                  >
+                    {telegramSaving ? (
+                      <RefreshCw className="w-4 h-4 text-vpn-primary animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-vpn-primary" />
+                    )}
+                    {telegramSaving ? "Saving..." : "Save Settings"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* How it works info */}
+          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Info className="w-5 h-5 text-vpn-primary" />
+              <h2 className="text-lg font-semibold text-white">How it works</h2>
+            </div>
+            <div className="space-y-3 text-sm text-vpn-muted">
+              <div className="flex items-start gap-3">
+                <span className="text-vpn-primary font-bold text-xs mt-0.5">
+                  1
+                </span>
+                <p>
+                  Create a Telegram bot via{" "}
+                  <a
+                    href="https://t.me/BotFather"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-vpn-primary hover:underline"
+                  >
+                    @BotFather
+                  </a>{" "}
+                  and copy the bot token.
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-vpn-primary font-bold text-xs mt-0.5">
+                  2
+                </span>
+                <p>
+                  Get your Chat ID from{" "}
+                  <a
+                    href="https://t.me/userinfobot"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-vpn-primary hover:underline"
+                  >
+                    @userinfobot
+                  </a>{" "}
+                  (send /start and it replies with your ID).
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-vpn-primary font-bold text-xs mt-0.5">
+                  3
+                </span>
+                <p>
+                  Start a chat with your bot (send it any message first so it
+                  can message you).
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-vpn-primary font-bold text-xs mt-0.5">
+                  4
+                </span>
+                <p>
+                  Enable notifications, select events, save, and click "Test" to
+                  verify.
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-vpn-primary font-bold text-xs mt-0.5">
+                  5
+                </span>
+                <p>
+                  The system checks container states every 30 seconds and sends
+                  alerts on state changes (with a 5-minute cooldown per event).
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {settingsTab === "users" && (
         <div className="space-y-6">
           {/* Account Info */}

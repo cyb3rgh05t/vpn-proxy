@@ -182,8 +182,16 @@ async def lifespan(app: FastAPI):
     run_migrations()
     auto_discover_containers()
     auto_discover_o11_containers()
+
+    # Start Telegram notification checker
+    from app.services import telegram_service
+
+    telegram_service.start()
+
     logger.info("VPN Proxy Manager is ready!")
     yield
+
+    telegram_service.stop()
     logger.info("VPN Proxy Manager shutting down.")
 
 

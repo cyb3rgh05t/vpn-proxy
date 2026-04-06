@@ -369,3 +369,48 @@ def update_portainer_url(
     url = (data.get("portainer_url") or "").strip().rstrip("/")
     _set_setting(db, "portainer_url", url)
     return {"status": "ok"}
+
+
+# --- Telegram Notification settings ---
+
+
+@router.get("/telegram")
+def get_telegram_settings(
+    current_user: User = Depends(get_current_user),
+):
+    """Get Telegram notification settings."""
+    from app.services import telegram_service
+
+    config = telegram_service.get_config()
+    # Mask bot token for display
+    token = config.get("bot_token", "")
+    if token and len(token) > 10:
+        config["bot_token_masked"] = token[:6] + "••••••" + token[-4:]
+    else:
+        config["bot_token_masked"] = ""
+    return config
+
+
+@router.put("/telegram")
+def update_telegram_settings(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+):
+    """Update Telegram notification settings."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    from app.services import telegram_service
+
+    telegram_service.update_config(data)
+    return {"status": "ok"}
+
+
+@router.post("/telegram/test")
+def test_telegram(
+    current_user: User = Depends(get_current_user),
+):
+    """Send a test Telegram notification."""
+    from app.services import telegram_service
+
+    return telegram_service.test_message()

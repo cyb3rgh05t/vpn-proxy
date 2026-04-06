@@ -315,21 +315,25 @@ export default function CreateContainer() {
                 Lowercase letters, numbers, hyphens, underscores only
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Card: Network */}
+        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Network</h2>
+          <div className="space-y-4">
             <div>
               <label className={labelClass}>Docker Network</label>
               <CustomDropdown
                 value={form.network_name}
                 onChange={(val) => setForm({ ...form, network_name: val })}
-                placeholder="Default (bridge)"
-                options={[
-                  { value: "", label: "Default (bridge)" },
-                  ...networks
-                    .filter((n) => !["host", "none"].includes(n.name))
-                    .map((n) => ({
-                      value: n.name,
-                      label: `${n.name} (${n.driver})`,
-                    })),
-                ]}
+                placeholder="Select network..."
+                options={networks
+                  .filter((n) => !["host", "none"].includes(n.name))
+                  .map((n) => ({
+                    value: n.name,
+                    label: `${n.name} (${n.driver})`,
+                  }))}
               />
               <p className="text-xs text-vpn-muted mt-1">
                 Select an existing Docker network for this container

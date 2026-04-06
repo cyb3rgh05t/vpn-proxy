@@ -323,6 +323,13 @@ VPN_PROVIDERS = {
                     "type": "password",
                     "required": True,
                 },
+                {
+                    "key": "WIREGUARD_ADDRESSES",
+                    "label": "Addresses",
+                    "type": "text",
+                    "required": True,
+                    "placeholder": "10.x.x.x/32",
+                },
             ],
         },
         "common_fields": [

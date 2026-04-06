@@ -408,9 +408,15 @@ def update_telegram_settings(
 
 @router.post("/telegram/test")
 def test_telegram(
+    data: dict = None,
     current_user: User = Depends(get_current_user),
 ):
-    """Send a test Telegram notification."""
+    """Send a test Telegram notification using provided or saved settings."""
     from app.services import telegram_service
 
-    return telegram_service.test_message()
+    bot_token = None
+    chat_id = None
+    if data:
+        bot_token = data.get("bot_token")
+        chat_id = data.get("chat_id")
+    return telegram_service.test_message(bot_token=bot_token, chat_id=chat_id)

@@ -132,19 +132,19 @@ def send_message(text: str) -> bool:
         return False
 
 
-def test_message() -> dict:
-    """Send a test message. Returns {success, error}."""
+def test_message(bot_token: str | None = None, chat_id: str | None = None) -> dict:
+    """Send a test message. Uses provided values or falls back to saved settings."""
     s = _get_settings()
-    bot_token = s.get("bot_token", "")
-    chat_id = s.get("chat_id", "")
-    if not bot_token or not chat_id:
+    token = bot_token or s.get("bot_token", "")
+    cid = chat_id or s.get("chat_id", "")
+    if not token or not cid:
         return {"success": False, "error": "Bot token or chat ID not configured"}
     try:
-        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
         resp = requests.post(
             url,
             json={
-                "chat_id": chat_id,
+                "chat_id": cid,
                 "text": "🔔 <b>VPN Proxy Manager</b>\n\nTest notification — connection is working!",
                 "parse_mode": "HTML",
             },

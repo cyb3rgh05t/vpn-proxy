@@ -260,7 +260,10 @@ export default function Settings() {
   const handleTestTelegram = async () => {
     setTelegramTesting(true);
     try {
-      const res = await api.post("/settings/telegram/test");
+      const res = await api.post("/settings/telegram/test", {
+        bot_token: telegramConfig.bot_token,
+        chat_id: telegramConfig.chat_id,
+      });
       if (res.data.success) {
         toast.success("Test message sent successfully!");
       } else {

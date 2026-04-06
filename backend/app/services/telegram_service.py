@@ -35,7 +35,7 @@ def _get_settings() -> dict:
             )
             if row and row.value:
                 _settings_cache = json.loads(row.value)
-                return _settings_cache
+                return _settings_cache or {}
         finally:
             db.close()
     except Exception as e:
@@ -133,7 +133,7 @@ def send_message(text: str) -> bool:
 
 
 def test_message(bot_token: str | None = None, chat_id: str | None = None) -> dict:
-    """Send a test message. Uses provided values or falls back to saved settings."""
+    """Send a test message showing all event templates."""
     s = _get_settings()
     token = bot_token or s.get("bot_token", "")
     cid = chat_id or s.get("chat_id", "")
@@ -141,12 +141,40 @@ def test_message(bot_token: str | None = None, chat_id: str | None = None) -> di
         return {"success": False, "error": "Bot token or chat ID not configured"}
     try:
         url = f"https://api.telegram.org/bot{token}/sendMessage"
+        text = (
+            "🔔 <b>VPN Proxy Manager — Test Notification</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "This is how your notifications will look:\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "⚠️ <b>VPN Disconnected</b>\n\n"
+            "Container: <code>gluetun-pia-us</code>\n"
+            "Provider: Private Internet Access\n"
+            "Status: VPN connection lost\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "🔴 <b>Container Unhealthy</b>\n\n"
+            "Container: <code>gluetun-nordvpn-de</code>\n"
+            "Provider: NordVPN\n"
+            "Status: Container health check failing\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "⏹ <b>Container Stopped</b>\n\n"
+            "Container: <code>gluetun-surfshark-uk</code>\n"
+            "Provider: Surfshark\n"
+            "Status: exited\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "✅ <b>VPN Recovered</b>\n\n"
+            "Container: <code>gluetun-pia-us</code>\n"
+            "Provider: Private Internet Access\n"
+            "IP: <code>185.213.154.42</code>\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "✅ Connection is working!"
+        )
         resp = requests.post(
             url,
             json={
                 "chat_id": cid,
-                "text": "🔔 <b>VPN Proxy Manager</b>\n\nTest notification — connection is working!",
+                "text": text,
                 "parse_mode": "HTML",
+                "disable_web_page_preview": True,
             },
             timeout=10,
         )

@@ -11,6 +11,7 @@ import {
   File,
   X,
   PlusCircle,
+  ExternalLink,
 } from "lucide-react";
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
@@ -389,9 +390,22 @@ export default function CreateContainer() {
         {/* Card: VPN Configuration */}
         {getFields().length > 0 && (
           <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">
-              VPN Configuration
-            </h2>
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-lg font-semibold text-white">
+                VPN Configuration
+              </h2>
+              {form.vpn_provider && (
+                <a
+                  href={`https://github.com/qdm12/gluetun-wiki/blob/main/setup/providers/${form.vpn_provider.replace(/\s+/g, "-")}.md`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-vpn-primary/15 text-vpn-primary border border-vpn-primary/30 hover:bg-vpn-primary/25 transition-colors"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Wiki
+                </a>
+              )}
+            </div>
             <div className="space-y-4">
               {getFields().map((field) => (
                 <div key={field.key}>

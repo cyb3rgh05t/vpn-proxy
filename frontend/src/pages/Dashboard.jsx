@@ -124,7 +124,7 @@ export default function Dashboard() {
           clientCount: 0,
           portForwardCount: 0,
           ips: new Set(),
-          serverLocations: new Set(),
+          locationMap: {},
           connectedItems: [],
           disconnectedItems: [],
           unhealthyItems: [],
@@ -157,11 +157,19 @@ export default function Dashboard() {
       if (info?.port_forwarded) map[p].portForwardCount++;
       if (c.config?.SERVER_COUNTRIES)
         c.config.SERVER_COUNTRIES.split(",").forEach((s) => {
-          if (s.trim()) map[p].serverLocations.add(s.trim());
+          const loc = s.trim();
+          if (loc) {
+            if (!map[p].locationMap[loc]) map[p].locationMap[loc] = [];
+            map[p].locationMap[loc].push({ id: c.id, name: c.name });
+          }
         });
       if (c.config?.SERVER_CITIES)
         c.config.SERVER_CITIES.split(",").forEach((s) => {
-          if (s.trim()) map[p].serverLocations.add(s.trim());
+          const loc = s.trim();
+          if (loc) {
+            if (!map[p].locationMap[loc]) map[p].locationMap[loc] = [];
+            map[p].locationMap[loc].push({ id: c.id, name: c.name });
+          }
         });
       if (c.config?.HTTPPROXY?.toLowerCase() === "on") {
         map[p].proxyCount++;
@@ -183,7 +191,7 @@ export default function Dashboard() {
         countries: [...data.countries],
         cities: [...data.cities],
         ips: [...data.ips],
-        serverLocations: [...data.serverLocations],
+        locationMap: data.locationMap,
       }));
   }, [containers, vpnInfoMap, depsMap]);
 
@@ -737,22 +745,61 @@ export default function Dashboard() {
                             </span>
                           )}
                         </div>
-                        {/* Server locations */}
-                        {p.serverLocations.length > 0 && (
-                          <div className="flex items-center gap-1.5 flex-wrap mt-2 pt-2 border-t border-vpn-border/30">
-                            {p.serverLocations.slice(0, 6).map((loc) => (
-                              <span
-                                key={loc}
-                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] bg-vpn-input/70 text-vpn-muted"
-                              >
-                                {loc}
-                              </span>
-                            ))}
-                            {p.serverLocations.length > 6 && (
-                              <span className="text-[9px] text-vpn-muted">
-                                +{p.serverLocations.length - 6} more
-                              </span>
-                            )}
+                        {/* Server locations with containers */}
+                        {Object.keys(p.locationMap).length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-vpn-border/30 space-y-1.5">
+                            <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium flex items-center gap-1">
+                              <MapPin className="w-2.5 h-2.5" />
+                              Server Locations
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {Object.entries(p.locationMap)
+                                .slice(0, 8)
+                                .map(([loc, items]) => (
+                                  <div key={loc} className="group/loc relative">
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input/70 text-vpn-muted cursor-default">
+                                      <MapPin className="w-2.5 h-2.5" />
+                                      {loc}
+                                      <span className="text-vpn-muted/50 ml-0.5">
+                                        ({items.length})
+                                      </span>
+                                    </span>
+                                    {/* Tooltip with container links */}
+                                    <div className="absolute bottom-full left-0 mb-1 hidden group-hover/loc:block z-50">
+                                      <div className="bg-vpn-card border border-vpn-border rounded-lg shadow-xl p-2 min-w-[140px]">
+                                        <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1">
+                                          {loc}
+                                        </p>
+                                        <div className="space-y-0.5">
+                                          {items.map((item) => (
+                                            <button
+                                              key={item.id}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(
+                                                  `/vpn-proxy#container-${item.id}`,
+                                                );
+                                              }}
+                                              className="flex items-center gap-1.5 w-full px-1.5 py-1 rounded text-[10px] text-vpn-text hover:bg-vpn-bg/60 hover:text-vpn-primary transition-colors text-left"
+                                            >
+                                              <Server className="w-2.5 h-2.5 flex-shrink-0" />
+                                              <span className="truncate">
+                                                {item.name}
+                                              </span>
+                                              <ChevronRight className="w-2.5 h-2.5 ml-auto opacity-50 flex-shrink-0" />
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              {Object.keys(p.locationMap).length > 8 && (
+                                <span className="text-[9px] text-vpn-muted px-1.5 py-0.5">
+                                  +{Object.keys(p.locationMap).length - 8} more
+                                </span>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

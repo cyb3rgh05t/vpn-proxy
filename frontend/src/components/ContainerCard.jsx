@@ -131,6 +131,21 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
     container.config?.SERVER_REGIONS ||
     null;
 
+  // Parse predefined locations into array
+  const predefinedLocations = [];
+  if (container.config?.SERVER_COUNTRIES)
+    container.config.SERVER_COUNTRIES.split(",").forEach((s) => {
+      if (s.trim()) predefinedLocations.push(s.trim());
+    });
+  if (container.config?.SERVER_CITIES)
+    container.config.SERVER_CITIES.split(",").forEach((s) => {
+      if (s.trim()) predefinedLocations.push(s.trim());
+    });
+  if (container.config?.SERVER_REGIONS)
+    container.config.SERVER_REGIONS.split(",").forEach((s) => {
+      if (s.trim()) predefinedLocations.push(s.trim());
+    });
+
   return (
     <div
       onClick={() => navigate(`/containers/${container.id}`)}
@@ -226,6 +241,23 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                 {vpnInfo.port_forwarded}
               </span>
             </span>
+          </div>
+        )}
+
+        {/* Predefined Server Locations */}
+        {predefinedLocations.length > 0 && (
+          <div className="flex items-start gap-1.5 pt-1">
+            <MapPin className="w-3 h-3 text-cyan-400 flex-shrink-0 mt-0.5" />
+            <div className="flex flex-wrap gap-1">
+              {predefinedLocations.map((loc, i) => (
+                <span
+                  key={`${loc}-${i}`}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                >
+                  {loc}
+                </span>
+              ))}
+            </div>
           </div>
         )}
       </div>

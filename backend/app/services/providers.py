@@ -152,16 +152,8 @@ VPN_PROVIDERS = {
     },
     "mullvad": {
         "name": "Mullvad",
-        "vpn_types": ["openvpn", "wireguard"],
+        "vpn_types": ["wireguard"],
         "fields": {
-            "openvpn": [
-                {
-                    "key": "OPENVPN_USER",
-                    "label": "Account Number",
-                    "type": "text",
-                    "required": True,
-                },
-            ],
             "wireguard": [
                 {
                     "key": "WIREGUARD_PRIVATE_KEY",

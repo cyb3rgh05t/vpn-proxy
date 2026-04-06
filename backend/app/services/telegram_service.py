@@ -16,6 +16,7 @@ _previous_states: dict[int, dict] = (
 )  # container_id -> {status, vpn_status, public_ip}
 _running = False
 _thread: threading.Thread | None = None
+_initial_check_done = False
 
 # Cooldown: don't notify about the same container more than once per 5 minutes
 _last_notified: dict[str, float] = {}  # "container_id:event" -> timestamp
@@ -198,7 +199,7 @@ def _should_notify(key: str) -> bool:
 
 def _check_containers():
     """Check all containers and send notifications for state changes."""
-    global _previous_states
+    global _previous_states, _initial_check_done
 
     if not is_configured():
         return
@@ -208,6 +209,7 @@ def _check_containers():
     notify_unhealthy = s.get("notify_unhealthy", True)
     notify_stopped = s.get("notify_stopped", False)
     notify_recovered = s.get("notify_recovered", True)
+    is_first_run = not _initial_check_done
 
     try:
         from app.models.vpn_container import VPNContainer
@@ -246,25 +248,79 @@ def _check_containers():
                     "provider": c.vpn_provider,
                 }
 
+            logger.debug(
+                "Telegram check: %d containers, first_run=%s",
+                len(current_states),
+                is_first_run,
+            )
+
             # Compare with previous states
             for cid, curr in current_states.items():
                 prev = _previous_states.get(cid)
                 name = curr["name"]
                 provider = curr.get("provider", "unknown")
 
+                curr_ok = (
+                    curr["status"] in ("running", "healthy")
+                    and curr.get("vpn_status") == "running"
+                    and curr.get("public_ip")
+                )
+
+                # First time seeing this container
                 if prev is None:
-                    # First run — just record state, don't notify
+                    if is_first_run:
+                        # On first run, notify for containers already in bad state
+                        if (
+                            notify_disconnected
+                            and curr["status"] in ("running", "healthy")
+                            and not curr_ok
+                        ):
+                            key = f"{cid}:disconnected"
+                            if _should_notify(key):
+                                logger.info(
+                                    "Notifying: %s already disconnected on startup",
+                                    name,
+                                )
+                                send_message(
+                                    f"⚠️ <b>VPN Disconnected</b>\n\n"
+                                    f"Container: <code>{name}</code>\n"
+                                    f"Provider: {provider}\n"
+                                    f"Status: VPN connection lost"
+                                )
+                        if notify_unhealthy and curr["status"] == "unhealthy":
+                            key = f"{cid}:unhealthy"
+                            if _should_notify(key):
+                                logger.info(
+                                    "Notifying: %s already unhealthy on startup", name
+                                )
+                                send_message(
+                                    f"🔴 <b>Container Unhealthy</b>\n\n"
+                                    f"Container: <code>{name}</code>\n"
+                                    f"Provider: {provider}\n"
+                                    f"Status: Container health check failing"
+                                )
+                        if notify_stopped and curr["status"] in (
+                            "exited",
+                            "dead",
+                            "removed",
+                        ):
+                            key = f"{cid}:stopped"
+                            if _should_notify(key):
+                                logger.info(
+                                    "Notifying: %s already stopped on startup", name
+                                )
+                                send_message(
+                                    f"⏹ <b>Container Stopped</b>\n\n"
+                                    f"Container: <code>{name}</code>\n"
+                                    f"Provider: {provider}\n"
+                                    f"Status: {curr['status']}"
+                                )
                     continue
 
                 prev_ok = (
                     prev["status"] in ("running", "healthy")
                     and prev.get("vpn_status") == "running"
                     and prev.get("public_ip")
-                )
-                curr_ok = (
-                    curr["status"] in ("running", "healthy")
-                    and curr.get("vpn_status") == "running"
-                    and curr.get("public_ip")
                 )
 
                 # Disconnected (running but no VPN/IP)
@@ -329,6 +385,7 @@ def _check_containers():
                         )
 
             _previous_states = current_states
+            _initial_check_done = True
         finally:
             db.close()
     except Exception as e:
@@ -341,15 +398,12 @@ def _run_loop():
     logger.info("Telegram notification checker started")
     # Wait a bit on startup to let containers populate
     time.sleep(15)
-    # Initial state capture (no notifications on first run)
-    _check_containers()
     while _running:
+        try:
+            _check_containers()
+        except Exception as e:
+            logger.error("Notification loop error: %s", e)
         time.sleep(30)
-        if _running:
-            try:
-                _check_containers()
-            except Exception as e:
-                logger.error("Notification loop error: %s", e)
 
 
 def start():
@@ -376,9 +430,10 @@ def stop():
 
 def reload():
     """Reload settings and restart checker if needed."""
-    global _previous_states
+    global _previous_states, _initial_check_done
     stop()
     _previous_states = {}
+    _initial_check_done = False
     _get_settings()
     if is_configured():
         start()

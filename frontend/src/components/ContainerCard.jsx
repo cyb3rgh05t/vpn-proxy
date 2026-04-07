@@ -352,9 +352,10 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
           (() => {
             const ip = container.ip_address || "<ip>";
             const serverIp = window.location.hostname;
-            const socks5Internal = `socks5://${ip}:1080`;
+            const socks5Port = container.port_socks5 || 1080;
+            const socks5Internal = `socks5://${ip}:${socks5Port}`;
             const socks5Mapping = container.extra_ports?.find(
-              (ep) => parseInt(ep.container) === 1080,
+              (ep) => parseInt(ep.container) === socks5Port,
             );
             const socks5ExtPort = socks5Mapping
               ? parseInt(socks5Mapping.host)

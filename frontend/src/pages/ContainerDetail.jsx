@@ -675,7 +675,9 @@ export default function ContainerDetail() {
                 </div>
                 <div className="bg-vpn-input rounded-lg p-4">
                   <p className="text-xs text-vpn-muted mb-1">SOCKS5 Proxy</p>
-                  <p className="text-lg font-mono text-white">:1080</p>
+                  <p className="text-lg font-mono text-white">
+                    :{container.port_socks5 || 1080}
+                  </p>
                   <p className="text-[10px] text-vpn-muted mt-0.5">
                     {container.socks5_enabled ? (
                       <span className="text-emerald-400">● enabled</span>
@@ -699,9 +701,10 @@ export default function ContainerDetail() {
                 (() => {
                   const ip = container.ip_address || "<ip>";
                   const serverIp = window.location.hostname;
-                  const internalUrl = `socks5://${ip}:1080`;
+                  const socks5Port = container.port_socks5 || 1080;
+                  const internalUrl = `socks5://${ip}:${socks5Port}`;
                   const socks5Mapping = container.extra_ports?.find(
-                    (ep) => parseInt(ep.container) === 1080,
+                    (ep) => parseInt(ep.container) === socks5Port,
                   );
                   const socks5ExtPort = socks5Mapping
                     ? parseInt(socks5Mapping.host)
@@ -1217,7 +1220,7 @@ export default function ContainerDetail() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <label className="text-xs text-vpn-muted font-mono">
-                        SOCKS5
+                        SOCKS5 Port
                       </label>
                       <button
                         type="button"
@@ -1237,13 +1240,17 @@ export default function ContainerDetail() {
                         />
                       </button>
                     </div>
-                    {editSocks5Enabled && (
-                      <p className="text-[10px] text-vpn-muted">
-                        Internal{" "}
-                        <span className="font-mono text-white">:1080</span> —
-                        map via Extra Ports
-                      </p>
-                    )}
+                    <input
+                      type="number"
+                      value={editSocks5Port}
+                      onChange={(e) =>
+                        setEditSocks5Port(parseInt(e.target.value) || 0)
+                      }
+                      className={`w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary ${!editSocks5Enabled ? "opacity-40" : ""}`}
+                      min="1024"
+                      max="65535"
+                      disabled={!editSocks5Enabled}
+                    />
                   </div>
                 </div>
               </div>

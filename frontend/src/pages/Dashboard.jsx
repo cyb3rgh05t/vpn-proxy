@@ -228,8 +228,9 @@ export default function Dashboard() {
         // SOCKS5 proxy info
         let socks5External = null;
         if (c.socks5_enabled) {
+          const socks5Port = c.port_socks5 || 1080;
           const mapping = c.extra_ports?.find(
-            (ep) => parseInt(ep.container) === 1080,
+            (ep) => parseInt(ep.container) === socks5Port,
           );
           if (mapping) {
             socks5External = `${serverIp}:${mapping.host}`;
@@ -261,7 +262,9 @@ export default function Dashboard() {
             ? `${c.ip_address || "—"}:${c.port_shadowsocks}`
             : null,
           shadowsocksExternal,
-          socks5: c.socks5_enabled ? `${c.ip_address || "—"}:1080` : null,
+          socks5: c.socks5_enabled
+            ? `${c.ip_address || "—"}:${c.port_socks5 || 1080}`
+            : null,
           socks5External,
         };
       })

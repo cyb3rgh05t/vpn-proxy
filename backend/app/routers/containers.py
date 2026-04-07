@@ -782,7 +782,7 @@ def create_container(
     if req.socks5_enabled:
         gluetun_container_name = f"gluetun-{req.name}"
         socks5_container_id = docker_service.create_socks5_sidecar(
-            req.name, gluetun_container_name
+            req.name, gluetun_container_name, req.port_socks5
         )
 
     # Read actual Docker env vars to store the full config (including auto-set vars
@@ -1060,7 +1060,7 @@ def redeploy_container(
         if c.socks5_enabled:
             gluetun_container_name = f"gluetun-{deploy_name}"
             socks5_id = docker_service.create_socks5_sidecar(
-                deploy_name, gluetun_container_name
+                deploy_name, gluetun_container_name, c.port_socks5
             )
             c.socks5_container_id = socks5_id
         else:

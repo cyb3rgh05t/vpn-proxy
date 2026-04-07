@@ -115,9 +115,11 @@ def pull_gluetun_image():
         return False
 
 
-def create_socks5_sidecar(name: str, gluetun_container_name: str) -> str | None:
+def create_socks5_sidecar(
+    name: str, gluetun_container_name: str, port: int = 1080
+) -> str | None:
     """Create a SOCKS5 proxy sidecar container that shares the Gluetun container's network.
-    The socks5 container listens on port 1080 inside Gluetun's network namespace.
+    The socks5 container listens on the given port inside Gluetun's network namespace.
     Returns the socks5 container ID.
     """
     client = _get_client()
@@ -134,7 +136,7 @@ def create_socks5_sidecar(name: str, gluetun_container_name: str) -> str | None:
             image=SOCKS5_IMAGE,
             name=socks5_name,
             network_mode=f"container:{gluetun_container_name}",
-            environment={"REQUIRE_AUTH": "false"},
+            environment={"REQUIRE_AUTH": "false", "PROXY_PORT": str(port)},
             detach=True,
             restart_policy={"Name": "unless-stopped", "MaximumRetryCount": 0},  # type: ignore[arg-type]
             labels={
@@ -1392,7 +1394,7 @@ def generate_compose_yaml(
             "container_name": f"socks5-{name}",
             "depends_on": [container_name],
             "network_mode": f"container:{container_name}",
-            "environment": {"REQUIRE_AUTH": "false"},
+            "environment": {"REQUIRE_AUTH": "false", "PROXY_PORT": str(port_socks5)},
             "restart": "unless-stopped",
         }
         compose["services"][f"socks5-{name}"] = socks5_service

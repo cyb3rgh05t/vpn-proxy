@@ -615,15 +615,23 @@ export default function CreateContainer() {
                   />
                 </button>
               </div>
+              <input
+                type="number"
+                value={form.port_socks5}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    port_socks5: parseInt(e.target.value) || 0,
+                  })
+                }
+                className={`${inputClass} ${!socks5Enabled ? "opacity-40" : ""}`}
+                min="1024"
+                max="65535"
+                disabled={!socks5Enabled}
+              />
               {socks5Enabled && (
                 <p className="text-xs text-vpn-muted mt-1">
-                  Internal port{" "}
-                  <span className="font-mono text-white">:1080</span> — use
-                  Extra Ports for external access. Uses{" "}
-                  <span className="font-mono text-vpn-primary/70">
-                    serjs/go-socks5-proxy
-                  </span>{" "}
-                  sidecar
+                  Internal only — use Extra Ports for external access
                 </p>
               )}
             </div>

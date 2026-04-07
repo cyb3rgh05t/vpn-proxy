@@ -315,22 +315,18 @@ export default function VpnProxy() {
 
   const proxyContainers = filteredContainers.filter(
     (c) =>
-      c.config?.HTTPPROXY?.toLowerCase() === "on" ||
-      c.config?.SHADOWSOCKS?.toLowerCase() === "on",
+      !c.socks5_enabled &&
+      (c.config?.HTTPPROXY?.toLowerCase() === "on" ||
+        c.config?.SHADOWSOCKS?.toLowerCase() === "on"),
   );
 
-  const socks5Containers = filteredContainers.filter(
-    (c) =>
-      c.socks5_enabled &&
-      c.config?.HTTPPROXY?.toLowerCase() !== "on" &&
-      c.config?.SHADOWSOCKS?.toLowerCase() !== "on",
-  );
+  const socks5Containers = filteredContainers.filter((c) => c.socks5_enabled);
 
   const vpnOnlyContainers = filteredContainers.filter(
     (c) =>
+      !c.socks5_enabled &&
       c.config?.HTTPPROXY?.toLowerCase() !== "on" &&
-      c.config?.SHADOWSOCKS?.toLowerCase() !== "on" &&
-      !c.socks5_enabled,
+      c.config?.SHADOWSOCKS?.toLowerCase() !== "on",
   );
 
   return (

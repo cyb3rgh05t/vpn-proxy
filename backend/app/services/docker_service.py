@@ -134,6 +134,7 @@ def create_socks5_sidecar(name: str, gluetun_container_name: str) -> str | None:
             image=SOCKS5_IMAGE,
             name=socks5_name,
             network_mode=f"container:{gluetun_container_name}",
+            environment={"REQUIRE_AUTH": "false"},
             detach=True,
             restart_policy={"Name": "unless-stopped", "MaximumRetryCount": 0},  # type: ignore[arg-type]
             labels={
@@ -1397,6 +1398,7 @@ def generate_compose_yaml(
             "container_name": f"socks5-{name}",
             "depends_on": [container_name],
             "network_mode": f"container:{container_name}",
+            "environment": {"REQUIRE_AUTH": "false"},
             "restart": "unless-stopped",
         }
         compose["services"][f"socks5-{name}"] = socks5_service

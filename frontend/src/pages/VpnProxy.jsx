@@ -319,10 +319,18 @@ export default function VpnProxy() {
       c.config?.SHADOWSOCKS?.toLowerCase() === "on",
   );
 
+  const socks5Containers = filteredContainers.filter(
+    (c) =>
+      c.socks5_enabled &&
+      c.config?.HTTPPROXY?.toLowerCase() !== "on" &&
+      c.config?.SHADOWSOCKS?.toLowerCase() !== "on",
+  );
+
   const vpnOnlyContainers = filteredContainers.filter(
     (c) =>
       c.config?.HTTPPROXY?.toLowerCase() !== "on" &&
-      c.config?.SHADOWSOCKS?.toLowerCase() !== "on",
+      c.config?.SHADOWSOCKS?.toLowerCase() !== "on" &&
+      !c.socks5_enabled,
   );
 
   return (
@@ -628,6 +636,57 @@ export default function VpnProxy() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {proxyContainers.map((container) => (
+                  <div
+                    key={container.id}
+                    id={`container-${container.id}`}
+                    className="relative"
+                  >
+                    {selectMode && (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSelect(container.id);
+                        }}
+                        className={`absolute inset-0 z-10 rounded-xl cursor-pointer border-2 transition-all ${
+                          selectedIds.has(container.id)
+                            ? "border-vpn-primary bg-vpn-primary/10"
+                            : "border-transparent hover:border-vpn-primary/50"
+                        }`}
+                      >
+                        <div className="absolute top-3 right-3">
+                          {selectedIds.has(container.id) ? (
+                            <CheckSquare className="w-5 h-5 text-vpn-primary" />
+                          ) : (
+                            <Square className="w-5 h-5 text-vpn-muted" />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <ContainerCard
+                      container={container}
+                      vpnInfo={vpnInfoMap[String(container.id)]}
+                      onRefresh={refreshContainers}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* SOCKS5 Proxy Containers */}
+          {socks5Containers.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-4">
+                <Shield className="w-5 h-5 text-purple-400" />
+                <h2 className="text-lg font-semibold text-white">
+                  SOCKS5 Proxy Containers
+                </h2>
+                <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-1 rounded-full">
+                  {socks5Containers.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {socks5Containers.map((container) => (
                   <div
                     key={container.id}
                     id={`container-${container.id}`}

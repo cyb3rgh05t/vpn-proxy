@@ -165,7 +165,7 @@ VPN_PROVIDERS = {
                     "key": "WIREGUARD_ADDRESSES",
                     "label": "Addresses",
                     "type": "text",
-                    "required": True,
+                    "required": False,
                     "placeholder": "10.x.x.x/32",
                 },
             ],

@@ -11,6 +11,8 @@ class ContainerCreate(BaseModel):
     config: dict = {}
     port_http_proxy: int = 8888
     port_shadowsocks: int = 8388
+    socks5_enabled: bool = False
+    port_socks5: int = 1080
     extra_ports: list[dict] = []
     network_name: Optional[str] = None
 
@@ -41,6 +43,8 @@ class ContainerUpdate(BaseModel):
     config: Optional[dict] = None
     port_http_proxy: Optional[int] = None
     port_shadowsocks: Optional[int] = None
+    socks5_enabled: Optional[bool] = None
+    port_socks5: Optional[int] = None
     extra_ports: Optional[list[dict]] = None
     description: Optional[str] = None
     network_name: Optional[str] = None
@@ -70,6 +74,9 @@ class ContainerResponse(BaseModel):
     port_http_proxy: int
     port_shadowsocks: int
     port_control: int = 8000
+    socks5_enabled: bool = False
+    port_socks5: int = 1080
+    socks5_container_id: Optional[str] = None
     extra_ports: Optional[list[dict]] = []
     container_id: Optional[str] = None
     docker_name: Optional[str] = None

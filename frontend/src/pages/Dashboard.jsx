@@ -225,6 +225,12 @@ export default function Dashboard() {
           }
         }
 
+        // SOCKS5 proxy info
+        let socks5External = null;
+        if (c.socks5_enabled && c.port_socks5) {
+          socks5External = `${serverIp}:${c.port_socks5}`;
+        }
+
         return {
           id: c.id,
           name: c.name,
@@ -250,6 +256,8 @@ export default function Dashboard() {
             ? `${c.ip_address || "—"}:${c.port_shadowsocks}`
             : null,
           shadowsocksExternal,
+          socks5: c.socks5_enabled ? `${c.ip_address || "—"}:1080` : null,
+          socks5External,
         };
       })
       .filter(
@@ -929,6 +937,18 @@ export default function Dashboard() {
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20">
                               <Globe className="w-2.5 h-2.5" />
                               SS {conn.shadowsocksExternal}
+                            </span>
+                          )}
+                          {conn.socks5 && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                              <Network className="w-2.5 h-2.5" />
+                              SOCKS5 {conn.socks5}
+                            </span>
+                          )}
+                          {conn.socks5External && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                              <Globe className="w-2.5 h-2.5" />
+                              SOCKS5 {conn.socks5External}
                             </span>
                           )}
                           {conn.deps.length > 0 && (

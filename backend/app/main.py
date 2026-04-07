@@ -172,6 +172,30 @@ def run_migrations():
                 )
                 conn.commit()
                 logger.info("Migrated: added 'network_name' column to vpn_containers.")
+            if "socks5_enabled" not in columns:
+                conn.execute(
+                    sqlalchemy.text(
+                        "ALTER TABLE vpn_containers ADD COLUMN socks5_enabled BOOLEAN DEFAULT 0"
+                    )
+                )
+                conn.commit()
+                logger.info("Migrated: added 'socks5_enabled' column to vpn_containers.")
+            if "port_socks5" not in columns:
+                conn.execute(
+                    sqlalchemy.text(
+                        "ALTER TABLE vpn_containers ADD COLUMN port_socks5 INTEGER DEFAULT 1080"
+                    )
+                )
+                conn.commit()
+                logger.info("Migrated: added 'port_socks5' column to vpn_containers.")
+            if "socks5_container_id" not in columns:
+                conn.execute(
+                    sqlalchemy.text(
+                        "ALTER TABLE vpn_containers ADD COLUMN socks5_container_id VARCHAR(100)"
+                    )
+                )
+                conn.commit()
+                logger.info("Migrated: added 'socks5_container_id' column to vpn_containers.")
 
 
 @asynccontextmanager

@@ -18,6 +18,8 @@ CONTAINER_LABEL = "managed-by"
 CONTAINER_LABEL_VALUE = "vpn-proxy"
 COMPOSE_PROJECT_LABEL = "com.docker.compose.project"
 COMPOSE_PROJECT_VALUE = "vpn-proxy"
+SOCKS5_IMAGE = "serjs/go-socks5-proxy:latest"
+SOCKS5_LABEL = "vpn-proxy-socks5"
 
 # Whitelist of env vars to show in the UI config section
 ALLOWED_CONFIG_KEYS = {
@@ -113,6 +115,56 @@ def pull_gluetun_image():
         return False
 
 
+def create_socks5_sidecar(name: str, gluetun_container_name: str) -> str | None:
+    """Create a SOCKS5 proxy sidecar container that shares the Gluetun container's network.
+    The socks5 container listens on port 1080 inside Gluetun's network namespace.
+    Returns the socks5 container ID.
+    """
+    client = _get_client()
+    socks5_name = f"socks5-{name}"
+    try:
+        # Pull image if not available locally
+        try:
+            client.images.get(SOCKS5_IMAGE)
+        except ImageNotFound:
+            logger.info("Pulling SOCKS5 image %s ...", SOCKS5_IMAGE)
+            client.images.pull(SOCKS5_IMAGE)
+
+        container = client.containers.run(
+            image=SOCKS5_IMAGE,
+            name=socks5_name,
+            network_mode=f"container:{gluetun_container_name}",
+            detach=True,
+            restart_policy={"Name": "unless-stopped", "MaximumRetryCount": 0},  # type: ignore[arg-type]
+            labels={
+                CONTAINER_LABEL: CONTAINER_LABEL_VALUE,
+                COMPOSE_PROJECT_LABEL: COMPOSE_PROJECT_VALUE,
+                SOCKS5_LABEL: name,
+            },
+        )
+        logger.info("Created SOCKS5 sidecar %s for %s", socks5_name, name)
+        return container.id
+    except APIError as e:
+        logger.error("Failed to create SOCKS5 sidecar %s: %s", socks5_name, e)
+        return None
+
+
+def remove_socks5_sidecar(name: str) -> bool:
+    """Remove the SOCKS5 sidecar container for a given VPN container name."""
+    client = _get_client()
+    socks5_name = f"socks5-{name}"
+    try:
+        container = client.containers.get(socks5_name)
+        container.remove(force=True)
+        logger.info("Removed SOCKS5 sidecar %s", socks5_name)
+        return True
+    except NotFound:
+        return True
+    except APIError as e:
+        logger.error("Failed to remove SOCKS5 sidecar %s: %s", socks5_name, e)
+        return False
+
+
 def create_container(
     name: str,
     vpn_provider: str,
@@ -123,6 +175,8 @@ def create_container(
     extra_ports: list[dict] | None = None,
     network_name: str | None = None,
     gluetun_image: str | None = None,
+    socks5_enabled: bool = False,
+    port_socks5: int = 1080,
 ):
     client = _get_client()
     container_name = f"gluetun-{name}"
@@ -172,6 +226,10 @@ def create_container(
         ports["8388/tcp"] = port_shadowsocks
         ports["8388/udp"] = port_shadowsocks
     # Control port 8000 is NOT exposed - accessed internally only
+
+    # SOCKS5 port (1080 inside gluetun's network namespace, exposed on host)
+    if socks5_enabled and port_socks5 > 0:
+        ports["1080/tcp"] = port_socks5
 
     # Add extra port mappings
     if extra_ports:
@@ -266,6 +324,8 @@ def redeploy_container(
     network_name: str | None = None,
     new_name: str | None = None,
     gluetun_image: str | None = None,
+    socks5_enabled: bool = False,
+    port_socks5: int = 1080,
 ) -> str | None:
     """Redeploy a Gluetun container with updated config.
     Stops dependents, removes old container, creates new one, restarts dependents.
@@ -278,11 +338,14 @@ def redeploy_container(
     stopped_deps = stop_dependents(old_container_id)
     logger.info("Stopped %d dependents before redeploy of %s", len(stopped_deps), name)
 
-    # 2. Remove old container
+    # 2. Remove old SOCKS5 sidecar if it exists (before removing gluetun)
+    remove_socks5_sidecar(name)
+
+    # 3. Remove old container
     remove_container(old_container_id)
     logger.info("Removed old container %s for redeploy", old_container_id[:12])
 
-    # 3. Rename data directory if name changed
+    # 4. Rename data directory if name changed
     if new_name and new_name != name:
         old_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
         new_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", new_name)
@@ -290,7 +353,7 @@ def redeploy_container(
             os.rename(old_data, new_data)
             logger.info("Renamed data dir %s -> %s", old_data, new_data)
 
-    # 4. Create new container with (possibly new) name and updated config
+    # 5. Create new container with (possibly new) name and updated config
     new_id = create_container(
         name=deploy_name,
         vpn_provider=vpn_provider,
@@ -301,10 +364,13 @@ def redeploy_container(
         extra_ports=extra_ports,
         network_name=network_name,
         gluetun_image=gluetun_image,
+        socks5_enabled=socks5_enabled,
+        port_socks5=port_socks5,
     )
     logger.info("Created new container %s for %s", new_id[:12], deploy_name)
 
-    # 5. Restart dependent containers (they reference by name, so they reconnect)
+    # 6. Restart dependent containers (they reference by name, so they reconnect)
+    # Note: SOCKS5 sidecar will be created by the router after this returns
     if stopped_deps:
         started = start_dependents(new_id)
         logger.info("Restarted %d dependents after redeploy", len(started))
@@ -1272,6 +1338,8 @@ def generate_compose_yaml(
     extra_ports: list[dict] | None = None,
     network_name: str | None = None,
     gluetun_image: str | None = None,
+    socks5_enabled: bool = False,
+    port_socks5: int = 1080,
 ) -> str:
     container_name = f"gluetun-{name}"
     api_key = secrets.token_urlsafe(32)
@@ -1293,6 +1361,10 @@ def generate_compose_yaml(
     if shadowsocks_enabled and port_shadowsocks > 0:
         port_list.append(f"{port_shadowsocks}:8388/tcp")
         port_list.append(f"{port_shadowsocks}:8388/udp")
+
+    # SOCKS5 port mapping on gluetun (socks5 sidecar listens on 1080 in gluetun's network)
+    if socks5_enabled and port_socks5 > 0:
+        port_list.append(f"{port_socks5}:1080/tcp")
 
     if extra_ports:
         for ep in extra_ports:
@@ -1317,6 +1389,18 @@ def generate_compose_yaml(
         service["networks"] = [network_name]
 
     compose: dict[str, Any] = {"services": {container_name: service}}
+
+    # Add SOCKS5 sidecar service
+    if socks5_enabled:
+        socks5_service: dict[str, Any] = {
+            "image": SOCKS5_IMAGE,
+            "container_name": f"socks5-{name}",
+            "depends_on": [container_name],
+            "network_mode": f"container:{container_name}",
+            "restart": "unless-stopped",
+        }
+        compose["services"][f"socks5-{name}"] = socks5_service
+
     if network_name:
         compose["networks"] = {network_name: {"external": True}}
     return yaml.dump(compose, default_flow_style=False, sort_keys=False)

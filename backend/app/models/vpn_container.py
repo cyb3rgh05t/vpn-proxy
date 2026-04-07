@@ -17,6 +17,11 @@ class VPNContainer(Base):
     port_http_proxy: Mapped[int] = mapped_column(default=8888)
     port_shadowsocks: Mapped[int] = mapped_column(default=8388)
     port_control: Mapped[int] = mapped_column(default=8000)
+    socks5_enabled: Mapped[bool] = mapped_column(default=False)
+    port_socks5: Mapped[int] = mapped_column(default=1080)
+    socks5_container_id: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True
+    )
     extra_ports: Mapped[Optional[list[dict[str, Any]]]] = mapped_column(
         JSON, nullable=True
     )

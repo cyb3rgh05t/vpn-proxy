@@ -63,8 +63,10 @@ export default function ContainerDetail() {
   const [editName, setEditName] = useState("");
   const [editHttpPort, setEditHttpPort] = useState(8888);
   const [editShadowsocksPort, setEditShadowsocksPort] = useState(8388);
+  const [editSocks5Port, setEditSocks5Port] = useState(1080);
   const [editHttpProxyEnabled, setEditHttpProxyEnabled] = useState(true);
   const [editShadowsocksEnabled, setEditShadowsocksEnabled] = useState(false);
+  const [editSocks5Enabled, setEditSocks5Enabled] = useState(false);
   const [redeploying, setRedeploying] = useState(false);
   const [configFiles, setConfigFiles] = useState([]);
   const [uploadingConfig, setUploadingConfig] = useState(false);
@@ -248,6 +250,8 @@ export default function ContainerDetail() {
     setEditName(container.name || "");
     setEditHttpPort(container.port_http_proxy || 8888);
     setEditShadowsocksPort(container.port_shadowsocks || 8388);
+    setEditSocks5Port(container.port_socks5 || 1080);
+    setEditSocks5Enabled(container.socks5_enabled || false);
     setEditingConfig(true);
     fetchConfigFiles();
   };
@@ -318,6 +322,8 @@ export default function ContainerDetail() {
         extra_ports: editExtraPorts.filter((ep) => ep.host && ep.container),
         port_http_proxy: editHttpPort,
         port_shadowsocks: editShadowsocksPort,
+        socks5_enabled: editSocks5Enabled,
+        port_socks5: editSocks5Port,
       };
       if (nameChanged) {
         payload.name = editName;
@@ -640,7 +646,7 @@ export default function ContainerDetail() {
                     </div>
                   );
                 })()}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-vpn-input rounded-lg p-4">
                   <p className="text-xs text-vpn-muted mb-1">HTTP Proxy Port</p>
                   <p className="text-lg font-mono text-white">
@@ -668,6 +674,19 @@ export default function ContainerDetail() {
                   </p>
                 </div>
                 <div className="bg-vpn-input rounded-lg p-4">
+                  <p className="text-xs text-vpn-muted mb-1">SOCKS5 Proxy</p>
+                  <p className="text-lg font-mono text-white">
+                    :{container.port_socks5 || 1080}
+                  </p>
+                  <p className="text-[10px] text-vpn-muted mt-0.5">
+                    {container.socks5_enabled ? (
+                      <span className="text-emerald-400">● enabled</span>
+                    ) : (
+                      <span className="text-vpn-muted/50">○ disabled</span>
+                    )}
+                  </p>
+                </div>
+                <div className="bg-vpn-input rounded-lg p-4">
                   <p className="text-xs text-vpn-muted mb-1">Gluetun API</p>
                   <p className="text-lg font-mono text-white">
                     :{container.port_control}
@@ -677,6 +696,58 @@ export default function ContainerDetail() {
                   </p>
                 </div>
               </div>
+              {/* SOCKS5 Proxy URL */}
+              {container.socks5_enabled &&
+                (() => {
+                  const ip = container.ip_address || "<ip>";
+                  const socks5Port = container.port_socks5 || 1080;
+                  const serverIp = window.location.hostname;
+                  const internalUrl = `socks5://${ip}:1080`;
+                  const externalUrl = `socks5://${serverIp}:${socks5Port}`;
+
+                  return (
+                    <div className="bg-vpn-input rounded-lg p-4 mt-4 space-y-2">
+                      <p className="text-xs text-vpn-muted mb-1 flex items-center gap-1.5">
+                        SOCKS5 Proxy
+                        <span className="text-emerald-400 text-[10px]">
+                          ● enabled
+                        </span>
+                      </p>
+                      <div
+                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/int"
+                        onClick={() => copyToClipboard(internalUrl)}
+                      >
+                        <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
+                          Internal
+                        </span>
+                        <p className="text-xs text-purple-400/80 font-mono truncate flex-1">
+                          {internalUrl}
+                        </p>
+                        {copiedUrl === internalUrl ? (
+                          <Check className="w-3 h-3 text-purple-400 shrink-0" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
+                        )}
+                      </div>
+                      <div
+                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ext"
+                        onClick={() => copyToClipboard(externalUrl)}
+                      >
+                        <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
+                          External
+                        </span>
+                        <p className="text-xs text-blue-400/80 font-mono truncate flex-1">
+                          {externalUrl}
+                        </p>
+                        {copiedUrl === externalUrl ? (
+                          <Check className="w-3 h-3 text-blue-400 shrink-0" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               {container.network_name && (
                 <div className="mt-3">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-vpn-input text-vpn-muted border border-vpn-border/50">
@@ -1061,7 +1132,7 @@ export default function ContainerDetail() {
                 <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
                   Access Ports
                 </h3>
-                <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="grid grid-cols-3 gap-3 mb-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <label className="text-xs text-vpn-muted font-mono">
@@ -1134,6 +1205,41 @@ export default function ContainerDetail() {
                       min="1024"
                       max="65535"
                       disabled={!editShadowsocksEnabled}
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="text-xs text-vpn-muted font-mono">
+                        SOCKS5 Port
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setEditSocks5Enabled(!editSocks5Enabled)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                          editSocks5Enabled
+                            ? "bg-vpn-primary"
+                            : "bg-vpn-input border border-vpn-border"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                            editSocks5Enabled
+                              ? "translate-x-4"
+                              : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      value={editSocks5Port}
+                      onChange={(e) =>
+                        setEditSocks5Port(parseInt(e.target.value) || 0)
+                      }
+                      className={`w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary ${!editSocks5Enabled ? "opacity-40" : ""}`}
+                      min="1024"
+                      max="65535"
+                      disabled={!editSocks5Enabled}
                     />
                   </div>
                 </div>

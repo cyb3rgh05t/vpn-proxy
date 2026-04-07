@@ -768,11 +768,21 @@ def create_container(
             extra_ports=req.extra_ports,
             network_name=req.network_name,
             gluetun_image=gluetun_image,
+            socks5_enabled=req.socks5_enabled,
+            port_socks5=req.port_socks5,
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create Docker container: {e}",
+        )
+
+    # Create SOCKS5 sidecar container if enabled
+    socks5_container_id = None
+    if req.socks5_enabled:
+        gluetun_container_name = f"gluetun-{req.name}"
+        socks5_container_id = docker_service.create_socks5_sidecar(
+            req.name, gluetun_container_name
         )
 
     # Read actual Docker env vars to store the full config (including auto-set vars
@@ -793,6 +803,9 @@ def create_container(
         config=full_config,
         port_http_proxy=req.port_http_proxy,
         port_shadowsocks=req.port_shadowsocks,
+        socks5_enabled=req.socks5_enabled,
+        port_socks5=req.port_socks5,
+        socks5_container_id=socks5_container_id,
         extra_ports=req.extra_ports,
         network_name=req.network_name,
         container_id=container_id,
@@ -903,6 +916,9 @@ def delete_container(
         try:
             # Stop dependent containers before removing VPN container
             docker_service.stop_dependents(c.container_id)
+            # Remove SOCKS5 sidecar if it exists
+            if c.socks5_enabled:
+                docker_service.remove_socks5_sidecar(c.name)
             docker_service.remove_container(c.container_id)
         except Exception as e:
             raise HTTPException(
@@ -1033,9 +1049,23 @@ def redeploy_container(
             network_name=c.network_name,
             new_name=new_name if new_name and new_name != old_name else None,
             gluetun_image=gluetun_image,
+            socks5_enabled=c.socks5_enabled,
+            port_socks5=c.port_socks5,
         )
         c.container_id = new_id
         c.status = "running"
+
+        # Create SOCKS5 sidecar if enabled
+        deploy_name = new_name if new_name and new_name != old_name else old_name
+        if c.socks5_enabled:
+            gluetun_container_name = f"gluetun-{deploy_name}"
+            socks5_id = docker_service.create_socks5_sidecar(
+                deploy_name, gluetun_container_name
+            )
+            c.socks5_container_id = socks5_id
+        else:
+            c.socks5_container_id = None
+
         # Sync config from new Docker container env vars
         try:
             live_env = docker_service._get_container_env(new_id)
@@ -1190,6 +1220,8 @@ def export_compose(
             extra_ports=c.extra_ports if c.extra_ports else None,
             network_name=c.network_name,
             gluetun_image=gluetun_image,
+            socks5_enabled=c.socks5_enabled,
+            port_socks5=c.port_socks5,
         )
     except RuntimeError:
         raise HTTPException(status_code=503, detail="Docker is not available")

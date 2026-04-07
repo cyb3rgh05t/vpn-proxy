@@ -90,10 +90,12 @@ export default function CreateContainer() {
     vpn_type: "openvpn",
     port_http_proxy: 8888,
     port_shadowsocks: 8388,
+    port_socks5: 1080,
     network_name: "",
   });
   const [httpProxyEnabled, setHttpProxyEnabled] = useState(true);
   const [shadowsocksEnabled, setShadowsocksEnabled] = useState(false);
+  const [socks5Enabled, setSocks5Enabled] = useState(false);
   const [configFields, setConfigFields] = useState({});
   const [extraPorts, setExtraPorts] = useState([]);
   const [envVarCategories, setEnvVarCategories] = useState({});
@@ -252,6 +254,8 @@ export default function CreateContainer() {
         config: mergedConfig,
         port_http_proxy: form.port_http_proxy,
         port_shadowsocks: form.port_shadowsocks,
+        socks5_enabled: socks5Enabled,
+        port_socks5: form.port_socks5,
         extra_ports: validExtraPorts,
         network_name: form.network_name || undefined,
       });
@@ -517,7 +521,7 @@ export default function CreateContainer() {
           <h2 className="text-lg font-semibold text-white mb-4">
             Access Ports
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div>
               <div className="flex items-center gap-2 mb-1.5">
                 <label className="text-sm font-medium text-vpn-muted">
@@ -589,6 +593,51 @@ export default function CreateContainer() {
                 max="65535"
                 disabled={!shadowsocksEnabled}
               />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <label className="text-sm font-medium text-vpn-muted">
+                  SOCKS5 Proxy
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setSocks5Enabled(!socks5Enabled)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    socks5Enabled
+                      ? "bg-vpn-primary"
+                      : "bg-vpn-input border border-vpn-border"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                      socks5Enabled ? "translate-x-4" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+              <input
+                type="number"
+                value={form.port_socks5}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    port_socks5: parseInt(e.target.value) || 0,
+                  })
+                }
+                className={`${inputClass} ${!socks5Enabled ? "opacity-40" : ""}`}
+                min="1024"
+                max="65535"
+                disabled={!socks5Enabled}
+              />
+              {socks5Enabled && (
+                <p className="text-xs text-vpn-muted mt-1">
+                  Uses{" "}
+                  <span className="font-mono text-vpn-primary/70">
+                    serjs/go-socks5-proxy
+                  </span>{" "}
+                  sidecar
+                </p>
+              )}
             </div>
           </div>
 

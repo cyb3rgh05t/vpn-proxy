@@ -227,10 +227,7 @@ def create_container(
         ports["8388/tcp"] = port_shadowsocks
         ports["8388/udp"] = port_shadowsocks
     # Control port 8000 is NOT exposed - accessed internally only
-
-    # SOCKS5 port (1080 inside gluetun's network namespace, exposed on host)
-    if socks5_enabled and port_socks5 > 0:
-        ports["1080/tcp"] = port_socks5
+    # SOCKS5 port 1080 is NOT auto-exported; use extra_ports for external access
 
     # Add extra port mappings
     if extra_ports:
@@ -1362,10 +1359,7 @@ def generate_compose_yaml(
     if shadowsocks_enabled and port_shadowsocks > 0:
         port_list.append(f"{port_shadowsocks}:8388/tcp")
         port_list.append(f"{port_shadowsocks}:8388/udp")
-
-    # SOCKS5 port mapping on gluetun (socks5 sidecar listens on 1080 in gluetun's network)
-    if socks5_enabled and port_socks5 > 0:
-        port_list.append(f"{port_socks5}:1080/tcp")
+    # SOCKS5 port 1080 is NOT auto-exported; use extra_ports for external access
 
     if extra_ports:
         for ep in extra_ports:

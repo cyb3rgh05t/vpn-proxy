@@ -351,10 +351,17 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
         {container.socks5_enabled &&
           (() => {
             const ip = container.ip_address || "<ip>";
-            const socks5Port = container.port_socks5 || 1080;
             const serverIp = window.location.hostname;
             const socks5Internal = `socks5://${ip}:1080`;
-            const socks5External = `socks5://${serverIp}:${socks5Port}`;
+            const socks5Mapping = container.extra_ports?.find(
+              (ep) => parseInt(ep.container) === 1080,
+            );
+            const socks5ExtPort = socks5Mapping
+              ? parseInt(socks5Mapping.host)
+              : null;
+            const socks5External = socks5ExtPort
+              ? `socks5://${serverIp}:${socks5ExtPort}`
+              : null;
 
             return (
               <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2 space-y-1.5">
@@ -382,27 +389,29 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                     <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/s5int:opacity-100 transition-opacity shrink-0" />
                   )}
                 </div>
-                {/* External URL */}
-                <div
-                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/s5ext"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    copyToClipboard(socks5External);
-                  }}
-                  title="Click to copy external SOCKS5 URL"
-                >
-                  <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
-                    External
-                  </span>
-                  <p className="text-[9px] text-blue-400/70 font-mono truncate flex-1">
-                    {socks5External}
-                  </p>
-                  {copiedUrl === socks5External ? (
-                    <Check className="w-2.5 h-2.5 text-blue-400 shrink-0" />
-                  ) : (
-                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/s5ext:opacity-100 transition-opacity shrink-0" />
-                  )}
-                </div>
+                {/* External URL - only if mapped via extra_ports */}
+                {socks5External && (
+                  <div
+                    className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/s5ext"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyToClipboard(socks5External);
+                    }}
+                    title="Click to copy external SOCKS5 URL"
+                  >
+                    <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                      External
+                    </span>
+                    <p className="text-[9px] text-blue-400/70 font-mono truncate flex-1">
+                      {socks5External}
+                    </p>
+                    {copiedUrl === socks5External ? (
+                      <Check className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+                    ) : (
+                      <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/s5ext:opacity-100 transition-opacity shrink-0" />
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}

@@ -227,8 +227,13 @@ export default function Dashboard() {
 
         // SOCKS5 proxy info
         let socks5External = null;
-        if (c.socks5_enabled && c.port_socks5) {
-          socks5External = `${serverIp}:${c.port_socks5}`;
+        if (c.socks5_enabled) {
+          const mapping = c.extra_ports?.find(
+            (ep) => parseInt(ep.container) === 1080,
+          );
+          if (mapping) {
+            socks5External = `${serverIp}:${mapping.host}`;
+          }
         }
 
         return {

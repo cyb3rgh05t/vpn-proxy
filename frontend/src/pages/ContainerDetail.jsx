@@ -675,9 +675,7 @@ export default function ContainerDetail() {
                 </div>
                 <div className="bg-vpn-input rounded-lg p-4">
                   <p className="text-xs text-vpn-muted mb-1">SOCKS5 Proxy</p>
-                  <p className="text-lg font-mono text-white">
-                    :{container.port_socks5 || 1080}
-                  </p>
+                  <p className="text-lg font-mono text-white">:1080</p>
                   <p className="text-[10px] text-vpn-muted mt-0.5">
                     {container.socks5_enabled ? (
                       <span className="text-emerald-400">● enabled</span>
@@ -700,10 +698,17 @@ export default function ContainerDetail() {
               {container.socks5_enabled &&
                 (() => {
                   const ip = container.ip_address || "<ip>";
-                  const socks5Port = container.port_socks5 || 1080;
                   const serverIp = window.location.hostname;
                   const internalUrl = `socks5://${ip}:1080`;
-                  const externalUrl = `socks5://${serverIp}:${socks5Port}`;
+                  const socks5Mapping = container.extra_ports?.find(
+                    (ep) => parseInt(ep.container) === 1080,
+                  );
+                  const socks5ExtPort = socks5Mapping
+                    ? parseInt(socks5Mapping.host)
+                    : null;
+                  const externalUrl = socks5ExtPort
+                    ? `socks5://${serverIp}:${socks5ExtPort}`
+                    : null;
 
                   return (
                     <div className="bg-vpn-input rounded-lg p-4 mt-4 space-y-2">
@@ -729,22 +734,24 @@ export default function ContainerDetail() {
                           <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
                         )}
                       </div>
-                      <div
-                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ext"
-                        onClick={() => copyToClipboard(externalUrl)}
-                      >
-                        <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
-                          External
-                        </span>
-                        <p className="text-xs text-blue-400/80 font-mono truncate flex-1">
-                          {externalUrl}
-                        </p>
-                        {copiedUrl === externalUrl ? (
-                          <Check className="w-3 h-3 text-blue-400 shrink-0" />
-                        ) : (
-                          <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
-                        )}
-                      </div>
+                      {externalUrl && (
+                        <div
+                          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ext"
+                          onClick={() => copyToClipboard(externalUrl)}
+                        >
+                          <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
+                            External
+                          </span>
+                          <p className="text-xs text-blue-400/80 font-mono truncate flex-1">
+                            {externalUrl}
+                          </p>
+                          {copiedUrl === externalUrl ? (
+                            <Check className="w-3 h-3 text-blue-400 shrink-0" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -1210,7 +1217,7 @@ export default function ContainerDetail() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <label className="text-xs text-vpn-muted font-mono">
-                        SOCKS5 Port
+                        SOCKS5
                       </label>
                       <button
                         type="button"
@@ -1230,17 +1237,13 @@ export default function ContainerDetail() {
                         />
                       </button>
                     </div>
-                    <input
-                      type="number"
-                      value={editSocks5Port}
-                      onChange={(e) =>
-                        setEditSocks5Port(parseInt(e.target.value) || 0)
-                      }
-                      className={`w-full bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-vpn-primary ${!editSocks5Enabled ? "opacity-40" : ""}`}
-                      min="1024"
-                      max="65535"
-                      disabled={!editSocks5Enabled}
-                    />
+                    {editSocks5Enabled && (
+                      <p className="text-[10px] text-vpn-muted">
+                        Internal{" "}
+                        <span className="font-mono text-white">:1080</span> —
+                        map via Extra Ports
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

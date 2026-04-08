@@ -214,11 +214,81 @@ def _ws_request_for_instance(
         return json.loads(data.decode("utf-8"))
 
 
+# --- Stream data helpers (O11 moved streams to 'streamstatus' action) ---
+
+_STREAMSTATUS_PARAMS = {
+    "ProviderId": "",
+    "StreamId": "all",
+    "SearchPattern": "",
+    "Filter": "allrunning",
+    "StreamType": "",
+    "SortAlpha": False,
+}
+
+
+def _parse_quality(stream: dict) -> str:
+    """Extract quality/resolution from StreamInfo."""
+    info = stream.get("StreamInfo", "")
+    if info:
+        for line in info.split("\n"):
+            line = line.strip()
+            if line and line[0].isdigit():
+                return line.split(" (")[0]
+    return ""
+
+
+def _build_readers_from_stream_data(data: dict) -> list:
+    """Convert O11 streamstatus response into the legacy Readers list."""
+    readers = []
+    for provider in data.get("Providers", []):
+        provider_name = provider.get("Name", "")
+        for stream in provider.get("Streams") or []:
+            if not stream.get("Running"):
+                continue
+            readers.append(
+                {
+                    "StreamName": stream.get("Id", ""),
+                    "ProviderName": provider_name,
+                    "Quality": _parse_quality(stream),
+                    "Bw": stream.get("Bw", ""),
+                    "Uptime": stream.get("Uptime", ""),
+                    "Errors": stream.get("StreamErrors", ""),
+                    "ErrorsColor": (
+                        stream.get("StatusColor", "")
+                        if stream.get("StreamErrors")
+                        else ""
+                    ),
+                    "User": stream.get("ScriptUser", ""),
+                    "Ip": "",
+                }
+            )
+    return readers
+
+
 def get_monitoring_for_instance(
     instance_id: str, url: str, username: str, password: str
 ) -> dict:
     """Fetch monitoring data for a specific instance."""
-    return _ws_request_for_instance(instance_id, url, username, password, "monitoring")
+    data = _ws_request_for_instance(
+        instance_id, url, username, password, "monitoring", {"SearchPattern": ""}
+    )
+    if not data.get("Readers"):
+        try:
+            stream_data = _ws_request_for_instance(
+                instance_id,
+                url,
+                username,
+                password,
+                "streamstatus",
+                _STREAMSTATUS_PARAMS,
+            )
+            data["Readers"] = _build_readers_from_stream_data(stream_data)
+        except Exception as e:
+            logger.warning(
+                "Failed to fetch stream data for instance %s: %s", instance_id, e
+            )
+            data["Readers"] = []
+    return data
 
 
 def get_network_usage_for_instance(
@@ -285,7 +355,7 @@ def test_connection(url: str, username: str, password: str):
     ws_url = url.replace("http://", "ws://").replace("https://", "wss://") + "/ws"
     ws = websocket.create_connection(ws_url, timeout=10, header={"Authorization": tok})
     try:
-        ws.send(json.dumps({"Action": "monitoring"}))
+        ws.send(json.dumps({"Action": "monitoring", "SearchPattern": ""}))
         _opcode, data = ws.recv_data()
     finally:
         ws.close()
@@ -295,7 +365,15 @@ def test_connection(url: str, username: str, password: str):
 
 def get_monitoring() -> dict:
     """Fetch overall monitoring data (all readers + system stats)."""
-    return _ws_request("monitoring")
+    data = _ws_request("monitoring", {"SearchPattern": ""})
+    if not data.get("Readers"):
+        try:
+            stream_data = _ws_request("streamstatus", _STREAMSTATUS_PARAMS)
+            data["Readers"] = _build_readers_from_stream_data(stream_data)
+        except Exception as e:
+            logger.warning("Failed to fetch stream data: %s", e)
+            data["Readers"] = []
+    return data
 
 
 def get_network_usage(provider_id: str) -> dict:

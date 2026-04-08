@@ -136,7 +136,7 @@ export default function ContainerDetail() {
   const fetchVpnInfo = useCallback(async () => {
     try {
       const res = await api.get(`/containers/${id}/vpn-info`, {
-        timeout: 8000,
+        timeout: 5000,
       });
       startTransition(() => setVpnInfo(res.data));
     } catch {
@@ -166,12 +166,19 @@ export default function ContainerDetail() {
     if (tab === "files") fetchConfigFiles();
   }, [tab, fetchLogs]);
 
+  // Auto-refresh logs every 5s when logs tab is active
+  useEffect(() => {
+    if (tab !== "logs") return;
+    const interval = setInterval(fetchLogs, 5000);
+    return () => clearInterval(interval);
+  }, [tab, fetchLogs]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       fetchContainer();
       fetchDependents();
       fetchVpnInfo();
-    }, 10000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [fetchContainer, fetchDependents, fetchVpnInfo]);
 

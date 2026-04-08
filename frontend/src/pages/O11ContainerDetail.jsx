@@ -81,7 +81,7 @@ export default function O11ContainerDetail() {
   const [uploading, setUploading] = useState(false);
   const [uploadTargetPath, setUploadTargetPath] = useState("");
   const [filesLoading, setFilesLoading] = useState(false);
-  const [collapsedFolders, setCollapsedFolders] = useState({});
+  const [expandedFolders, setExpandedFolders] = useState({});
   const fileInputRef = useRef(null);
 
   // Description
@@ -254,7 +254,7 @@ export default function O11ContainerDetail() {
   };
 
   const toggleFolder = (path) => {
-    setCollapsedFolders((prev) => ({ ...prev, [path]: !prev[path] }));
+    setExpandedFolders((prev) => ({ ...prev, [path]: !prev[path] }));
   };
 
   useEffect(() => {
@@ -266,6 +266,13 @@ export default function O11ContainerDetail() {
     if (tab === "logs") fetchLogs();
     if (tab === "files") fetchFiles();
   }, [tab, fetchLogs, fetchFiles]);
+
+  // Auto-refresh logs every 5s when logs tab is active
+  useEffect(() => {
+    if (tab !== "logs") return;
+    const interval = setInterval(fetchLogs, 5000);
+    return () => clearInterval(interval);
+  }, [tab, fetchLogs]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1050,7 +1057,7 @@ export default function O11ContainerDetail() {
                         const folderPath = path
                           ? `${path}/${folderName}`
                           : folderName;
-                        const isCollapsed = collapsedFolders[folderPath];
+                        const isCollapsed = !expandedFolders[folderPath];
                         const folderNode = node._folders[folderName];
                         // Count total files in this folder recursively
                         const countFiles = (n) => {

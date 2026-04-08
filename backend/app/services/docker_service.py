@@ -4,6 +4,7 @@ import os
 import secrets
 import socket
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 import docker
 import requests as http_requests
@@ -623,45 +624,66 @@ def get_gluetun_vpn_info(container_id: str, debug: bool = False) -> dict:
     if debug and debug_info is not None:
         debug_info["base_url"] = base
 
-    # VPN status
-    try:
-        resp = http_requests.get(f"{base}/v1/vpn/status", **req_kwargs)
-        if debug and debug_info is not None:
-            debug_info["vpn_status_code"] = resp.status_code
-            debug_info["vpn_status_body"] = resp.text[:500]
-        if resp.ok:
-            data = resp.json()
-            result["vpn_status"] = data.get("status")
-    except Exception as e:
-        logger.debug("Gluetun VPN status query failed for %s: %s", container_id, e)
-        if debug and debug_info is not None:
-            debug_info["errors"].append(f"VPN status: {e}")
+    def _fetch_vpn_status():
+        try:
+            resp = http_requests.get(f"{base}/v1/vpn/status", **req_kwargs)
+            if resp.ok:
+                return "vpn_status", resp
+        except Exception as e:
+            logger.debug("Gluetun VPN status query failed for %s: %s", container_id, e)
+            if debug and debug_info is not None:
+                debug_info.setdefault("errors", []).append(f"VPN status: {e}")
+        return "vpn_status", None
 
-    # Public IP
-    try:
-        resp = http_requests.get(f"{base}/v1/publicip/ip", **req_kwargs)
-        if debug and debug_info is not None:
-            debug_info["publicip_status_code"] = resp.status_code
-            debug_info["publicip_body"] = resp.text[:500]
-        if resp.ok:
-            data = resp.json()
-            result["public_ip"] = data.get("public_ip") or data.get("ip")
-            result["country"] = data.get("country")
-            result["region"] = data.get("region")
-    except Exception as e:
-        logger.debug("Gluetun public IP query failed for %s: %s", container_id, e)
-        if debug and debug_info is not None:
-            debug_info["errors"].append(f"Public IP: {e}")
-    # Port forwarding
-    try:
-        resp = http_requests.get(f"{base}/v1/openvpn/portforwarded", **req_kwargs)
-        if resp.ok:
-            data = resp.json()
-            port = data.get("port", 0)
-            if port and port > 0:
-                result["port_forwarded"] = port
-    except Exception:
-        pass
+    def _fetch_public_ip():
+        try:
+            resp = http_requests.get(f"{base}/v1/publicip/ip", **req_kwargs)
+            if resp.ok:
+                return "publicip", resp
+        except Exception as e:
+            logger.debug("Gluetun public IP query failed for %s: %s", container_id, e)
+            if debug and debug_info is not None:
+                debug_info.setdefault("errors", []).append(f"Public IP: {e}")
+        return "publicip", None
+
+    def _fetch_port_forward():
+        try:
+            resp = http_requests.get(f"{base}/v1/openvpn/portforwarded", **req_kwargs)
+            if resp.ok:
+                return "portforward", resp
+        except Exception:
+            pass
+        return "portforward", None
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [
+            pool.submit(fn)
+            for fn in (_fetch_vpn_status, _fetch_public_ip, _fetch_port_forward)
+        ]
+        for future in as_completed(futures):
+            key, resp = future.result()
+            if resp is None:
+                continue
+            if key == "vpn_status":
+                if debug and debug_info is not None:
+                    debug_info["vpn_status_code"] = resp.status_code
+                    debug_info["vpn_status_body"] = resp.text[:500]
+                data = resp.json()
+                result["vpn_status"] = data.get("status")
+            elif key == "publicip":
+                if debug and debug_info is not None:
+                    debug_info["publicip_status_code"] = resp.status_code
+                    debug_info["publicip_body"] = resp.text[:500]
+                data = resp.json()
+                result["public_ip"] = data.get("public_ip") or data.get("ip")
+                result["country"] = data.get("country")
+                result["region"] = data.get("region")
+            elif key == "portforward":
+                data = resp.json()
+                port = data.get("port", 0)
+                if port and port > 0:
+                    result["port_forwarded"] = port
+
     if debug:
         result["_debug"] = debug_info
     return result

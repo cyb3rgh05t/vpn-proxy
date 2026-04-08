@@ -257,13 +257,22 @@ export default function Dashboard() {
           httpProxy: httpEnabled
             ? `${c.ip_address || "—"}:${c.port_http_proxy}`
             : null,
+          httpProxyHost: httpEnabled
+            ? `${c.docker_name || `gluetun-${c.name}`}:${c.port_http_proxy}`
+            : null,
           httpProxyExternal,
           shadowsocks: ssEnabled
             ? `${c.ip_address || "—"}:${c.port_shadowsocks}`
             : null,
+          shadowsocksHost: ssEnabled
+            ? `${c.docker_name || `gluetun-${c.name}`}:${c.port_shadowsocks}`
+            : null,
           shadowsocksExternal,
           socks5: c.socks5_enabled
             ? `${c.ip_address || "—"}:${c.port_socks5 || 1080}`
+            : null,
+          socks5Host: c.socks5_enabled
+            ? `${c.docker_name || `gluetun-${c.name}`}:${c.port_socks5 || 1080}`
             : null,
           socks5External,
         };
@@ -929,6 +938,12 @@ export default function Dashboard() {
                               HTTP {conn.httpProxy}
                             </span>
                           )}
+                          {conn.httpProxyHost && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                              <Server className="w-2.5 h-2.5" />
+                              HTTP {conn.httpProxyHost}
+                            </span>
+                          )}
                           {conn.httpProxyExternal && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-orange-500/10 text-orange-400 border border-orange-500/20">
                               <Globe className="w-2.5 h-2.5" />
@@ -941,6 +956,12 @@ export default function Dashboard() {
                               SS {conn.shadowsocks}
                             </span>
                           )}
+                          {conn.shadowsocksHost && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                              <Server className="w-2.5 h-2.5" />
+                              SS {conn.shadowsocksHost}
+                            </span>
+                          )}
                           {conn.shadowsocksExternal && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20">
                               <Globe className="w-2.5 h-2.5" />
@@ -951,6 +972,12 @@ export default function Dashboard() {
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">
                               <Network className="w-2.5 h-2.5" />
                               SOCKS5 {conn.socks5}
+                            </span>
+                          )}
+                          {conn.socks5Host && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                              <Server className="w-2.5 h-2.5" />
+                              SOCKS5 {conn.socks5Host}
                             </span>
                           )}
                           {conn.socks5External && (

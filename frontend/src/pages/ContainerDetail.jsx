@@ -597,7 +597,10 @@ export default function ContainerDetail() {
                   const auth = user && pass ? `${user}:${pass}@` : "";
                   const authDisplay = user && pass ? `${user}:***@` : "";
                   const ip = container.ip_address || "<ip>";
+                  const dockerName =
+                    container.docker_name || `gluetun-${container.name}`;
                   const internalUrl = `http://${auth}${ip}:${internalPort}`;
+                  const hostnameUrl = `http://${auth}${dockerName}:${internalPort}`;
                   const proxyMapping = container.extra_ports?.find(
                     (ep) => parseInt(ep.container) === internalPort,
                   );
@@ -632,6 +635,23 @@ export default function ContainerDetail() {
                           <Check className="w-3 h-3 text-emerald-400 shrink-0" />
                         ) : (
                           <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
+                        )}
+                      </div>
+                      <div
+                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/hhost"
+                        onClick={() => copyToClipboard(hostnameUrl)}
+                      >
+                        <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
+                          Host
+                        </span>
+                        <p className="text-xs text-amber-400/80 font-mono truncate flex-1">
+                          http://{authDisplay}
+                          {dockerName}:{internalPort}
+                        </p>
+                        {copiedUrl === hostnameUrl ? (
+                          <Check className="w-3 h-3 text-amber-400 shrink-0" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/hhost:opacity-100 transition-opacity shrink-0" />
                         )}
                       </div>
                       {externalUrl && (
@@ -706,13 +726,95 @@ export default function ContainerDetail() {
                   </p>
                 </div>
               </div>
+              {/* Shadowsocks Proxy URL */}
+              {container.config?.SHADOWSOCKS?.toLowerCase() === "on" &&
+                (() => {
+                  const ip = container.ip_address || "<ip>";
+                  const serverIp = window.location.hostname;
+                  const ssPort = container.port_shadowsocks || 8388;
+                  const dockerName =
+                    container.docker_name || `gluetun-${container.name}`;
+                  const internalUrl = `ss://${ip}:${ssPort}`;
+                  const hostnameUrl = `ss://${dockerName}:${ssPort}`;
+                  const ssMapping = container.extra_ports?.find(
+                    (ep) => parseInt(ep.container) === ssPort,
+                  );
+                  const ssExtPort = ssMapping ? parseInt(ssMapping.host) : null;
+                  const externalUrl = ssExtPort
+                    ? `ss://${serverIp}:${ssExtPort}`
+                    : null;
+
+                  return (
+                    <div className="bg-vpn-input rounded-lg p-4 mt-4 space-y-2">
+                      <p className="text-xs text-vpn-muted mb-1 flex items-center gap-1.5">
+                        Shadowsocks Proxy
+                        <span className="text-emerald-400 text-[10px]">
+                          ● enabled
+                        </span>
+                      </p>
+                      <div
+                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ssint"
+                        onClick={() => copyToClipboard(internalUrl)}
+                      >
+                        <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
+                          Internal
+                        </span>
+                        <p className="text-xs text-cyan-400/80 font-mono truncate flex-1">
+                          {internalUrl}
+                        </p>
+                        {copiedUrl === internalUrl ? (
+                          <Check className="w-3 h-3 text-cyan-400 shrink-0" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ssint:opacity-100 transition-opacity shrink-0" />
+                        )}
+                      </div>
+                      <div
+                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/sshost"
+                        onClick={() => copyToClipboard(hostnameUrl)}
+                      >
+                        <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
+                          Host
+                        </span>
+                        <p className="text-xs text-amber-400/80 font-mono truncate flex-1">
+                          ss://{dockerName}:{ssPort}
+                        </p>
+                        {copiedUrl === hostnameUrl ? (
+                          <Check className="w-3 h-3 text-amber-400 shrink-0" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/sshost:opacity-100 transition-opacity shrink-0" />
+                        )}
+                      </div>
+                      {externalUrl && (
+                        <div
+                          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ssext"
+                          onClick={() => copyToClipboard(externalUrl)}
+                        >
+                          <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
+                            External
+                          </span>
+                          <p className="text-xs text-blue-400/80 font-mono truncate flex-1">
+                            {externalUrl}
+                          </p>
+                          {copiedUrl === externalUrl ? (
+                            <Check className="w-3 h-3 text-blue-400 shrink-0" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ssext:opacity-100 transition-opacity shrink-0" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               {/* SOCKS5 Proxy URL */}
               {container.socks5_enabled &&
                 (() => {
                   const ip = container.ip_address || "<ip>";
                   const serverIp = window.location.hostname;
                   const socks5Port = container.port_socks5 || 1080;
+                  const dockerName =
+                    container.docker_name || `gluetun-${container.name}`;
                   const internalUrl = `socks5://${ip}:${socks5Port}`;
+                  const hostnameUrl = `socks5://${dockerName}:${socks5Port}`;
                   const socks5Mapping = container.extra_ports?.find(
                     (ep) => parseInt(ep.container) === socks5Port,
                   );
@@ -745,6 +847,22 @@ export default function ContainerDetail() {
                           <Check className="w-3 h-3 text-purple-400 shrink-0" />
                         ) : (
                           <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
+                        )}
+                      </div>
+                      <div
+                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/s5host"
+                        onClick={() => copyToClipboard(hostnameUrl)}
+                      >
+                        <span className="text-[10px] text-vpn-muted font-medium uppercase w-14 shrink-0">
+                          Host
+                        </span>
+                        <p className="text-xs text-amber-400/80 font-mono truncate flex-1">
+                          socks5://{dockerName}:{socks5Port}
+                        </p>
+                        {copiedUrl === hostnameUrl ? (
+                          <Check className="w-3 h-3 text-amber-400 shrink-0" />
+                        ) : (
+                          <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/s5host:opacity-100 transition-opacity shrink-0" />
                         )}
                       </div>
                       {externalUrl && (

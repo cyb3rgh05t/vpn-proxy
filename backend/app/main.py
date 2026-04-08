@@ -179,7 +179,9 @@ def run_migrations():
                     )
                 )
                 conn.commit()
-                logger.info("Migrated: added 'socks5_enabled' column to vpn_containers.")
+                logger.info(
+                    "Migrated: added 'socks5_enabled' column to vpn_containers."
+                )
             if "port_socks5" not in columns:
                 conn.execute(
                     sqlalchemy.text(
@@ -195,7 +197,82 @@ def run_migrations():
                     )
                 )
                 conn.commit()
-                logger.info("Migrated: added 'socks5_container_id' column to vpn_containers.")
+                logger.info(
+                    "Migrated: added 'socks5_container_id' column to vpn_containers."
+                )
+
+
+def reconcile_socks5_sidecars():
+    """Recreate SOCKS5 sidecars whose Gluetun parent container was recreated (new ID).
+
+    After a host restart, Gluetun containers may get new IDs.  The SOCKS5
+    sidecar's ``network_mode: container:<old-id>`` then becomes stale and
+    Docker refuses to start it.  This routine detects that situation and
+    recreates the sidecar so it binds to the *current* Gluetun container.
+    """
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(VPNContainer)
+            .filter(
+                VPNContainer.socks5_enabled == True,
+                VPNContainer.socks5_container_id.isnot(None),
+            )  # noqa: E712
+            .all()
+        )
+        if not rows:
+            return
+
+        client = docker_service._get_client()
+        fixed = 0
+        for row in rows:
+            gluetun_name = f"gluetun-{row.name}"
+            socks5_name = f"socks5-{row.name}"
+
+            # Check if socks5 container exists and is healthy
+            try:
+                socks5 = client.containers.get(socks5_name)
+                if socks5.status == "running":
+                    continue
+                # Container exists but not running — inspect its network_mode
+                net_mode = socks5.attrs.get("HostConfig", {}).get("NetworkMode", "")
+                # If it references an ID (not a name), check if it's stale
+                if net_mode.startswith("container:"):
+                    ref = net_mode.split(":", 1)[1]
+                    try:
+                        client.containers.get(ref)
+                        # Reference is valid, just try to start it
+                        socks5.start()
+                        continue
+                    except Exception:
+                        pass  # Reference is stale, recreate below
+            except Exception:
+                pass  # Container doesn't exist
+
+            # Remove old socks5 container and recreate
+            logger.info(
+                "Recreating SOCKS5 sidecar %s (parent Gluetun container changed)",
+                socks5_name,
+            )
+            docker_service.remove_socks5_sidecar(row.name)
+            port = row.port_socks5 or 1080
+            new_id = docker_service.create_socks5_sidecar(row.name, gluetun_name, port)
+            if new_id:
+                row.socks5_container_id = new_id
+                db.commit()
+                fixed += 1
+                logger.info(
+                    "Recreated SOCKS5 sidecar %s -> %s", socks5_name, new_id[:12]
+                )
+            else:
+                logger.warning("Failed to recreate SOCKS5 sidecar %s", socks5_name)
+
+        if fixed:
+            logger.info("Reconciled %d SOCKS5 sidecar(s).", fixed)
+    except Exception as e:
+        logger.warning("SOCKS5 sidecar reconciliation failed: %s", e)
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -206,6 +283,7 @@ async def lifespan(app: FastAPI):
     run_migrations()
     auto_discover_containers()
     auto_discover_o11_containers()
+    reconcile_socks5_sidecars()
 
     # Start Telegram notification checker
     from app.services import telegram_service

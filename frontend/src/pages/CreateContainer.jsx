@@ -556,6 +556,11 @@ export default function CreateContainer() {
                 max="65535"
                 disabled={!httpProxyEnabled}
               />
+              {httpProxyEnabled && (
+                <p className="text-xs text-vpn-muted mt-1">
+                  Internal only — use Extra Ports for external access
+                </p>
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1.5">
@@ -592,6 +597,11 @@ export default function CreateContainer() {
                 max="65535"
                 disabled={!shadowsocksEnabled}
               />
+              {shadowsocksEnabled && (
+                <p className="text-xs text-vpn-muted mt-1">
+                  Internal only — use Extra Ports for external access
+                </p>
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1.5">

@@ -290,75 +290,75 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
               : null;
 
             return (
-              <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2 space-y-1.5">
-                <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+              <div className="bg-vpn-input/50 rounded-lg px-3 py-2.5 border border-vpn-border/50 col-span-2 space-y-1.5">
+                <p className="text-xs text-vpn-muted uppercase tracking-wider font-semibold mb-1">
                   HTTP Proxy
                 </p>
                 {/* Internal URL */}
                 <div
-                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/int"
+                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/int"
                   onClick={(e) => {
                     e.stopPropagation();
                     copyToClipboard(internalUrl);
                   }}
                   title="Click to copy internal proxy URL"
                 >
-                  <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                  <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
                     Internal
                   </span>
-                  <p className="text-[9px] text-emerald-400/70 font-mono truncate flex-1">
+                  <p className="text-[11px] text-emerald-400/80 font-mono truncate flex-1">
                     http://{authDisplay}
                     {ip}:{internalPort}
                   </p>
                   {copiedUrl === internalUrl ? (
-                    <Check className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                    <Check className="w-3 h-3 text-emerald-400 shrink-0" />
                   ) : (
-                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
+                    <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
                   )}
                 </div>
                 {/* Hostname URL */}
                 <div
-                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/host"
+                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/host"
                   onClick={(e) => {
                     e.stopPropagation();
                     copyToClipboard(hostnameUrl);
                   }}
                   title="Click to copy hostname proxy URL"
                 >
-                  <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                  <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
                     Host
                   </span>
-                  <p className="text-[9px] text-amber-400/70 font-mono truncate flex-1">
+                  <p className="text-[11px] text-amber-400/80 font-mono truncate flex-1">
                     http://{authDisplay}
                     {dockerName}:{internalPort}
                   </p>
                   {copiedUrl === hostnameUrl ? (
-                    <Check className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                    <Check className="w-3 h-3 text-amber-400 shrink-0" />
                   ) : (
-                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/host:opacity-100 transition-opacity shrink-0" />
+                    <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/host:opacity-100 transition-opacity shrink-0" />
                   )}
                 </div>
                 {/* External URL - only if mapped */}
                 {externalUrl && (
                   <div
-                    className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/ext"
+                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ext"
                     onClick={(e) => {
                       e.stopPropagation();
                       copyToClipboard(externalUrl);
                     }}
                     title="Click to copy external proxy URL"
                   >
-                    <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                    <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
                       External
                     </span>
-                    <p className="text-[9px] text-blue-400/70 font-mono truncate flex-1">
+                    <p className="text-[11px] text-blue-400/80 font-mono truncate flex-1">
                       http://{authDisplay}
                       {serverIp}:{externalPort}
                     </p>
                     {copiedUrl === externalUrl ? (
-                      <Check className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+                      <Check className="w-3 h-3 text-blue-400 shrink-0" />
                     ) : (
-                      <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
+                      <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
                     )}
                   </div>
                 )}
@@ -383,69 +383,69 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
               : null;
 
             return (
-              <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2 space-y-1.5">
-                <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+              <div className="bg-vpn-input/50 rounded-lg px-3 py-2.5 border border-vpn-border/50 col-span-2 space-y-1.5">
+                <p className="text-xs text-vpn-muted uppercase tracking-wider font-semibold mb-1">
                   Shadowsocks
                 </p>
                 <div
-                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/ssint"
+                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ssint"
                   onClick={(e) => {
                     e.stopPropagation();
                     copyToClipboard(ssInternal);
                   }}
                   title="Click to copy internal Shadowsocks URL"
                 >
-                  <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                  <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
                     Internal
                   </span>
-                  <p className="text-[9px] text-emerald-400/70 font-mono truncate flex-1">
+                  <p className="text-[11px] text-emerald-400/80 font-mono truncate flex-1">
                     {ssInternal}
                   </p>
                   {copiedUrl === ssInternal ? (
-                    <Check className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                    <Check className="w-3 h-3 text-emerald-400 shrink-0" />
                   ) : (
-                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/ssint:opacity-100 transition-opacity shrink-0" />
+                    <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ssint:opacity-100 transition-opacity shrink-0" />
                   )}
                 </div>
                 <div
-                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/sshost"
+                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/sshost"
                   onClick={(e) => {
                     e.stopPropagation();
                     copyToClipboard(ssHostname);
                   }}
                   title="Click to copy hostname Shadowsocks URL"
                 >
-                  <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                  <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
                     Host
                   </span>
-                  <p className="text-[9px] text-amber-400/70 font-mono truncate flex-1">
+                  <p className="text-[11px] text-amber-400/80 font-mono truncate flex-1">
                     {ssHostname}
                   </p>
                   {copiedUrl === ssHostname ? (
-                    <Check className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                    <Check className="w-3 h-3 text-amber-400 shrink-0" />
                   ) : (
-                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/sshost:opacity-100 transition-opacity shrink-0" />
+                    <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/sshost:opacity-100 transition-opacity shrink-0" />
                   )}
                 </div>
                 {ssExternal && (
                   <div
-                    className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/ssext"
+                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ssext"
                     onClick={(e) => {
                       e.stopPropagation();
                       copyToClipboard(ssExternal);
                     }}
                     title="Click to copy external Shadowsocks URL"
                   >
-                    <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                    <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
                       External
                     </span>
-                    <p className="text-[9px] text-blue-400/70 font-mono truncate flex-1">
+                    <p className="text-[11px] text-blue-400/80 font-mono truncate flex-1">
                       {ssExternal}
                     </p>
                     {copiedUrl === ssExternal ? (
-                      <Check className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+                      <Check className="w-3 h-3 text-blue-400 shrink-0" />
                     ) : (
-                      <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/ssext:opacity-100 transition-opacity shrink-0" />
+                      <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ssext:opacity-100 transition-opacity shrink-0" />
                     )}
                   </div>
                 )}
@@ -472,72 +472,72 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
               : null;
 
             return (
-              <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2 space-y-1.5">
-                <p className="text-[10px] text-vpn-muted uppercase tracking-wider mb-0.5">
+              <div className="bg-vpn-input/50 rounded-lg px-3 py-2.5 border border-vpn-border/50 col-span-2 space-y-1.5">
+                <p className="text-xs text-vpn-muted uppercase tracking-wider font-semibold mb-1">
                   SOCKS5 Proxy
                 </p>
                 {/* Internal URL */}
                 <div
-                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/s5int"
+                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/s5int"
                   onClick={(e) => {
                     e.stopPropagation();
                     copyToClipboard(socks5Internal);
                   }}
                   title="Click to copy internal SOCKS5 URL"
                 >
-                  <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                  <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
                     Internal
                   </span>
-                  <p className="text-[9px] text-purple-400/70 font-mono truncate flex-1">
+                  <p className="text-[11px] text-purple-400/80 font-mono truncate flex-1">
                     {socks5Internal}
                   </p>
                   {copiedUrl === socks5Internal ? (
-                    <Check className="w-2.5 h-2.5 text-purple-400 shrink-0" />
+                    <Check className="w-3 h-3 text-purple-400 shrink-0" />
                   ) : (
-                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/s5int:opacity-100 transition-opacity shrink-0" />
+                    <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/s5int:opacity-100 transition-opacity shrink-0" />
                   )}
                 </div>
                 {/* Hostname URL */}
                 <div
-                  className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/s5host"
+                  className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/s5host"
                   onClick={(e) => {
                     e.stopPropagation();
                     copyToClipboard(socks5Hostname);
                   }}
                   title="Click to copy hostname SOCKS5 URL"
                 >
-                  <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                  <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
                     Host
                   </span>
-                  <p className="text-[9px] text-amber-400/70 font-mono truncate flex-1">
+                  <p className="text-[11px] text-amber-400/80 font-mono truncate flex-1">
                     {socks5Hostname}
                   </p>
                   {copiedUrl === socks5Hostname ? (
-                    <Check className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                    <Check className="w-3 h-3 text-amber-400 shrink-0" />
                   ) : (
-                    <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/s5host:opacity-100 transition-opacity shrink-0" />
+                    <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/s5host:opacity-100 transition-opacity shrink-0" />
                   )}
                 </div>
                 {/* External URL - only if mapped via extra_ports */}
                 {socks5External && (
                   <div
-                    className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity group/s5ext"
+                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/s5ext"
                     onClick={(e) => {
                       e.stopPropagation();
                       copyToClipboard(socks5External);
                     }}
                     title="Click to copy external SOCKS5 URL"
                   >
-                    <span className="text-[9px] text-vpn-muted font-medium uppercase w-12 shrink-0">
+                    <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
                       External
                     </span>
-                    <p className="text-[9px] text-blue-400/70 font-mono truncate flex-1">
+                    <p className="text-[11px] text-blue-400/80 font-mono truncate flex-1">
                       {socks5External}
                     </p>
                     {copiedUrl === socks5External ? (
-                      <Check className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+                      <Check className="w-3 h-3 text-blue-400 shrink-0" />
                     ) : (
-                      <Copy className="w-2.5 h-2.5 text-vpn-muted opacity-0 group-hover/s5ext:opacity-100 transition-opacity shrink-0" />
+                      <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/s5ext:opacity-100 transition-opacity shrink-0" />
                     )}
                   </div>
                 )}

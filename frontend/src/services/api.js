@@ -16,6 +16,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Ignore cancelled requests (AbortController)
+    if (axios.isCancel(error) || error.code === "ERR_CANCELED") {
+      return Promise.reject(error);
+    }
     const isAuthUrl = error.config?.url?.includes("/auth/");
     if (!isAuthUrl) {
       if (

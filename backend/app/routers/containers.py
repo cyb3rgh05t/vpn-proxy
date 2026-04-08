@@ -338,10 +338,10 @@ async def upload_o11_file(
         raise HTTPException(status_code=400, detail="No filename provided")
     filename = os.path.basename(file.filename)
     _, ext = os.path.splitext(filename)
-    if ext.lower() not in ALLOWED_O11_EXTENSIONS:
+    if ext and ext.lower() not in ALLOWED_O11_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_O11_EXTENSIONS))}",
+            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_O11_EXTENSIONS))}, or no extension",
         )
 
     content = await file.read()
@@ -1307,10 +1307,10 @@ async def upload_vpn_config(
         raise HTTPException(status_code=400, detail="No filename provided")
     filename = os.path.basename(file.filename)
     _, ext = os.path.splitext(filename)
-    if ext.lower() not in ALLOWED_CONFIG_EXTENSIONS:
+    if ext and ext.lower() not in ALLOWED_CONFIG_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_CONFIG_EXTENSIONS))}",
+            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_CONFIG_EXTENSIONS))}, or no extension",
         )
 
     # Read and validate size
@@ -1353,7 +1353,7 @@ def list_config_files(
         fpath = os.path.join(gluetun_data, fname)
         if os.path.isfile(fpath):
             _, ext = os.path.splitext(fname)
-            if ext.lower() in ALLOWED_CONFIG_EXTENSIONS:
+            if not ext or ext.lower() in ALLOWED_CONFIG_EXTENSIONS:
                 files.append(
                     {
                         "name": fname,
@@ -1406,10 +1406,10 @@ async def upload_vpn_config_by_name(
         raise HTTPException(status_code=400, detail="No filename provided")
     filename = os.path.basename(file.filename)
     _, ext = os.path.splitext(filename)
-    if ext.lower() not in ALLOWED_CONFIG_EXTENSIONS:
+    if ext and ext.lower() not in ALLOWED_CONFIG_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_CONFIG_EXTENSIONS))}",
+            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_CONFIG_EXTENSIONS))}, or no extension",
         )
 
     content = await file.read()

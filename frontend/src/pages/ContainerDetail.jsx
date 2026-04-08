@@ -955,7 +955,6 @@ export default function ContainerDetail() {
                   <input
                     ref={configFileInputRef}
                     type="file"
-                    accept=".ovpn,.conf,.key,.crt,.pem,.txt,.cfg"
                     multiple
                     onChange={handleConfigUpload}
                     className="hidden"
@@ -1360,7 +1359,6 @@ export default function ContainerDetail() {
                 <input
                   ref={configFileInputRef}
                   type="file"
-                  accept=".ovpn,.conf,.key,.crt,.pem,.txt,.cfg"
                   onChange={handleConfigUpload}
                   className="hidden"
                   multiple

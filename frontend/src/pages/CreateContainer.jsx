@@ -466,7 +466,6 @@ export default function CreateContainer() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".ovpn,.conf,.key,.crt,.pem,.txt,.cfg"
                 onChange={handleFileUpload}
                 className="hidden"
                 multiple

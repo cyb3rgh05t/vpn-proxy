@@ -739,7 +739,6 @@ export default function CreateO11Container() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".ovpn,.conf,.key,.crt,.pem,.txt,.cfg,.xml,.json,.yaml,.yml,.ini,.toml,.sh,.bat,.env,.csv,.log,.properties,.html,.css,.js,.py,.lua"
                 onChange={handleFileUpload}
                 className="hidden"
                 multiple

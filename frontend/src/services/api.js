@@ -21,15 +21,9 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     const isAuthUrl = error.config?.url?.includes("/auth/");
-    if (!isAuthUrl) {
-      if (
-        error.response?.status === 401 ||
-        error.response?.status === 403 ||
-        (!error.response && localStorage.getItem("token"))
-      ) {
-        localStorage.removeItem("token");
-        window.location.href = "/login";
-      }
+    if (!isAuthUrl && error.response?.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
     }
     return Promise.reject(error);
   },

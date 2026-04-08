@@ -268,26 +268,40 @@ def _build_readers_from_stream_data(data: dict) -> list:
 def get_monitoring_for_instance(
     instance_id: str, url: str, username: str, password: str
 ) -> dict:
-    """Fetch monitoring data for a specific instance."""
-    data = _ws_request_for_instance(
-        instance_id, url, username, password, "monitoring", {"SearchPattern": ""}
+    """Fetch monitoring data for a specific instance (single WS connection)."""
+    token = _get_instance_token(instance_id, url, username, password)
+    base = url.rstrip("/")
+    ws_url = base.replace("http://", "ws://").replace("https://", "wss://") + "/ws"
+
+    ws = websocket.create_connection(
+        ws_url, timeout=15, header={"Authorization": token}
     )
-    if not data.get("Readers"):
+    try:
+        # 1) Fetch system stats
+        ws.send(json.dumps({"Action": "monitoring", "SearchPattern": ""}))
+        _opcode, raw = ws.recv_data()
         try:
-            stream_data = _ws_request_for_instance(
-                instance_id,
-                url,
-                username,
-                password,
-                "streamstatus",
-                _STREAMSTATUS_PARAMS,
-            )
+            data = json.loads(gzip.decompress(raw))
+        except Exception:
+            data = json.loads(raw.decode("utf-8")) if raw else {}
+
+        # 2) If Readers missing, fetch via streamstatus on same connection
+        if not data.get("Readers"):
+            ws.send(json.dumps({"Action": "streamstatus", **_STREAMSTATUS_PARAMS}))
+            _opcode, raw2 = ws.recv_data()
+            try:
+                stream_data = json.loads(gzip.decompress(raw2))
+            except Exception:
+                stream_data = json.loads(raw2.decode("utf-8")) if raw2 else {}
             data["Readers"] = _build_readers_from_stream_data(stream_data)
-        except Exception as e:
-            logger.warning(
-                "Failed to fetch stream data for instance %s: %s", instance_id, e
-            )
-            data["Readers"] = []
+    except Exception as e:
+        logger.warning("Monitoring fetch failed for instance %s: %s", instance_id, e)
+        if not isinstance(data, dict):
+            data = {}
+        data.setdefault("Readers", [])
+    finally:
+        ws.close()
+
     return data
 
 
@@ -365,14 +379,37 @@ def test_connection(url: str, username: str, password: str):
 
 def get_monitoring() -> dict:
     """Fetch overall monitoring data (all readers + system stats)."""
-    data = _ws_request("monitoring", {"SearchPattern": ""})
-    if not data.get("Readers"):
+    token = _get_token()
+    base = _get_base_url()
+    ws_url = base.replace("http://", "ws://").replace("https://", "wss://") + "/ws"
+
+    ws = websocket.create_connection(
+        ws_url, timeout=15, header={"Authorization": token}
+    )
+    try:
+        ws.send(json.dumps({"Action": "monitoring", "SearchPattern": ""}))
+        _opcode, raw = ws.recv_data()
         try:
-            stream_data = _ws_request("streamstatus", _STREAMSTATUS_PARAMS)
+            data = json.loads(gzip.decompress(raw))
+        except Exception:
+            data = json.loads(raw.decode("utf-8")) if raw else {}
+
+        if not data.get("Readers"):
+            ws.send(json.dumps({"Action": "streamstatus", **_STREAMSTATUS_PARAMS}))
+            _opcode, raw2 = ws.recv_data()
+            try:
+                stream_data = json.loads(gzip.decompress(raw2))
+            except Exception:
+                stream_data = json.loads(raw2.decode("utf-8")) if raw2 else {}
             data["Readers"] = _build_readers_from_stream_data(stream_data)
-        except Exception as e:
-            logger.warning("Failed to fetch stream data: %s", e)
-            data["Readers"] = []
+    except Exception as e:
+        logger.warning("Failed to fetch monitoring data: %s", e)
+        if not isinstance(data, dict):
+            data = {}
+        data.setdefault("Readers", [])
+    finally:
+        ws.close()
+
     return data
 
 

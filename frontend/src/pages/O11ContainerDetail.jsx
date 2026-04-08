@@ -1,4 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  startTransition,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -100,7 +106,7 @@ export default function O11ContainerDetail() {
       const res = await api.get(
         `/containers/dependents/${encodeURIComponent(name)}/inspect`,
       );
-      setContainer(res.data);
+      startTransition(() => setContainer(res.data));
     } catch {
       navigate("/o11");
     } finally {
@@ -116,8 +122,10 @@ export default function O11ContainerDetail() {
       const desc = res.data.description || "";
       savedDesc.current = desc;
       if (initialDescLoad.current || !descFocused.current) {
-        setDescription(desc);
-        initialDescLoad.current = false;
+        startTransition(() => {
+          setDescription(desc);
+          initialDescLoad.current = false;
+        });
       }
     } catch {
       // ignore

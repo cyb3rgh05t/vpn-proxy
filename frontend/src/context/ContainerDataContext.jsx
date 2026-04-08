@@ -5,12 +5,13 @@ import {
   useCallback,
   useContext,
   useRef,
+  startTransition,
 } from "react";
 import api from "../services/api";
 
 const ContainerDataContext = createContext(null);
 
-const MONITORING_INTERVAL = 5000;
+const MONITORING_INTERVAL = 10000;
 
 export function ContainerDataProvider({ children }) {
   const [containers, setContainers] = useState([]);
@@ -31,6 +32,10 @@ export function ContainerDataProvider({ children }) {
   const monitoringIntervalRef = useRef(null);
   const monitoringInitRef = useRef(false);
 
+  // AbortControllers to cancel stale polling requests
+  const fetchAllAbortRef = useRef(null);
+  const monitoringAbortRef = useRef(null);
+
   // Settings state (shared across components)
   const [portainerUrl, setPortainerUrl] = useState("");
   const [containerImages, setContainerImages] = useState({
@@ -38,31 +43,34 @@ export function ContainerDataProvider({ children }) {
     o11_images: [],
   });
 
-  const fetchContainers = useCallback(async () => {
+  const fetchContainers = useCallback(async (signal) => {
     try {
-      const res = await api.get("/containers");
+      const res = await api.get("/containers", { signal });
       const data = Array.isArray(res.data) ? res.data : [];
-      setContainers(data);
-      setError("");
+      startTransition(() => {
+        setContainers(data);
+        setError("");
+      });
       return data;
-    } catch {
-      setError("Failed to load containers");
+    } catch (e) {
+      if (e?.name === "CanceledError" || signal?.aborted) return null;
+      startTransition(() => setError("Failed to load containers"));
       return null;
     }
   }, []);
 
-  const fetchVpnInfo = useCallback(async () => {
+  const fetchVpnInfo = useCallback(async (signal) => {
     try {
-      const res = await api.get("/containers/vpn-info-batch");
-      setVpnInfoMap(res.data || {});
+      const res = await api.get("/containers/vpn-info-batch", { signal });
+      startTransition(() => setVpnInfoMap(res.data || {}));
     } catch {
       // Silently ignore
     }
   }, []);
 
-  const fetchAllDependents = useCallback(async () => {
+  const fetchAllDependents = useCallback(async (signal) => {
     try {
-      const res = await api.get("/containers/dependents");
+      const res = await api.get("/containers/dependents", { signal });
       return Array.isArray(res.data) ? res.data : [];
     } catch {
       return [];
@@ -70,57 +78,73 @@ export function ContainerDataProvider({ children }) {
   }, []);
 
   const fetchAll = useCallback(async () => {
+    // Cancel any previous in-flight fetchAll
+    fetchAllAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAllAbortRef.current = controller;
+    const { signal } = controller;
+
     // Fire vpn-info fetch independently (slow endpoint, don't block the rest)
-    fetchVpnInfo();
+    fetchVpnInfo(signal);
 
     const [containerData, allDeps, o11DbInfo] = await Promise.all([
-      fetchContainers(),
-      fetchAllDependents(),
+      fetchContainers(signal),
+      fetchAllDependents(signal),
       api
-        .get("/containers/dependents/db-info-batch")
+        .get("/containers/dependents/db-info-batch", { signal })
         .then((r) => r.data)
         .catch(() => ({})),
     ]);
+
+    if (signal.aborted) return;
 
     // Set O11 containers — identified by the managed-by label, merged with DB info
     const o11List = allDeps.filter(
       (c) => c.labels?.["managed-by"] === "vpn-proxy-o11",
     );
-    setO11Containers(
-      o11List.map((c) => ({
-        ...c,
-        description: o11DbInfo[c.name]?.description || null,
-      })),
-    );
 
-    // Build depsMap client-side: group dependents by their vpn_parent → managed container id
-    if (containerData?.length && allDeps.length) {
-      const nameToId = {};
-      for (const c of containerData) {
-        // Map both vpn-proxy name and docker_name to DB id
-        if (c.name) {
-          nameToId[c.name] = c.id;
-          nameToId[`gluetun-${c.name}`] = c.id;
-        }
-        if (c.docker_name) nameToId[c.docker_name] = c.id;
-      }
-      const map = {};
-      for (const dep of allDeps) {
-        if (dep.vpn_parent && nameToId[dep.vpn_parent] !== undefined) {
-          const parentId = nameToId[dep.vpn_parent];
-          if (!map[parentId]) map[parentId] = [];
-          map[parentId].push(dep);
-        }
-      }
-      setDepsMap(map);
-    }
+    startTransition(() => {
+      setO11Containers(
+        o11List.map((c) => ({
+          ...c,
+          description: o11DbInfo[c.name]?.description || null,
+        })),
+      );
 
-    setLoading(false);
+      // Build depsMap client-side: group dependents by their vpn_parent → managed container id
+      if (containerData?.length && allDeps.length) {
+        const nameToId = {};
+        for (const c of containerData) {
+          if (c.name) {
+            nameToId[c.name] = c.id;
+            nameToId[`gluetun-${c.name}`] = c.id;
+          }
+          if (c.docker_name) nameToId[c.docker_name] = c.id;
+        }
+        const map = {};
+        for (const dep of allDeps) {
+          if (dep.vpn_parent && nameToId[dep.vpn_parent] !== undefined) {
+            const parentId = nameToId[dep.vpn_parent];
+            if (!map[parentId]) map[parentId] = [];
+            map[parentId].push(dep);
+          }
+        }
+        setDepsMap(map);
+      }
+
+      setLoading(false);
+    });
   }, [fetchContainers, fetchAllDependents]);
 
   // --- Monitoring fetch functions (multi-instance) ---
   const fetchMonitoringData = useCallback(
     async (silent = false) => {
+      // Cancel any previous in-flight monitoring request
+      monitoringAbortRef.current?.abort();
+      const controller = new AbortController();
+      monitoringAbortRef.current = controller;
+      const { signal } = controller;
+
       try {
         if (!silent) setMonitoringLoading(true);
         const configured = o11Instances.filter((i) => i.configured);
@@ -129,16 +153,20 @@ export function ContainerDataProvider({ children }) {
         const results = await Promise.all(
           configured.map(async (inst) => {
             try {
-              const requests = [api.get(`/monitoring/instance/${inst.id}`)];
+              const requests = [
+                api.get(`/monitoring/instance/${inst.id}`, { signal }),
+              ];
               if (inst.provider_id) {
                 requests.push(
                   api.get(`/monitoring/instance/${inst.id}/network-usage`, {
                     params: { provider: inst.provider_id },
+                    signal,
                   }),
                 );
                 requests.push(
                   api.get(`/monitoring/instance/${inst.id}/proxy-count`, {
                     params: { provider: inst.provider_id },
+                    signal,
                   }),
                 );
               }
@@ -155,6 +183,8 @@ export function ContainerDataProvider({ children }) {
           }),
         );
 
+        if (signal.aborted) return;
+
         const newMonitor = {};
         const newNetwork = {};
         const newProxy = {};
@@ -163,13 +193,15 @@ export function ContainerDataProvider({ children }) {
           newNetwork[r.id] = r.network;
           newProxy[r.id] = r.proxy;
         }
-        setInstanceMonitorData(newMonitor);
-        setInstanceNetworkData(newNetwork);
-        setInstanceProxyCount(newProxy);
+        startTransition(() => {
+          setInstanceMonitorData(newMonitor);
+          setInstanceNetworkData(newNetwork);
+          setInstanceProxyCount(newProxy);
+        });
       } catch {
-        // silently ignore
+        // silently ignore (includes aborted requests)
       } finally {
-        setMonitoringLoading(false);
+        if (!signal.aborted) setMonitoringLoading(false);
       }
     },
     [o11Instances],
@@ -242,9 +274,11 @@ export function ContainerDataProvider({ children }) {
             newNetwork[r.id] = r.network;
             newProxy[r.id] = r.proxy;
           }
-          setInstanceMonitorData(newMonitor);
-          setInstanceNetworkData(newNetwork);
-          setInstanceProxyCount(newProxy);
+          startTransition(() => {
+            setInstanceMonitorData(newMonitor);
+            setInstanceNetworkData(newNetwork);
+            setInstanceProxyCount(newProxy);
+          });
         }
         setMonitoringLoading(false);
       } else {
@@ -291,8 +325,11 @@ export function ContainerDataProvider({ children }) {
   useEffect(() => {
     fetchAll();
     initMonitoring();
-    const interval = setInterval(fetchAll, 3000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchAll, 5000);
+    return () => {
+      clearInterval(interval);
+      fetchAllAbortRef.current?.abort();
+    };
   }, [fetchAll, initMonitoring]);
 
   // Auto-refresh monitoring data
@@ -302,7 +339,10 @@ export function ContainerDataProvider({ children }) {
       () => fetchMonitoringData(true),
       MONITORING_INTERVAL,
     );
-    return () => clearInterval(monitoringIntervalRef.current);
+    return () => {
+      clearInterval(monitoringIntervalRef.current);
+      monitoringAbortRef.current?.abort();
+    };
   }, [monitoringConfigured, fetchMonitoringData]);
 
   return (

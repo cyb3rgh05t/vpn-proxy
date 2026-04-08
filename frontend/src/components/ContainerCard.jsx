@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Play,
@@ -57,9 +57,11 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
   const fetchDependents = useCallback(async () => {
     try {
       const res = await api.get(`/containers/${container.id}/dependents`);
-      setDependents(Array.isArray(res.data) ? res.data : []);
+      startTransition(() =>
+        setDependents(Array.isArray(res.data) ? res.data : []),
+      );
     } catch {
-      setDependents([]);
+      startTransition(() => setDependents([]));
     }
   }, [container.id]);
 

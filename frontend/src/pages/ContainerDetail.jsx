@@ -1,4 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  startTransition,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -101,12 +107,14 @@ export default function ContainerDetail() {
   const fetchContainer = useCallback(async () => {
     try {
       const res = await api.get(`/containers/${id}`);
-      setContainer(res.data);
-      // Only update description on initial load or when user is not editing
-      if (initialLoad.current || !descFocused.current) {
-        setDescription(res.data.description || "");
-        initialLoad.current = false;
-      }
+      startTransition(() => {
+        setContainer(res.data);
+        // Only update description on initial load or when user is not editing
+        if (initialLoad.current || !descFocused.current) {
+          setDescription(res.data.description || "");
+          initialLoad.current = false;
+        }
+      });
     } catch {
       navigate("/");
     } finally {
@@ -117,9 +125,11 @@ export default function ContainerDetail() {
   const fetchDependents = useCallback(async () => {
     try {
       const res = await api.get(`/containers/${id}/dependents`);
-      setDependents(Array.isArray(res.data) ? res.data : []);
+      startTransition(() =>
+        setDependents(Array.isArray(res.data) ? res.data : []),
+      );
     } catch {
-      setDependents([]);
+      startTransition(() => setDependents([]));
     }
   }, [id]);
 
@@ -128,9 +138,9 @@ export default function ContainerDetail() {
       const res = await api.get(`/containers/${id}/vpn-info`, {
         timeout: 8000,
       });
-      setVpnInfo(res.data);
+      startTransition(() => setVpnInfo(res.data));
     } catch {
-      setVpnInfo(null);
+      startTransition(() => setVpnInfo(null));
     } finally {
       setVpnInfoLoading(false);
     }

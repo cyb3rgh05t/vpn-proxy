@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
+import ActionProgressDialog from "../components/ActionProgressDialog";
 import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
 import { useContainerData } from "../context/ContainerDataContext";
@@ -45,6 +46,7 @@ export default function O11() {
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
+  const [actionProgress, setActionProgress] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
 
@@ -65,14 +67,19 @@ export default function O11() {
 
   const handleAction = async (name, action) => {
     setActionLoading(`${name}-${action}`);
+    setActionProgress({ action, target: name });
     try {
       const res = await api.post(`/containers/dependents/${name}/${action}`);
       toast.success(res.data?.message || `${name} ${action}ed`);
+      setActionProgress({ action, target: name, finished: true });
       refreshO11Containers();
     } catch (err) {
-      toast.error(err.response?.data?.detail || `Failed to ${action} ${name}`);
+      const msg = err.response?.data?.detail || `Failed to ${action} ${name}`;
+      toast.error(msg);
+      setActionProgress({ action, target: name, finished: true, error: msg });
     } finally {
       setActionLoading("");
+      setTimeout(() => setActionProgress(null), 1200);
     }
   };
 
@@ -85,14 +92,24 @@ export default function O11() {
     });
     if (!ok) return;
     setActionLoading(`${name}-delete`);
+    setActionProgress({ action: "delete", target: name });
     try {
       await api.delete(`/containers/dependents/${name}`);
       toast.success(`Container "${name}" deleted`);
+      setActionProgress({ action: "delete", target: name, finished: true });
       refreshO11Containers();
     } catch (err) {
-      toast.error(err.response?.data?.detail || `Failed to delete ${name}`);
+      const msg = err.response?.data?.detail || `Failed to delete ${name}`;
+      toast.error(msg);
+      setActionProgress({
+        action: "delete",
+        target: name,
+        finished: true,
+        error: msg,
+      });
     } finally {
       setActionLoading("");
+      setTimeout(() => setActionProgress(null), 1200);
     }
   };
 
@@ -413,224 +430,242 @@ export default function O11() {
   );
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Boxes className="w-7 h-7 text-vpn-primary" />
-            O11 Overview
-          </h1>
-          <p className="text-vpn-muted mt-1">Your o11 Pro containers</p>
-        </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3">
-          <button
-            onClick={async () => {
-              setDiscovering(true);
-              try {
-                await refreshO11Containers();
-                toast.success("O11 containers discovered");
-              } catch {
-                toast.error("Failed to discover containers");
-              } finally {
-                setDiscovering(false);
-              }
-            }}
-            disabled={discovering}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Search
-              className={`w-4 h-4 text-vpn-primary ${discovering ? "animate-spin" : ""}`}
-            />
-            Discover
-          </button>
-          <button
-            onClick={async () => {
-              setRefreshing(true);
-              await refreshAll();
-              setRefreshing(false);
-            }}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw
-              className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </button>
-          <button
-            onClick={() => navigate("/create-o11")}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
-          >
-            <PlusCircle className="w-4 h-4 text-vpn-primary" />
-            New O11
-          </button>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-        {stats.map(({ label, value, icon: Icon, color, bg, filter }) => (
-          <div
-            key={label}
-            onClick={() =>
-              filter !== null
-                ? setStatusFilter(statusFilter === filter ? null : filter)
-                : undefined
-            }
-            className={`bg-vpn-card border rounded-xl p-4 ${filter !== null ? "cursor-pointer" : ""} transition-all hover:border-vpn-muted ${
-              statusFilter === filter && filter !== null
-                ? "border-vpn-primary ring-1 ring-vpn-primary/30"
-                : "border-vpn-border"
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`p-1.5 rounded-md ${bg}`}>
-                <Icon className={`w-3.5 h-3.5 ${color}`} />
-              </div>
-              <p className="text-[11px] font-semibold text-vpn-muted uppercase tracking-wider truncate">
-                {label}
-              </p>
-            </div>
-            <p className="text-2xl font-bold text-white pl-0.5">{value}</p>
+    <>
+      <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+              <Boxes className="w-7 h-7 text-vpn-primary" />
+              O11 Overview
+            </h1>
+            <p className="text-vpn-muted mt-1">Your o11 Pro containers</p>
           </div>
-        ))}
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            <button
+              onClick={async () => {
+                setDiscovering(true);
+                try {
+                  await refreshO11Containers();
+                  toast.success("O11 containers discovered");
+                } catch {
+                  toast.error("Failed to discover containers");
+                } finally {
+                  setDiscovering(false);
+                }
+              }}
+              disabled={discovering}
+              className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Search
+                className={`w-4 h-4 text-vpn-primary ${discovering ? "animate-spin" : ""}`}
+              />
+              Discover
+            </button>
+            <button
+              onClick={async () => {
+                setRefreshing(true);
+                await refreshAll();
+                setRefreshing(false);
+              }}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw
+                className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
+            <button
+              onClick={() => navigate("/create-o11")}
+              className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+            >
+              <PlusCircle className="w-4 h-4 text-vpn-primary" />
+              New O11
+            </button>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          {stats.map(({ label, value, icon: Icon, color, bg, filter }) => (
+            <div
+              key={label}
+              onClick={() =>
+                filter !== null
+                  ? setStatusFilter(statusFilter === filter ? null : filter)
+                  : undefined
+              }
+              className={`bg-vpn-card border rounded-xl p-4 ${filter !== null ? "cursor-pointer" : ""} transition-all hover:border-vpn-muted ${
+                statusFilter === filter && filter !== null
+                  ? "border-vpn-primary ring-1 ring-vpn-primary/30"
+                  : "border-vpn-border"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`p-1.5 rounded-md ${bg}`}>
+                  <Icon className={`w-3.5 h-3.5 ${color}`} />
+                </div>
+                <p className="text-[11px] font-semibold text-vpn-muted uppercase tracking-wider truncate">
+                  {label}
+                </p>
+              </div>
+              <p className="text-2xl font-bold text-white pl-0.5">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
+          <input
+            type="text"
+            placeholder="Search O11 containers..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-vpn-card border border-vpn-border rounded-lg text-sm text-vpn-text placeholder-vpn-muted focus:outline-none focus:border-vpn-primary transition-colors"
+          />
+        </div>
+
+        {/* Container Grid */}
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-vpn-primary"></div>
+          </div>
+        ) : filteredContainers.length === 0 ? (
+          <div className="text-center py-16 bg-vpn-card border border-vpn-border rounded-2xl">
+            <Boxes className="w-16 h-16 text-vpn-border mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-vpn-text mb-2">
+              {searchQuery || statusFilter
+                ? "No matching containers"
+                : "No O11 containers found"}
+            </h3>
+            <p className="text-vpn-muted">
+              {searchQuery || statusFilter
+                ? "Try adjusting your search or filter."
+                : 'Docker containers with "o11" in their name will appear here.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* VPN Connected Containers */}
+            {filteredContainers.filter((c) => c.vpn_parent).length > 0 && (
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-vpn-primary" />
+                    <h2 className="text-lg font-semibold text-white">
+                      VPN Connected
+                    </h2>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    {filteredContainers.filter((c) => c.vpn_parent).length}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredContainers
+                    .filter((c) => c.vpn_parent)
+                    .map((dep) => {
+                      const isRunning = ["running", "healthy"].includes(
+                        dep.status,
+                      );
+                      const isStopped = ["exited", "created", "dead"].includes(
+                        dep.status,
+                      );
+                      const parentInfo = getVpnInfoForParent(dep.vpn_parent);
+                      return renderContainerCard(
+                        dep,
+                        isRunning,
+                        isStopped,
+                        parentInfo,
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Proxy Connected Containers */}
+            {filteredContainers.filter((c) => isProxied(c)).length > 0 && (
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-purple-400" />
+                    <h2 className="text-lg font-semibold text-white">
+                      Proxy Connected
+                    </h2>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                    {filteredContainers.filter((c) => isProxied(c)).length}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredContainers
+                    .filter((c) => isProxied(c))
+                    .map((dep) => {
+                      const isRunning = ["running", "healthy"].includes(
+                        dep.status,
+                      );
+                      const isStopped = ["exited", "created", "dead"].includes(
+                        dep.status,
+                      );
+                      return renderContainerCard(
+                        dep,
+                        isRunning,
+                        isStopped,
+                        null,
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Non-VPN Non-Proxy Containers */}
+            {filteredContainers.filter((c) => !c.vpn_parent && !isProxied(c))
+              .length > 0 && (
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Boxes className="w-5 h-5 text-vpn-primary" />
+                    <h2 className="text-lg font-semibold text-white">
+                      No VPN Connection
+                    </h2>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-vpn-input text-vpn-muted border border-vpn-border">
+                    {
+                      filteredContainers.filter(
+                        (c) => !c.vpn_parent && !isProxied(c),
+                      ).length
+                    }
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredContainers
+                    .filter((c) => !c.vpn_parent && !isProxied(c))
+                    .map((dep) => {
+                      const isRunning = ["running", "healthy"].includes(
+                        dep.status,
+                      );
+                      const isStopped = ["exited", "created", "dead"].includes(
+                        dep.status,
+                      );
+                      return renderContainerCard(
+                        dep,
+                        isRunning,
+                        isStopped,
+                        null,
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-
-      {/* Search */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vpn-muted" />
-        <input
-          type="text"
-          placeholder="Search O11 containers..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 bg-vpn-card border border-vpn-border rounded-lg text-sm text-vpn-text placeholder-vpn-muted focus:outline-none focus:border-vpn-primary transition-colors"
-        />
-      </div>
-
-      {/* Container Grid */}
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-vpn-primary"></div>
-        </div>
-      ) : filteredContainers.length === 0 ? (
-        <div className="text-center py-16 bg-vpn-card border border-vpn-border rounded-2xl">
-          <Boxes className="w-16 h-16 text-vpn-border mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-vpn-text mb-2">
-            {searchQuery || statusFilter
-              ? "No matching containers"
-              : "No O11 containers found"}
-          </h3>
-          <p className="text-vpn-muted">
-            {searchQuery || statusFilter
-              ? "Try adjusting your search or filter."
-              : 'Docker containers with "o11" in their name will appear here.'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {/* VPN Connected Containers */}
-          {filteredContainers.filter((c) => c.vpn_parent).length > 0 && (
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-vpn-primary" />
-                  <h2 className="text-lg font-semibold text-white">
-                    VPN Connected
-                  </h2>
-                </div>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  {filteredContainers.filter((c) => c.vpn_parent).length}
-                </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filteredContainers
-                  .filter((c) => c.vpn_parent)
-                  .map((dep) => {
-                    const isRunning = ["running", "healthy"].includes(
-                      dep.status,
-                    );
-                    const isStopped = ["exited", "created", "dead"].includes(
-                      dep.status,
-                    );
-                    const parentInfo = getVpnInfoForParent(dep.vpn_parent);
-                    return renderContainerCard(
-                      dep,
-                      isRunning,
-                      isStopped,
-                      parentInfo,
-                    );
-                  })}
-              </div>
-            </div>
-          )}
-
-          {/* Proxy Connected Containers */}
-          {filteredContainers.filter((c) => isProxied(c)).length > 0 && (
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-purple-400" />
-                  <h2 className="text-lg font-semibold text-white">
-                    Proxy Connected
-                  </h2>
-                </div>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                  {filteredContainers.filter((c) => isProxied(c)).length}
-                </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filteredContainers
-                  .filter((c) => isProxied(c))
-                  .map((dep) => {
-                    const isRunning = ["running", "healthy"].includes(
-                      dep.status,
-                    );
-                    const isStopped = ["exited", "created", "dead"].includes(
-                      dep.status,
-                    );
-                    return renderContainerCard(dep, isRunning, isStopped, null);
-                  })}
-              </div>
-            </div>
-          )}
-
-          {/* Non-VPN Non-Proxy Containers */}
-          {filteredContainers.filter((c) => !c.vpn_parent && !isProxied(c))
-            .length > 0 && (
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <Boxes className="w-5 h-5 text-vpn-primary" />
-                  <h2 className="text-lg font-semibold text-white">
-                    No VPN Connection
-                  </h2>
-                </div>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-vpn-input text-vpn-muted border border-vpn-border">
-                  {
-                    filteredContainers.filter(
-                      (c) => !c.vpn_parent && !isProxied(c),
-                    ).length
-                  }
-                </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filteredContainers
-                  .filter((c) => !c.vpn_parent && !isProxied(c))
-                  .map((dep) => {
-                    const isRunning = ["running", "healthy"].includes(
-                      dep.status,
-                    );
-                    const isStopped = ["exited", "created", "dead"].includes(
-                      dep.status,
-                    );
-                    return renderContainerCard(dep, isRunning, isStopped, null);
-                  })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+      <ActionProgressDialog
+        action={actionProgress?.action}
+        target={actionProgress?.target}
+        finished={actionProgress?.finished}
+        error={actionProgress?.error}
+      />
+    </>
   );
 }

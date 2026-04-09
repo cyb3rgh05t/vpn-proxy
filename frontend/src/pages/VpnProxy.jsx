@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import ContainerCard from "../components/ContainerCard";
+import ActionProgressDialog from "../components/ActionProgressDialog";
 import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
 import { useContainerData } from "../context/ContainerDataContext";
@@ -199,14 +200,6 @@ export default function VpnProxy() {
   const selectedCount = selectedIds.size;
 
   // Bulk actions
-  const actionLabels = {
-    start: "Starting",
-    stop: "Stopping",
-    restart: "Restarting",
-    redeploy: "Redeploying",
-    delete: "Deleting",
-  };
-
   const bulkAction = async (action) => {
     if (selectedCount === 0) return;
     setBulkLoading(action);
@@ -774,45 +767,15 @@ export default function VpnProxy() {
       )}
 
       {/* Bulk Progress Dialog */}
-      {bulkProgress && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-vpn-card border border-vpn-border rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl">
-            <div className="flex flex-col items-center text-center">
-              <div className="mb-4">
-                <RefreshCw className="w-10 h-10 text-vpn-primary animate-spin" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-1">
-                {actionLabels[bulkProgress.action] || bulkProgress.action}{" "}
-                Containers
-              </h3>
-              <p className="text-sm text-vpn-muted mb-6">
-                {bulkProgress.done} of {bulkProgress.total} completed
-              </p>
-              {/* Progress Bar */}
-              <div className="w-full bg-vpn-input rounded-full h-3 mb-4 overflow-hidden">
-                <div
-                  className="h-full bg-vpn-primary rounded-full transition-all duration-300"
-                  style={{
-                    width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%`,
-                  }}
-                />
-              </div>
-              <div className="flex items-center gap-4 text-sm">
-                {bulkProgress.success > 0 && (
-                  <span className="text-emerald-400">
-                    {bulkProgress.success} succeeded
-                  </span>
-                )}
-                {bulkProgress.failed > 0 && (
-                  <span className="text-red-400">
-                    {bulkProgress.failed} failed
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ActionProgressDialog
+        action={bulkProgress?.action}
+        target="Containers"
+        total={bulkProgress?.total}
+        done={bulkProgress?.done}
+        success={bulkProgress?.success}
+        failed={bulkProgress?.failed}
+        finished={false}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
+import ActionProgressDialog from "../components/ActionProgressDialog";
 
 export default function CreateO11Container() {
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ export default function CreateO11Container() {
   const [volumes, setVolumes] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [uploadTargetPath, setUploadTargetPath] = useState("");
   const [hostBasePath, setHostBasePath] = useState("");
   const fileInputRef = useRef(null);
@@ -132,6 +134,13 @@ export default function CreateO11Container() {
     const files = Array.from(e.target.files || []);
     if (!files.length || !form.name.trim()) return;
     setUploading(true);
+    setUploadProgress({
+      action: "upload",
+      target: "",
+      percent: 0,
+      finished: false,
+      error: null,
+    });
     await fetchHostBasePath();
     try {
       for (const file of files) {
@@ -139,8 +148,19 @@ export default function CreateO11Container() {
         formData.append("file", file);
         const targetClean = uploadTargetPath.trim().replace(/^\/+|\/+$/g, "");
         const url = `/containers/dependents/upload-files/${encodeURIComponent(form.name.trim())}${targetClean ? `?target_path=${encodeURIComponent(targetClean)}` : ""}`;
+        setUploadProgress((prev) => ({
+          ...prev,
+          target: file.name,
+          percent: 0,
+        }));
         const res = await api.post(url, formData, {
           headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (progressEvent) => {
+            const pct = progressEvent.total
+              ? Math.round((progressEvent.loaded / progressEvent.total) * 100)
+              : 0;
+            setUploadProgress((prev) => ({ ...prev, percent: pct }));
+          },
         });
         setUploadedFiles((prev) => [
           ...prev,
@@ -152,11 +172,18 @@ export default function CreateO11Container() {
           },
         ]);
       }
+      setUploadProgress((prev) => ({ ...prev, percent: 100, finished: true }));
     } catch (err) {
+      setUploadProgress((prev) => ({
+        ...prev,
+        finished: true,
+        error: err.response?.data?.detail || "Failed to upload file",
+      }));
       setError(err.response?.data?.detail || "Failed to upload file");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      setTimeout(() => setUploadProgress(null), 1500);
     }
   };
 
@@ -824,6 +851,13 @@ export default function CreateO11Container() {
           </button>
         </div>
       </form>
+      <ActionProgressDialog
+        action={uploadProgress?.action}
+        target={uploadProgress?.target}
+        percent={uploadProgress?.percent}
+        finished={uploadProgress?.finished}
+        error={uploadProgress?.error}
+      />
     </div>
   );
 }

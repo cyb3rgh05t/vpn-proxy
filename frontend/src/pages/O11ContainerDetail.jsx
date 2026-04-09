@@ -81,6 +81,7 @@ export default function O11ContainerDetail() {
   // File management
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [uploadTargetPath, setUploadTargetPath] = useState("");
   const [filesLoading, setFilesLoading] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState({});
@@ -199,25 +200,50 @@ export default function O11ContainerDetail() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setUploading(true);
+    setUploadProgress({
+      action: "upload",
+      target: "",
+      percent: 0,
+      finished: false,
+      error: null,
+    });
     try {
       for (const file of files) {
         const formData = new FormData();
         formData.append("file", file);
         const targetClean = uploadTargetPath.trim().replace(/^\/+|\/+$/g, "");
         const url = `/containers/dependents/upload-files/${encodeURIComponent(name)}${targetClean ? `?target_path=${encodeURIComponent(targetClean)}` : ""}`;
+        setUploadProgress((prev) => ({
+          ...prev,
+          target: file.name,
+          percent: 0,
+        }));
         await api.post(url, formData, {
           headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (progressEvent) => {
+            const pct = progressEvent.total
+              ? Math.round((progressEvent.loaded / progressEvent.total) * 100)
+              : 0;
+            setUploadProgress((prev) => ({ ...prev, percent: pct }));
+          },
         });
       }
+      setUploadProgress((prev) => ({ ...prev, percent: 100, finished: true }));
       toast.success(
         `${files.length} file${files.length > 1 ? "s" : ""} uploaded`,
       );
       fetchFiles();
     } catch (err) {
+      setUploadProgress((prev) => ({
+        ...prev,
+        finished: true,
+        error: err.response?.data?.detail || "Failed to upload file",
+      }));
       toast.error(err.response?.data?.detail || "Failed to upload file");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      setTimeout(() => setUploadProgress(null), 1500);
     }
   };
 
@@ -1686,6 +1712,13 @@ export default function O11ContainerDetail() {
           </div>
         )}
       </div>
+      <ActionProgressDialog
+        action={uploadProgress?.action}
+        target={uploadProgress?.target}
+        percent={uploadProgress?.percent}
+        finished={uploadProgress?.finished}
+        error={uploadProgress?.error}
+      />
       <ActionProgressDialog
         action={actionProgress?.action}
         target={actionProgress?.target}

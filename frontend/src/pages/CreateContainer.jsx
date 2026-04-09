@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
+import ActionProgressDialog from "../components/ActionProgressDialog";
 
 const WHITELISTED_KEYS = new Set([
   "PGID",
@@ -108,6 +109,7 @@ export default function CreateContainer() {
   const [networks, setNetworks] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -186,25 +188,52 @@ export default function CreateContainer() {
     const files = Array.from(e.target.files || []);
     if (!files.length || !form.name.trim()) return;
     setUploading(true);
+    setUploadProgress({
+      action: "upload",
+      target: "",
+      percent: 0,
+      finished: false,
+      error: null,
+    });
     try {
       for (const file of files) {
         const formData = new FormData();
         formData.append("file", file);
+        setUploadProgress((prev) => ({
+          ...prev,
+          target: file.name,
+          percent: 0,
+        }));
         const res = await api.post(
           `/containers/upload-config-by-name/${encodeURIComponent(form.name.trim())}`,
           formData,
-          { headers: { "Content-Type": "multipart/form-data" } },
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+            onUploadProgress: (progressEvent) => {
+              const pct = progressEvent.total
+                ? Math.round((progressEvent.loaded / progressEvent.total) * 100)
+                : 0;
+              setUploadProgress((prev) => ({ ...prev, percent: pct }));
+            },
+          },
         );
         setUploadedFiles((prev) => [
           ...prev,
           { name: res.data.filename, path: res.data.path },
         ]);
       }
+      setUploadProgress((prev) => ({ ...prev, percent: 100, finished: true }));
     } catch (err) {
+      setUploadProgress((prev) => ({
+        ...prev,
+        finished: true,
+        error: err.response?.data?.detail || "Failed to upload file",
+      }));
       setError(err.response?.data?.detail || "Failed to upload file");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      setTimeout(() => setUploadProgress(null), 1500);
     }
   };
 
@@ -966,6 +995,13 @@ export default function CreateContainer() {
           </button>
         </div>
       </form>
+      <ActionProgressDialog
+        action={uploadProgress?.action}
+        target={uploadProgress?.target}
+        percent={uploadProgress?.percent}
+        finished={uploadProgress?.finished}
+        error={uploadProgress?.error}
+      />
     </div>
   );
 }

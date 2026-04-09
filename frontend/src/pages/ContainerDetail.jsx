@@ -78,6 +78,7 @@ export default function ContainerDetail() {
   const [redeploying, setRedeploying] = useState(false);
   const [configFiles, setConfigFiles] = useState([]);
   const [uploadingConfig, setUploadingConfig] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const configFileInputRef = useRef(null);
   const [copiedUrl, setCopiedUrl] = useState(null);
 
@@ -319,21 +320,47 @@ export default function ContainerDetail() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setUploadingConfig(true);
+    setUploadProgress({
+      action: "upload",
+      target: "",
+      percent: 0,
+      finished: false,
+      error: null,
+    });
     try {
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         const formData = new FormData();
         formData.append("file", file);
+        setUploadProgress((prev) => ({
+          ...prev,
+          target: file.name,
+          percent: 0,
+        }));
         await api.post(`/containers/${id}/upload-config`, formData, {
           headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (progressEvent) => {
+            const pct = progressEvent.total
+              ? Math.round((progressEvent.loaded / progressEvent.total) * 100)
+              : 0;
+            setUploadProgress((prev) => ({ ...prev, percent: pct }));
+          },
         });
       }
+      setUploadProgress((prev) => ({ ...prev, percent: 100, finished: true }));
       toast.success("Config file(s) uploaded");
       fetchConfigFiles();
     } catch (err) {
+      setUploadProgress((prev) => ({
+        ...prev,
+        finished: true,
+        error: err.response?.data?.detail || "Failed to upload file",
+      }));
       toast.error(err.response?.data?.detail || "Failed to upload file");
     } finally {
       setUploadingConfig(false);
       if (configFileInputRef.current) configFileInputRef.current.value = "";
+      setTimeout(() => setUploadProgress(null), 1500);
     }
   };
 
@@ -1636,6 +1663,13 @@ export default function ContainerDetail() {
           </div>
         )}
       </div>
+      <ActionProgressDialog
+        action={uploadProgress?.action}
+        target={uploadProgress?.target}
+        percent={uploadProgress?.percent}
+        finished={uploadProgress?.finished}
+        error={uploadProgress?.error}
+      />
       <ActionProgressDialog
         action={actionProgress?.action}
         target={actionProgress?.target}

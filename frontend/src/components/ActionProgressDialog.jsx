@@ -8,6 +8,7 @@ const ACTION_LABELS = {
   delete: "Deleting",
   discover: "Discovering",
   refresh: "Refreshing",
+  upload: "Uploading",
 };
 
 /**
@@ -20,6 +21,7 @@ const ACTION_LABELS = {
  *  - done       : number | null  — for bulk: completed items
  *  - success    : number | null  — for bulk: succeeded count
  *  - failed     : number | null  — for bulk: failed count
+ *  - percent    : number | null  — 0-100 upload/transfer percentage (shown as progress bar)
  *  - finished   : bool           — true when action completed (shows result briefly)
  *  - error      : string | null  — error message if action failed
  */
@@ -30,6 +32,7 @@ export default function ActionProgressDialog({
   done = null,
   success = null,
   failed = null,
+  percent = null,
   finished = false,
   error = null,
 }) {
@@ -38,6 +41,7 @@ export default function ActionProgressDialog({
   const label = ACTION_LABELS[action] || action;
   const isBulk = total != null && total > 0;
   const pct = isBulk && total > 0 ? Math.round((done / total) * 100) : 0;
+  const hasPercent = percent != null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -68,7 +72,7 @@ export default function ActionProgressDialog({
           </h3>
 
           {/* Subtitle */}
-          {!finished && !isBulk && (
+          {!finished && !isBulk && !hasPercent && (
             <p className="text-sm text-vpn-muted mb-2">
               Please wait while the action completes
             </p>
@@ -76,6 +80,21 @@ export default function ActionProgressDialog({
 
           {/* Error message */}
           {error && <p className="text-sm text-red-400 mb-2">{error}</p>}
+
+          {/* Percentage progress (e.g. file upload) */}
+          {hasPercent && !isBulk && (
+            <>
+              <p className="text-sm text-vpn-muted mb-4">
+                {Math.round(percent)}%
+              </p>
+              <div className="w-full bg-vpn-input rounded-full h-3 mb-4 overflow-hidden">
+                <div
+                  className="h-full bg-vpn-primary rounded-full transition-all duration-300"
+                  style={{ width: `${Math.round(percent)}%` }}
+                />
+              </div>
+            </>
+          )}
 
           {/* Bulk progress */}
           {isBulk && (

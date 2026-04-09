@@ -306,7 +306,7 @@ ALLOWED_O11_EXTENSIONS = {
     ".py",
     ".lua",
 }
-MAX_O11_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+MAX_O11_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 @router.post("/dependents/upload-files/{name}")
@@ -346,7 +346,7 @@ async def upload_o11_file(
 
     content = await file.read()
     if len(content) > MAX_O11_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="File too large (max 5 MB)")
+        raise HTTPException(status_code=400, detail="File too large (max 100 MB)")
 
     # Save to data/o11/{name}/{target_path}/
     o11_data = os.path.join(os.path.abspath(settings.DATA_DIR), "o11", name)
@@ -1287,7 +1287,7 @@ ALLOWED_CONFIG_EXTENSIONS = {
     ".cfg",
     ".json",
 }
-MAX_CONFIG_SIZE = 1 * 1024 * 1024  # 1 MB
+MAX_CONFIG_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 @router.post("/{container_id}/upload-config")
@@ -1316,7 +1316,7 @@ async def upload_vpn_config(
     # Read and validate size
     content = await file.read()
     if len(content) > MAX_CONFIG_SIZE:
-        raise HTTPException(status_code=400, detail="File too large (max 1 MB)")
+        raise HTTPException(status_code=400, detail="File too large (max 100 MB)")
 
     # Save to data/gluetun/{name}/
     gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", c.name)
@@ -1414,7 +1414,7 @@ async def upload_vpn_config_by_name(
 
     content = await file.read()
     if len(content) > MAX_CONFIG_SIZE:
-        raise HTTPException(status_code=400, detail="File too large (max 1 MB)")
+        raise HTTPException(status_code=400, detail="File too large (max 100 MB)")
 
     gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
     os.makedirs(gluetun_data, exist_ok=True)

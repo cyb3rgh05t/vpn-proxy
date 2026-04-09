@@ -338,7 +338,8 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                         Int
                       </span>
                       <span className="truncate">
-                        http://{authDisplay}{ip}:{internalPort}
+                        http://{authDisplay}
+                        {ip}:{internalPort}
                       </span>
                       {copiedUrl === internalUrl ? (
                         <Check className="w-2.5 h-2.5 shrink-0" />
@@ -359,7 +360,8 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                         Host
                       </span>
                       <span className="truncate">
-                        http://{authDisplay}{dockerName}:{internalPort}
+                        http://{authDisplay}
+                        {dockerName}:{internalPort}
                       </span>
                       {copiedUrl === hostnameUrl ? (
                         <Check className="w-2.5 h-2.5 shrink-0" />
@@ -381,7 +383,8 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                           Ext
                         </span>
                         <span className="truncate">
-                          http://{authDisplay}{serverIp}:{externalPort}
+                          http://{authDisplay}
+                          {serverIp}:{externalPort}
                         </span>
                         {copiedUrl === externalUrl ? (
                           <Check className="w-2.5 h-2.5 shrink-0" />

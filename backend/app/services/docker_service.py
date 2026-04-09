@@ -354,7 +354,16 @@ def redeploy_container(
             os.rename(old_data, new_data)
             logger.info("Renamed data dir %s -> %s", old_data, new_data)
 
-    # 5. Create new container with (possibly new) name and updated config
+    # 5. Pull latest image before recreating
+    pull_image = gluetun_image or settings.GLUETUN_IMAGE
+    try:
+        logger.info("Pulling latest image %s for redeploy ...", pull_image)
+        client = _get_client()
+        client.images.pull(pull_image)
+    except Exception as e:
+        logger.warning("Failed to pull latest image %s, using local: %s", pull_image, e)
+
+    # 6. Create new container with (possibly new) name and updated config
     new_id = create_container(
         name=deploy_name,
         vpn_provider=vpn_provider,
@@ -370,7 +379,7 @@ def redeploy_container(
     )
     logger.info("Created new container %s for %s", new_id[:12], deploy_name)
 
-    # 6. Restart dependent containers (they reference by name, so they reconnect)
+    # 7. Restart dependent containers (they reference by name, so they reconnect)
     # Note: SOCKS5 sidecar will be created by the router after this returns
     if stopped_deps:
         started = start_dependents(new_id)
@@ -1573,12 +1582,12 @@ def redeploy_o11_container(
     old_image = config.get("Image", "")
     new_image = image if image else old_image
 
-    # Pull new image if needed
+    # Always pull latest image on redeploy
     try:
-        client.images.get(new_image)
-    except ImageNotFound:
-        logger.info("Pulling image %s ...", new_image)
+        logger.info("Pulling latest image %s for redeploy ...", new_image)
         client.images.pull(new_image)
+    except Exception as e:
+        logger.warning("Failed to pull latest image %s, using local: %s", new_image, e)
 
     # Preserve existing container properties
     old_env = config.get("Env", [])

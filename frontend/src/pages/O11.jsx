@@ -444,13 +444,29 @@ export default function O11() {
             <button
               onClick={async () => {
                 setDiscovering(true);
+                setActionProgress({
+                  action: "discover",
+                  target: "O11 Containers",
+                });
                 try {
                   await refreshO11Containers();
                   toast.success("O11 containers discovered");
+                  setActionProgress({
+                    action: "discover",
+                    target: "O11 Containers",
+                    finished: true,
+                  });
                 } catch {
                   toast.error("Failed to discover containers");
+                  setActionProgress({
+                    action: "discover",
+                    target: "O11 Containers",
+                    finished: true,
+                    error: "Failed to discover containers",
+                  });
                 } finally {
                   setDiscovering(false);
+                  setTimeout(() => setActionProgress(null), 1200);
                 }
               }}
               disabled={discovering}
@@ -464,8 +480,28 @@ export default function O11() {
             <button
               onClick={async () => {
                 setRefreshing(true);
-                await refreshAll();
-                setRefreshing(false);
+                setActionProgress({
+                  action: "refresh",
+                  target: "O11 Containers",
+                });
+                try {
+                  await refreshAll();
+                  setActionProgress({
+                    action: "refresh",
+                    target: "O11 Containers",
+                    finished: true,
+                  });
+                } catch {
+                  setActionProgress({
+                    action: "refresh",
+                    target: "O11 Containers",
+                    finished: true,
+                    error: "Failed to refresh",
+                  });
+                } finally {
+                  setRefreshing(false);
+                  setTimeout(() => setActionProgress(null), 1200);
+                }
               }}
               disabled={refreshing}
               className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"

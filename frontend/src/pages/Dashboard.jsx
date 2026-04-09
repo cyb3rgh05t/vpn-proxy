@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import WorldMap from "../components/WorldMap";
+import ActionProgressDialog from "../components/ActionProgressDialog";
 import { useToast } from "../context/ToastContext";
 import { useContainerData } from "../context/ContainerDataContext";
 
@@ -43,6 +44,7 @@ export default function Dashboard() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
+  const [actionProgress, setActionProgress] = useState(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const customizeRef = useRef(null);
 
@@ -301,715 +303,759 @@ export default function Dashboard() {
   );
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <LayoutDashboard className="w-7 h-7 text-vpn-primary" />
-            Dashboard
-          </h1>
-          <p className="text-vpn-muted mt-1">
-            Manage your Gluetun VPN containers
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3">
-          <div className="relative" ref={customizeRef}>
-            <button
-              onClick={() => setCustomizeOpen((v) => !v)}
-              className={`flex items-center gap-2 px-4 py-2 bg-vpn-card border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm ${customizeOpen ? "border-vpn-primary" : "border-vpn-border"}`}
-            >
-              <SlidersHorizontal className="w-4 h-4 text-vpn-primary" />
-              Customize
-            </button>
-            {customizeOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-vpn-card border border-vpn-border rounded-xl shadow-xl z-50 p-2">
-                {[
-                  { key: "stats", label: "Stats Cards" },
-                  { key: "worldmap", label: "World Map" },
-                  { key: "providers", label: "VPN Providers" },
-                  { key: "connections", label: "Active Connections" },
-                ].map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => toggleSection(key)}
-                    className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-vpn-bg/60 transition-colors text-left"
-                  >
-                    {visibility[key] ? (
-                      <Eye className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    ) : (
-                      <EyeOff className="w-4 h-4 text-vpn-muted flex-shrink-0" />
-                    )}
-                    <span
-                      className={`text-sm ${visibility[key] ? "text-white" : "text-vpn-muted"}`}
+    <>
+      <div>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+              <LayoutDashboard className="w-7 h-7 text-vpn-primary" />
+              Dashboard
+            </h1>
+            <p className="text-vpn-muted mt-1">
+              Manage your Gluetun VPN containers
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            <div className="relative" ref={customizeRef}>
+              <button
+                onClick={() => setCustomizeOpen((v) => !v)}
+                className={`flex items-center gap-2 px-4 py-2 bg-vpn-card border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm ${customizeOpen ? "border-vpn-primary" : "border-vpn-border"}`}
+              >
+                <SlidersHorizontal className="w-4 h-4 text-vpn-primary" />
+                Customize
+              </button>
+              {customizeOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-vpn-card border border-vpn-border rounded-xl shadow-xl z-50 p-2">
+                  {[
+                    { key: "stats", label: "Stats Cards" },
+                    { key: "worldmap", label: "World Map" },
+                    { key: "providers", label: "VPN Providers" },
+                    { key: "connections", label: "Active Connections" },
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => toggleSection(key)}
+                      className="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-vpn-bg/60 transition-colors text-left"
                     >
-                      {label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button
-            onClick={async () => {
-              setDiscovering(true);
-              try {
-                const res = await api.post("/containers/discover");
-                toast.success(res.data.message);
-                refreshContainers();
-              } catch {
-                toast.error("Failed to discover containers");
-              } finally {
-                setDiscovering(false);
-              }
-            }}
-            disabled={discovering}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Search
-              className={`w-4 h-4 text-vpn-primary ${discovering ? "animate-spin" : ""}`}
-            />
-            Discover
-          </button>
-          <button
-            onClick={async () => {
-              setRefreshing(true);
-              await refreshAll();
-              setRefreshing(false);
-            }}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw
-              className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </button>
-          <button
-            onClick={() => navigate("/create")}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
-          >
-            <PlusCircle className="w-4 h-4 text-vpn-primary" />
-            New VPN-Proxy
-          </button>
-          <button
-            onClick={() => navigate("/create-o11")}
-            className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
-          >
-            <PlusCircle className="w-4 h-4 text-vpn-primary" />
-            New o11
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Row */}
-      {visibility.stats && (
-        <div className="mb-6">
-          <div
-            className={`grid gap-3 ${
-              o11Containers.length > 0
-                ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9"
-                : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
-            }`}
-          >
-            <StatCard
-              label="VPN Total"
-              value={containers.length}
-              icon={Server}
-              color="text-vpn-primary"
-              bg="bg-vpn-primary/10"
-            />
-            <StatCard
-              label="VPN Running"
-              value={gluetunRunning}
-              icon={Activity}
-              color="text-emerald-400"
-              bg="bg-emerald-500/10"
-            />
-            <StatCard
-              label="Connected"
-              value={vpnConnected}
-              icon={Wifi}
-              color="text-emerald-400"
-              bg="bg-emerald-500/10"
-            />
-            <StatCard
-              label="Disconnected"
-              value={vpnDisconnected}
-              icon={WifiOff}
-              color="text-amber-400"
-              bg="bg-amber-500/10"
-            />
-            <StatCard
-              label="Unhealthy"
-              value={gluetunUnhealthy}
-              icon={HeartCrack}
-              color="text-red-400"
-              bg="bg-red-500/10"
-            />
-            <StatCard
-              label="Stopped"
-              value={gluetunStopped}
-              icon={AlertTriangle}
-              color="text-amber-400"
-              bg="bg-amber-500/10"
-            />
-            {o11Containers.length > 0 && (
-              <>
-                <StatCard
-                  label="O11 Total"
-                  value={o11Containers.length}
-                  icon={Boxes}
-                  color="text-vpn-primary"
-                  bg="bg-vpn-primary/10"
-                />
-                <StatCard
-                  label="O11 Running"
-                  value={o11Running}
-                  icon={Activity}
-                  color="text-emerald-400"
-                  bg="bg-emerald-500/10"
-                />
-                <StatCard
-                  label="O11 Stopped"
-                  value={o11Stopped}
-                  icon={AlertTriangle}
-                  color="text-amber-400"
-                  bg="bg-amber-500/10"
-                />
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* World Map */}
-      {visibility.worldmap && vpnConnections.length > 0 && (
-        <div className="mb-6">
-          <WorldMap vpnConnections={vpnConnections} />
-        </div>
-      )}
-
-      {/* Provider Overview + VPN Connections */}
-      {containers.length > 0 &&
-        (visibility.providers || visibility.connections) && (
-          <div
-            className={`grid grid-cols-1 ${visibility.providers && visibility.connections ? "lg:grid-cols-3" : ""} gap-4 mb-6`}
-          >
-            {/* Provider Overview */}
-            {visibility.providers && (
-              <div className="bg-vpn-card border border-vpn-border rounded-xl p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Layers className="w-4 h-4 text-vpn-primary" />
-                  <h3 className="text-sm font-semibold text-white">
-                    VPN Providers
-                  </h3>
-                  <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full ml-auto">
-                    {providerStats.length}
-                  </span>
-                </div>
-                {providerStats.length === 0 ? (
-                  <p className="text-sm text-vpn-muted">No providers</p>
-                ) : (
-                  <div className="space-y-3">
-                    {providerStats.map((p) => (
-                      <div
-                        key={p.name}
-                        onClick={() =>
-                          navigate(
-                            `/vpn-proxy?provider=${encodeURIComponent(p.name)}`,
-                          )
-                        }
-                        className="bg-vpn-bg/50 border border-vpn-border/50 rounded-lg p-3 hover:border-vpn-muted/50 transition-colors cursor-pointer"
+                      {visibility[key] ? (
+                        <Eye className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      ) : (
+                        <EyeOff className="w-4 h-4 text-vpn-muted flex-shrink-0" />
+                      )}
+                      <span
+                        className={`text-sm ${visibility[key] ? "text-white" : "text-vpn-muted"}`}
                       >
-                        {/* Provider header */}
-                        <div className="flex items-center gap-3 mb-2.5">
-                          <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
-                            <Shield className="w-4 h-4 text-purple-400" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm text-white font-semibold capitalize truncate">
-                                {p.name}
-                              </p>
-                              <span className="text-[10px] text-vpn-muted bg-vpn-input px-1.5 py-0.5 rounded-full font-medium tabular-nums">
-                                {p.total}{" "}
-                                {p.total === 1 ? "container" : "containers"}
-                              </span>
+                        {label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={async () => {
+                setDiscovering(true);
+                setActionProgress({ action: "discover", target: "Containers" });
+                try {
+                  const res = await api.post("/containers/discover");
+                  toast.success(res.data.message);
+                  setActionProgress({
+                    action: "discover",
+                    target: "Containers",
+                    finished: true,
+                  });
+                  refreshContainers();
+                } catch {
+                  toast.error("Failed to discover containers");
+                  setActionProgress({
+                    action: "discover",
+                    target: "Containers",
+                    finished: true,
+                    error: "Failed to discover containers",
+                  });
+                } finally {
+                  setDiscovering(false);
+                  setTimeout(() => setActionProgress(null), 1200);
+                }
+              }}
+              disabled={discovering}
+              className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Search
+                className={`w-4 h-4 text-vpn-primary ${discovering ? "animate-spin" : ""}`}
+              />
+              Discover
+            </button>
+            <button
+              onClick={async () => {
+                setRefreshing(true);
+                setActionProgress({ action: "refresh", target: "Containers" });
+                try {
+                  await refreshAll();
+                  setActionProgress({
+                    action: "refresh",
+                    target: "Containers",
+                    finished: true,
+                  });
+                } catch {
+                  setActionProgress({
+                    action: "refresh",
+                    target: "Containers",
+                    finished: true,
+                    error: "Failed to refresh",
+                  });
+                } finally {
+                  setRefreshing(false);
+                  setTimeout(() => setActionProgress(null), 1200);
+                }
+              }}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw
+                className={`w-4 h-4 text-vpn-primary ${refreshing ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
+            <button
+              onClick={() => navigate("/create")}
+              className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+            >
+              <PlusCircle className="w-4 h-4 text-vpn-primary" />
+              New VPN-Proxy
+            </button>
+            <button
+              onClick={() => navigate("/create-o11")}
+              className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+            >
+              <PlusCircle className="w-4 h-4 text-vpn-primary" />
+              New o11
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Row */}
+        {visibility.stats && (
+          <div className="mb-6">
+            <div
+              className={`grid gap-3 ${
+                o11Containers.length > 0
+                  ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9"
+                  : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
+              }`}
+            >
+              <StatCard
+                label="VPN Total"
+                value={containers.length}
+                icon={Server}
+                color="text-vpn-primary"
+                bg="bg-vpn-primary/10"
+              />
+              <StatCard
+                label="VPN Running"
+                value={gluetunRunning}
+                icon={Activity}
+                color="text-emerald-400"
+                bg="bg-emerald-500/10"
+              />
+              <StatCard
+                label="Connected"
+                value={vpnConnected}
+                icon={Wifi}
+                color="text-emerald-400"
+                bg="bg-emerald-500/10"
+              />
+              <StatCard
+                label="Disconnected"
+                value={vpnDisconnected}
+                icon={WifiOff}
+                color="text-amber-400"
+                bg="bg-amber-500/10"
+              />
+              <StatCard
+                label="Unhealthy"
+                value={gluetunUnhealthy}
+                icon={HeartCrack}
+                color="text-red-400"
+                bg="bg-red-500/10"
+              />
+              <StatCard
+                label="Stopped"
+                value={gluetunStopped}
+                icon={AlertTriangle}
+                color="text-amber-400"
+                bg="bg-amber-500/10"
+              />
+              {o11Containers.length > 0 && (
+                <>
+                  <StatCard
+                    label="O11 Total"
+                    value={o11Containers.length}
+                    icon={Boxes}
+                    color="text-vpn-primary"
+                    bg="bg-vpn-primary/10"
+                  />
+                  <StatCard
+                    label="O11 Running"
+                    value={o11Running}
+                    icon={Activity}
+                    color="text-emerald-400"
+                    bg="bg-emerald-500/10"
+                  />
+                  <StatCard
+                    label="O11 Stopped"
+                    value={o11Stopped}
+                    icon={AlertTriangle}
+                    color="text-amber-400"
+                    bg="bg-amber-500/10"
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* World Map */}
+        {visibility.worldmap && vpnConnections.length > 0 && (
+          <div className="mb-6">
+            <WorldMap vpnConnections={vpnConnections} />
+          </div>
+        )}
+
+        {/* Provider Overview + VPN Connections */}
+        {containers.length > 0 &&
+          (visibility.providers || visibility.connections) && (
+            <div
+              className={`grid grid-cols-1 ${visibility.providers && visibility.connections ? "lg:grid-cols-3" : ""} gap-4 mb-6`}
+            >
+              {/* Provider Overview */}
+              {visibility.providers && (
+                <div className="bg-vpn-card border border-vpn-border rounded-xl p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Layers className="w-4 h-4 text-vpn-primary" />
+                    <h3 className="text-sm font-semibold text-white">
+                      VPN Providers
+                    </h3>
+                    <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full ml-auto">
+                      {providerStats.length}
+                    </span>
+                  </div>
+                  {providerStats.length === 0 ? (
+                    <p className="text-sm text-vpn-muted">No providers</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {providerStats.map((p) => (
+                        <div
+                          key={p.name}
+                          onClick={() =>
+                            navigate(
+                              `/vpn-proxy?provider=${encodeURIComponent(p.name)}`,
+                            )
+                          }
+                          className="bg-vpn-bg/50 border border-vpn-border/50 rounded-lg p-3 hover:border-vpn-muted/50 transition-colors cursor-pointer"
+                        >
+                          {/* Provider header */}
+                          <div className="flex items-center gap-3 mb-2.5">
+                            <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                              <Shield className="w-4 h-4 text-purple-400" />
                             </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              {p.types.map((t) => (
-                                <span
-                                  key={t}
-                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase"
-                                >
-                                  {t}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm text-white font-semibold capitalize truncate">
+                                  {p.name}
+                                </p>
+                                <span className="text-[10px] text-vpn-muted bg-vpn-input px-1.5 py-0.5 rounded-full font-medium tabular-nums">
+                                  {p.total}{" "}
+                                  {p.total === 1 ? "container" : "containers"}
                                 </span>
-                              ))}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                {p.types.map((t) => (
+                                  <span
+                                    key={t}
+                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase"
+                                  >
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
+                            <ChevronRight className="w-4 h-4 text-vpn-muted flex-shrink-0" />
                           </div>
-                          <ChevronRight className="w-4 h-4 text-vpn-muted flex-shrink-0" />
-                        </div>
 
-                        {/* Status mini-cards */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2.5">
-                          <div className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-2.5 py-1.5">
-                            <Wifi className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-emerald-400 leading-tight">
-                                {p.connected}
-                              </p>
-                              <p className="text-[9px] text-emerald-400/60 uppercase tracking-wider">
-                                Connected
-                              </p>
+                          {/* Status mini-cards */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2.5">
+                            <div className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-2.5 py-1.5">
+                              <Wifi className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-emerald-400 leading-tight">
+                                  {p.connected}
+                                </p>
+                                <p className="text-[9px] text-emerald-400/60 uppercase tracking-wider">
+                                  Connected
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2 bg-amber-500/5 border border-amber-500/10 rounded-lg px-2.5 py-1.5">
-                            <WifiOff className="w-3 h-3 text-amber-400 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-amber-400 leading-tight">
-                                {p.disconnected}
-                              </p>
-                              <p className="text-[9px] text-amber-400/60 uppercase tracking-wider">
-                                Disconnected
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 bg-red-500/5 border border-red-500/10 rounded-lg px-2.5 py-1.5">
-                            <HeartCrack className="w-3 h-3 text-red-400 flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-red-400 leading-tight">
-                                {p.unhealthy}
-                              </p>
-                              <p className="text-[9px] text-red-400/60 uppercase tracking-wider">
-                                Unhealthy
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 bg-vpn-input/50 border border-vpn-border/30 rounded-lg px-2.5 py-1.5">
-                            <AlertTriangle className="w-3 h-3 text-vpn-muted flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-vpn-muted leading-tight">
-                                {p.stopped}
-                              </p>
-                              <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider">
-                                Stopped
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Progress bar */}
-                        <div className="flex items-center gap-2 mb-2.5">
-                          <div className="flex-1 h-1.5 bg-vpn-input rounded-full overflow-hidden flex">
-                            {p.total > 0 && (
-                              <>
-                                <div
-                                  className="h-full bg-emerald-500 transition-all"
-                                  style={{
-                                    width: `${(p.connected / p.total) * 100}%`,
-                                  }}
-                                />
-                                {p.disconnected > 0 && (
-                                  <div
-                                    className="h-full bg-amber-500 transition-all"
-                                    style={{
-                                      width: `${(p.disconnected / p.total) * 100}%`,
-                                    }}
-                                  />
-                                )}
-                                {p.unhealthy > 0 && (
-                                  <div
-                                    className="h-full bg-red-500 transition-all"
-                                    style={{
-                                      width: `${(p.unhealthy / p.total) * 100}%`,
-                                    }}
-                                  />
-                                )}
-                              </>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-emerald-400 font-semibold tabular-nums whitespace-nowrap">
-                            {p.connected}/{p.total}
-                          </span>
-                        </div>
-
-                        {/* Clickable container mini-cards per status */}
-                        {(p.unhealthyItems.length > 0 ||
-                          p.disconnectedItems.length > 0 ||
-                          p.stoppedItems.length > 0) && (
-                          <div className="space-y-1.5 mb-2.5">
-                            {p.disconnectedItems.length > 0 && (
-                              <div>
-                                <p className="text-[9px] text-amber-400/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
-                                  <WifiOff className="w-2.5 h-2.5" />
+                            <div className="flex items-center gap-2 bg-amber-500/5 border border-amber-500/10 rounded-lg px-2.5 py-1.5">
+                              <WifiOff className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-amber-400 leading-tight">
+                                  {p.disconnected}
+                                </p>
+                                <p className="text-[9px] text-amber-400/60 uppercase tracking-wider">
                                   Disconnected
                                 </p>
-                                <div className="flex flex-wrap gap-1">
-                                  {p.disconnectedItems.map((item) => (
-                                    <button
-                                      key={item.id}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(
-                                          `/vpn-proxy#container-${item.id}`,
-                                        );
-                                      }}
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 transition-colors"
-                                    >
-                                      <WifiOff className="w-2.5 h-2.5" />
-                                      {item.name}
-                                      <ChevronRight className="w-2.5 h-2.5 opacity-50" />
-                                    </button>
-                                  ))}
-                                </div>
                               </div>
-                            )}
-                            {p.unhealthyItems.length > 0 && (
-                              <div>
-                                <p className="text-[9px] text-red-400/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
-                                  <HeartCrack className="w-2.5 h-2.5" />
+                            </div>
+                            <div className="flex items-center gap-2 bg-red-500/5 border border-red-500/10 rounded-lg px-2.5 py-1.5">
+                              <HeartCrack className="w-3 h-3 text-red-400 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-red-400 leading-tight">
+                                  {p.unhealthy}
+                                </p>
+                                <p className="text-[9px] text-red-400/60 uppercase tracking-wider">
                                   Unhealthy
                                 </p>
-                                <div className="flex flex-wrap gap-1">
-                                  {p.unhealthyItems.map((item) => (
-                                    <button
-                                      key={item.id}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(
-                                          `/vpn-proxy#container-${item.id}`,
-                                        );
-                                      }}
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
-                                    >
-                                      <HeartCrack className="w-2.5 h-2.5" />
-                                      {item.name}
-                                      <ChevronRight className="w-2.5 h-2.5 opacity-50" />
-                                    </button>
-                                  ))}
-                                </div>
                               </div>
-                            )}
-                            {p.stoppedItems.length > 0 && (
-                              <div>
-                                <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
-                                  <AlertTriangle className="w-2.5 h-2.5" />
+                            </div>
+                            <div className="flex items-center gap-2 bg-vpn-input/50 border border-vpn-border/30 rounded-lg px-2.5 py-1.5">
+                              <AlertTriangle className="w-3 h-3 text-vpn-muted flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-vpn-muted leading-tight">
+                                  {p.stopped}
+                                </p>
+                                <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider">
                                   Stopped
                                 </p>
-                                <div className="flex flex-wrap gap-1">
-                                  {p.stoppedItems.map((item) => (
-                                    <button
-                                      key={item.id}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(
-                                          `/vpn-proxy#container-${item.id}`,
-                                        );
-                                      }}
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-vpn-input text-vpn-muted border border-vpn-border/50 hover:bg-vpn-input/80 hover:border-vpn-border transition-colors"
-                                    >
-                                      <AlertTriangle className="w-2.5 h-2.5" />
-                                      {item.name}
-                                      <ChevronRight className="w-2.5 h-2.5 opacity-50" />
-                                    </button>
-                                  ))}
-                                </div>
                               </div>
+                            </div>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="flex items-center gap-2 mb-2.5">
+                            <div className="flex-1 h-1.5 bg-vpn-input rounded-full overflow-hidden flex">
+                              {p.total > 0 && (
+                                <>
+                                  <div
+                                    className="h-full bg-emerald-500 transition-all"
+                                    style={{
+                                      width: `${(p.connected / p.total) * 100}%`,
+                                    }}
+                                  />
+                                  {p.disconnected > 0 && (
+                                    <div
+                                      className="h-full bg-amber-500 transition-all"
+                                      style={{
+                                        width: `${(p.disconnected / p.total) * 100}%`,
+                                      }}
+                                    />
+                                  )}
+                                  {p.unhealthy > 0 && (
+                                    <div
+                                      className="h-full bg-red-500 transition-all"
+                                      style={{
+                                        width: `${(p.unhealthy / p.total) * 100}%`,
+                                      }}
+                                    />
+                                  )}
+                                </>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-emerald-400 font-semibold tabular-nums whitespace-nowrap">
+                              {p.connected}/{p.total}
+                            </span>
+                          </div>
+
+                          {/* Clickable container mini-cards per status */}
+                          {(p.unhealthyItems.length > 0 ||
+                            p.disconnectedItems.length > 0 ||
+                            p.stoppedItems.length > 0) && (
+                            <div className="space-y-1.5 mb-2.5">
+                              {p.disconnectedItems.length > 0 && (
+                                <div>
+                                  <p className="text-[9px] text-amber-400/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
+                                    <WifiOff className="w-2.5 h-2.5" />
+                                    Disconnected
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {p.disconnectedItems.map((item) => (
+                                      <button
+                                        key={item.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(
+                                            `/vpn-proxy#container-${item.id}`,
+                                          );
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 transition-colors"
+                                      >
+                                        <WifiOff className="w-2.5 h-2.5" />
+                                        {item.name}
+                                        <ChevronRight className="w-2.5 h-2.5 opacity-50" />
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {p.unhealthyItems.length > 0 && (
+                                <div>
+                                  <p className="text-[9px] text-red-400/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
+                                    <HeartCrack className="w-2.5 h-2.5" />
+                                    Unhealthy
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {p.unhealthyItems.map((item) => (
+                                      <button
+                                        key={item.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(
+                                            `/vpn-proxy#container-${item.id}`,
+                                          );
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
+                                      >
+                                        <HeartCrack className="w-2.5 h-2.5" />
+                                        {item.name}
+                                        <ChevronRight className="w-2.5 h-2.5 opacity-50" />
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {p.stoppedItems.length > 0 && (
+                                <div>
+                                  <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
+                                    <AlertTriangle className="w-2.5 h-2.5" />
+                                    Stopped
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {p.stoppedItems.map((item) => (
+                                      <button
+                                        key={item.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(
+                                            `/vpn-proxy#container-${item.id}`,
+                                          );
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-vpn-input text-vpn-muted border border-vpn-border/50 hover:bg-vpn-input/80 hover:border-vpn-border transition-colors"
+                                      >
+                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                        {item.name}
+                                        <ChevronRight className="w-2.5 h-2.5 opacity-50" />
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Info badges */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {p.countries.length > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
+                                <MapPin className="w-2.5 h-2.5" />
+                                {p.countries.length}{" "}
+                                {p.countries.length === 1
+                                  ? "country"
+                                  : "countries"}
+                              </span>
+                            )}
+                            {p.cities.length > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
+                                <Globe className="w-2.5 h-2.5" />
+                                {p.cities.length}{" "}
+                                {p.cities.length === 1 ? "region" : "regions"}
+                              </span>
+                            )}
+                            {p.httpProxyCount > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                <Network className="w-2.5 h-2.5" />
+                                {p.httpProxyCount} HTTP proxy
+                              </span>
+                            )}
+                            {p.shadowsocksCount > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                <Network className="w-2.5 h-2.5" />
+                                {p.shadowsocksCount} Shadowsocks
+                              </span>
+                            )}
+                            {p.clientCount > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                <Users className="w-2.5 h-2.5" />
+                                {p.clientCount}{" "}
+                                {p.clientCount === 1 ? "client" : "clients"}
+                              </span>
+                            )}
+                            {p.portForwardCount > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20">
+                                <ArrowUpDown className="w-2.5 h-2.5" />
+                                {p.portForwardCount} forwarded
+                              </span>
+                            )}
+                            {p.ips.length > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <Globe className="w-2.5 h-2.5" />
+                                {p.ips.length}{" "}
+                                {p.ips.length === 1 ? "IP" : "IPs"}
+                              </span>
                             )}
                           </div>
-                        )}
-
-                        {/* Info badges */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {p.countries.length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
-                              <MapPin className="w-2.5 h-2.5" />
-                              {p.countries.length}{" "}
-                              {p.countries.length === 1
-                                ? "country"
-                                : "countries"}
-                            </span>
-                          )}
-                          {p.cities.length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
-                              <Globe className="w-2.5 h-2.5" />
-                              {p.cities.length}{" "}
-                              {p.cities.length === 1 ? "region" : "regions"}
-                            </span>
-                          )}
-                          {p.httpProxyCount > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                              <Network className="w-2.5 h-2.5" />
-                              {p.httpProxyCount} HTTP proxy
-                            </span>
-                          )}
-                          {p.shadowsocksCount > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                              <Network className="w-2.5 h-2.5" />
-                              {p.shadowsocksCount} Shadowsocks
-                            </span>
-                          )}
-                          {p.clientCount > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                              <Users className="w-2.5 h-2.5" />
-                              {p.clientCount}{" "}
-                              {p.clientCount === 1 ? "client" : "clients"}
-                            </span>
-                          )}
-                          {p.portForwardCount > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20">
-                              <ArrowUpDown className="w-2.5 h-2.5" />
-                              {p.portForwardCount} forwarded
-                            </span>
-                          )}
-                          {p.ips.length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                              <Globe className="w-2.5 h-2.5" />
-                              {p.ips.length} {p.ips.length === 1 ? "IP" : "IPs"}
-                            </span>
-                          )}
-                        </div>
-                        {/* Server locations with containers */}
-                        {Object.keys(p.locationMap).length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-vpn-border/30 space-y-1.5">
-                            <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium flex items-center gap-1">
-                              <MapPin className="w-2.5 h-2.5" />
-                              Server Locations
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                              {Object.entries(p.locationMap)
-                                .slice(0, 8)
-                                .map(([loc, items]) => (
-                                  <div key={loc} className="group/loc relative">
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input/70 text-vpn-muted cursor-default">
-                                      <MapPin className="w-2.5 h-2.5" />
-                                      {loc}
-                                      <span className="text-vpn-muted/50 ml-0.5">
-                                        ({items.length})
+                          {/* Server locations with containers */}
+                          {Object.keys(p.locationMap).length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-vpn-border/30 space-y-1.5">
+                              <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium flex items-center gap-1">
+                                <MapPin className="w-2.5 h-2.5" />
+                                Server Locations
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(p.locationMap)
+                                  .slice(0, 8)
+                                  .map(([loc, items]) => (
+                                    <div
+                                      key={loc}
+                                      className="group/loc relative"
+                                    >
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input/70 text-vpn-muted cursor-default">
+                                        <MapPin className="w-2.5 h-2.5" />
+                                        {loc}
+                                        <span className="text-vpn-muted/50 ml-0.5">
+                                          ({items.length})
+                                        </span>
                                       </span>
-                                    </span>
-                                    {/* Tooltip with container links */}
-                                    <div className="absolute bottom-full left-0 mb-1 hidden group-hover/loc:block z-50">
-                                      <div className="bg-vpn-card border border-vpn-border rounded-lg shadow-xl p-2 min-w-[140px]">
-                                        <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1">
-                                          {loc}
-                                        </p>
-                                        <div className="space-y-0.5">
-                                          {items.map((item) => (
-                                            <button
-                                              key={item.id}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigate(
-                                                  `/vpn-proxy#container-${item.id}`,
-                                                );
-                                              }}
-                                              className="flex items-center gap-1.5 w-full px-1.5 py-1 rounded text-[10px] text-vpn-text hover:bg-vpn-bg/60 hover:text-vpn-primary transition-colors text-left"
-                                            >
-                                              <Server className="w-2.5 h-2.5 flex-shrink-0" />
-                                              <span className="truncate">
-                                                {item.name}
-                                              </span>
-                                              <ChevronRight className="w-2.5 h-2.5 ml-auto opacity-50 flex-shrink-0" />
-                                            </button>
-                                          ))}
+                                      {/* Tooltip with container links */}
+                                      <div className="absolute bottom-full left-0 mb-1 hidden group-hover/loc:block z-50">
+                                        <div className="bg-vpn-card border border-vpn-border rounded-lg shadow-xl p-2 min-w-[140px]">
+                                          <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1">
+                                            {loc}
+                                          </p>
+                                          <div className="space-y-0.5">
+                                            {items.map((item) => (
+                                              <button
+                                                key={item.id}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  navigate(
+                                                    `/vpn-proxy#container-${item.id}`,
+                                                  );
+                                                }}
+                                                className="flex items-center gap-1.5 w-full px-1.5 py-1 rounded text-[10px] text-vpn-text hover:bg-vpn-bg/60 hover:text-vpn-primary transition-colors text-left"
+                                              >
+                                                <Server className="w-2.5 h-2.5 flex-shrink-0" />
+                                                <span className="truncate">
+                                                  {item.name}
+                                                </span>
+                                                <ChevronRight className="w-2.5 h-2.5 ml-auto opacity-50 flex-shrink-0" />
+                                              </button>
+                                            ))}
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
-                                  </div>
-                                ))}
-                              {Object.keys(p.locationMap).length > 8 && (
-                                <span className="text-[9px] text-vpn-muted px-1.5 py-0.5">
-                                  +{Object.keys(p.locationMap).length - 8} more
+                                  ))}
+                                {Object.keys(p.locationMap).length > 8 && (
+                                  <span className="text-[9px] text-vpn-muted px-1.5 py-0.5">
+                                    +{Object.keys(p.locationMap).length - 8}{" "}
+                                    more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* VPN Connections Overview */}
+              {visibility.connections && (
+                <div
+                  className={`${visibility.providers ? "lg:col-span-2" : ""} bg-vpn-card border border-vpn-border rounded-xl p-5`}
+                >
+                  <div className="flex items-center gap-2 mb-4">
+                    <Globe className="w-4 h-4 text-vpn-primary" />
+                    <h3 className="text-sm font-semibold text-white">
+                      Active VPN Connections
+                    </h3>
+                    <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full ml-auto">
+                      {vpnConnections.length} active
+                    </span>
+                  </div>
+                  {vpnConnections.length === 0 ? (
+                    <p className="text-sm text-vpn-muted py-4 text-center">
+                      No active VPN connections
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {vpnConnections.map((conn) => (
+                        <div
+                          key={conn.id}
+                          onClick={() =>
+                            navigate(`/vpn-proxy#container-${conn.id}`)
+                          }
+                          className="bg-vpn-bg/50 border border-vpn-border/50 rounded-lg p-3 hover:border-vpn-muted/50 cursor-pointer transition-all group"
+                        >
+                          {/* Row 1: Name + Status */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <span
+                              className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                conn.vpnStatus === "running" && conn.publicIp
+                                  ? "bg-emerald-500 shadow-sm shadow-emerald-500/50"
+                                  : "bg-red-500"
+                              }`}
+                            />
+                            <div className="min-w-0 flex-1 flex items-center gap-2">
+                              <span className="text-sm text-white font-semibold group-hover:text-vpn-primary transition-colors truncate">
+                                {conn.name}
+                              </span>
+                              {conn.description && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20 truncate max-w-[200px]">
+                                  {conn.description}
                                 </span>
                               )}
                             </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 capitalize">
+                                {conn.provider}
+                              </span>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase">
+                                {conn.vpnType}
+                              </span>
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                                  conn.vpnStatus === "running" && conn.publicIp
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                    : "bg-red-500/10 text-red-400 border border-red-500/20"
+                                }`}
+                              >
+                                {conn.vpnStatus === "running" &&
+                                conn.publicIp ? (
+                                  <Wifi className="w-2.5 h-2.5" />
+                                ) : (
+                                  <WifiOff className="w-2.5 h-2.5" />
+                                )}
+                                {conn.vpnStatus === "running" && conn.publicIp
+                                  ? "Connected"
+                                  : "Disconnected"}
+                              </span>
+                              <ChevronRight className="w-3.5 h-3.5 text-vpn-muted group-hover:text-vpn-primary transition-colors" />
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* VPN Connections Overview */}
-            {visibility.connections && (
-              <div
-                className={`${visibility.providers ? "lg:col-span-2" : ""} bg-vpn-card border border-vpn-border rounded-xl p-5`}
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <Globe className="w-4 h-4 text-vpn-primary" />
-                  <h3 className="text-sm font-semibold text-white">
-                    Active VPN Connections
-                  </h3>
-                  <span className="text-[10px] text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full ml-auto">
-                    {vpnConnections.length} active
-                  </span>
-                </div>
-                {vpnConnections.length === 0 ? (
-                  <p className="text-sm text-vpn-muted py-4 text-center">
-                    No active VPN connections
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {vpnConnections.map((conn) => (
-                      <div
-                        key={conn.id}
-                        onClick={() =>
-                          navigate(`/vpn-proxy#container-${conn.id}`)
-                        }
-                        className="bg-vpn-bg/50 border border-vpn-border/50 rounded-lg p-3 hover:border-vpn-muted/50 cursor-pointer transition-all group"
-                      >
-                        {/* Row 1: Name + Status */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <span
-                            className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                              conn.vpnStatus === "running" && conn.publicIp
-                                ? "bg-emerald-500 shadow-sm shadow-emerald-500/50"
-                                : "bg-red-500"
-                            }`}
-                          />
-                          <div className="min-w-0 flex-1 flex items-center gap-2">
-                            <span className="text-sm text-white font-semibold group-hover:text-vpn-primary transition-colors truncate">
-                              {conn.name}
-                            </span>
-                            {conn.description && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20 truncate max-w-[200px]">
-                                {conn.description}
+                          {/* Row 2: Info badges */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {conn.publicIp && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20">
+                                <Globe className="w-2.5 h-2.5" />
+                                {conn.publicIp}
+                              </span>
+                            )}
+                            {(conn.country || conn.location) && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
+                                <MapPin className="w-2.5 h-2.5" />
+                                {conn.country || conn.location}
+                                {conn.region && (
+                                  <span className="text-vpn-muted/50">
+                                    · {conn.region}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                            {conn.portForwarded && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                <ArrowUpDown className="w-2.5 h-2.5" />
+                                {conn.portForwarded}
+                              </span>
+                            )}
+                            {conn.httpProxy && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                <Network className="w-2.5 h-2.5" />
+                                HTTP {conn.httpProxy}
+                              </span>
+                            )}
+                            {conn.httpProxyHost && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                <Server className="w-2.5 h-2.5" />
+                                HTTP {conn.httpProxyHost}
+                              </span>
+                            )}
+                            {conn.httpProxyExternal && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                                <Globe className="w-2.5 h-2.5" />
+                                HTTP {conn.httpProxyExternal}
+                              </span>
+                            )}
+                            {conn.shadowsocks && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                <Network className="w-2.5 h-2.5" />
+                                SS {conn.shadowsocks}
+                              </span>
+                            )}
+                            {conn.shadowsocksHost && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                <Server className="w-2.5 h-2.5" />
+                                SS {conn.shadowsocksHost}
+                              </span>
+                            )}
+                            {conn.shadowsocksExternal && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                                <Globe className="w-2.5 h-2.5" />
+                                SS {conn.shadowsocksExternal}
+                              </span>
+                            )}
+                            {conn.socks5 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                <Network className="w-2.5 h-2.5" />
+                                SOCKS5 {conn.socks5}
+                              </span>
+                            )}
+                            {conn.socks5Host && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                <Server className="w-2.5 h-2.5" />
+                                SOCKS5 {conn.socks5Host}
+                              </span>
+                            )}
+                            {conn.socks5External && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                                <Globe className="w-2.5 h-2.5" />
+                                SOCKS5 {conn.socks5External}
+                              </span>
+                            )}
+                            {conn.deps.length > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                <Users className="w-2.5 h-2.5" />
+                                {conn.deps.length} client
+                                {conn.deps.length !== 1 ? "s" : ""}
+                                <span className="text-blue-400/60 ml-0.5">
+                                  (
+                                  {conn.deps
+                                    .slice(0, 2)
+                                    .map((d) => d.name)
+                                    .join(", ")}
+                                  {conn.deps.length > 2 ? ", ..." : ""})
+                                </span>
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 capitalize">
-                              {conn.provider}
-                            </span>
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase">
-                              {conn.vpnType}
-                            </span>
-                            <span
-                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium ${
-                                conn.vpnStatus === "running" && conn.publicIp
-                                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                  : "bg-red-500/10 text-red-400 border border-red-500/20"
-                              }`}
-                            >
-                              {conn.vpnStatus === "running" && conn.publicIp ? (
-                                <Wifi className="w-2.5 h-2.5" />
-                              ) : (
-                                <WifiOff className="w-2.5 h-2.5" />
-                              )}
-                              {conn.vpnStatus === "running" && conn.publicIp
-                                ? "Connected"
-                                : "Disconnected"}
-                            </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-vpn-muted group-hover:text-vpn-primary transition-colors" />
-                          </div>
                         </div>
-                        {/* Row 2: Info badges */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {conn.publicIp && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20">
-                              <Globe className="w-2.5 h-2.5" />
-                              {conn.publicIp}
-                            </span>
-                          )}
-                          {(conn.country || conn.location) && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
-                              <MapPin className="w-2.5 h-2.5" />
-                              {conn.country || conn.location}
-                              {conn.region && (
-                                <span className="text-vpn-muted/50">
-                                  · {conn.region}
-                                </span>
-                              )}
-                            </span>
-                          )}
-                          {conn.portForwarded && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                              <ArrowUpDown className="w-2.5 h-2.5" />
-                              {conn.portForwarded}
-                            </span>
-                          )}
-                          {conn.httpProxy && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                              <Network className="w-2.5 h-2.5" />
-                              HTTP {conn.httpProxy}
-                            </span>
-                          )}
-                          {conn.httpProxyHost && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                              <Server className="w-2.5 h-2.5" />
-                              HTTP {conn.httpProxyHost}
-                            </span>
-                          )}
-                          {conn.httpProxyExternal && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                              <Globe className="w-2.5 h-2.5" />
-                              HTTP {conn.httpProxyExternal}
-                            </span>
-                          )}
-                          {conn.shadowsocks && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                              <Network className="w-2.5 h-2.5" />
-                              SS {conn.shadowsocks}
-                            </span>
-                          )}
-                          {conn.shadowsocksHost && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                              <Server className="w-2.5 h-2.5" />
-                              SS {conn.shadowsocksHost}
-                            </span>
-                          )}
-                          {conn.shadowsocksExternal && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                              <Globe className="w-2.5 h-2.5" />
-                              SS {conn.shadowsocksExternal}
-                            </span>
-                          )}
-                          {conn.socks5 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                              <Network className="w-2.5 h-2.5" />
-                              SOCKS5 {conn.socks5}
-                            </span>
-                          )}
-                          {conn.socks5Host && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                              <Server className="w-2.5 h-2.5" />
-                              SOCKS5 {conn.socks5Host}
-                            </span>
-                          )}
-                          {conn.socks5External && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                              <Globe className="w-2.5 h-2.5" />
-                              SOCKS5 {conn.socks5External}
-                            </span>
-                          )}
-                          {conn.deps.length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                              <Users className="w-2.5 h-2.5" />
-                              {conn.deps.length} client
-                              {conn.deps.length !== 1 ? "s" : ""}
-                              <span className="text-blue-400/60 ml-0.5">
-                                (
-                                {conn.deps
-                                  .slice(0, 2)
-                                  .map((d) => d.name)
-                                  .join(", ")}
-                                {conn.deps.length > 2 ? ", ..." : ""})
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-    </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+      </div>
+      <ActionProgressDialog
+        action={actionProgress?.action}
+        target={actionProgress?.target}
+        finished={actionProgress?.finished}
+        error={actionProgress?.error}
+      />
+    </>
   );
 }

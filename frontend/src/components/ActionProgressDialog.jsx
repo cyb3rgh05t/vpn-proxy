@@ -7,6 +7,7 @@ const ACTION_LABELS = {
   redeploy: "Redeploying",
   delete: "Deleting",
   discover: "Discovering",
+  refresh: "Refreshing",
 };
 
 /**

@@ -47,6 +47,7 @@ export default function VpnProxy() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState("");
   const [bulkProgress, setBulkProgress] = useState(null); // { action, total, done, success, failed }
+  const [actionProgress, setActionProgress] = useState(null);
 
   // Scroll to container card when navigated with hash
   useEffect(() => {
@@ -351,14 +352,27 @@ export default function VpnProxy() {
           <button
             onClick={async () => {
               setDiscovering(true);
+              setActionProgress({ action: "discover", target: "Containers" });
               try {
                 const res = await api.post("/containers/discover");
                 toast.success(res.data.message);
+                setActionProgress({
+                  action: "discover",
+                  target: "Containers",
+                  finished: true,
+                });
                 refreshContainers();
               } catch {
                 toast.error("Failed to discover containers");
+                setActionProgress({
+                  action: "discover",
+                  target: "Containers",
+                  finished: true,
+                  error: "Failed to discover containers",
+                });
               } finally {
                 setDiscovering(false);
+                setTimeout(() => setActionProgress(null), 1200);
               }
             }}
             disabled={discovering}
@@ -372,8 +386,25 @@ export default function VpnProxy() {
           <button
             onClick={async () => {
               setRefreshing(true);
-              await refreshAll();
-              setRefreshing(false);
+              setActionProgress({ action: "refresh", target: "Containers" });
+              try {
+                await refreshAll();
+                setActionProgress({
+                  action: "refresh",
+                  target: "Containers",
+                  finished: true,
+                });
+              } catch {
+                setActionProgress({
+                  action: "refresh",
+                  target: "Containers",
+                  finished: true,
+                  error: "Failed to refresh",
+                });
+              } finally {
+                setRefreshing(false);
+                setTimeout(() => setActionProgress(null), 1200);
+              }
             }}
             disabled={refreshing}
             className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
@@ -775,6 +806,12 @@ export default function VpnProxy() {
         success={bulkProgress?.success}
         failed={bulkProgress?.failed}
         finished={false}
+      />
+      <ActionProgressDialog
+        action={actionProgress?.action}
+        target={actionProgress?.target}
+        finished={actionProgress?.finished}
+        error={actionProgress?.error}
       />
     </div>
   );

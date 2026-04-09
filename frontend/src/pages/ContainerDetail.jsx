@@ -482,8 +482,28 @@ export default function ContainerDetail() {
             <button
               onClick={async () => {
                 setRefreshing(true);
-                await fetchContainer();
-                setRefreshing(false);
+                setActionProgress({
+                  action: "refresh",
+                  target: container?.name || id,
+                });
+                try {
+                  await fetchContainer();
+                  setActionProgress({
+                    action: "refresh",
+                    target: container?.name || id,
+                    finished: true,
+                  });
+                } catch {
+                  setActionProgress({
+                    action: "refresh",
+                    target: container?.name || id,
+                    finished: true,
+                    error: "Failed to refresh",
+                  });
+                } finally {
+                  setRefreshing(false);
+                  setTimeout(() => setActionProgress(null), 1200);
+                }
               }}
               disabled={refreshing}
               className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg text-sm transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"

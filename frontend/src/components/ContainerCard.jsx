@@ -320,78 +320,77 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                 : null;
 
               return (
-                <div className="bg-vpn-input/50 rounded-lg px-3 py-2.5 border border-vpn-border/50 col-span-2 space-y-1.5">
-                  <p className="text-xs text-vpn-muted uppercase tracking-wider font-semibold mb-1">
+                <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2">
+                  <p className="text-xs text-vpn-muted uppercase tracking-wider font-semibold mb-1.5">
                     HTTP Proxy
                   </p>
-                  {/* Internal URL */}
-                  <div
-                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/int"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(internalUrl);
-                    }}
-                    title="Click to copy internal proxy URL"
-                  >
-                    <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
-                      Internal
-                    </span>
-                    <p className="text-[11px] text-emerald-400/80 font-mono truncate flex-1">
-                      http://{authDisplay}
-                      {ip}:{internalPort}
-                    </p>
-                    {copiedUrl === internalUrl ? (
-                      <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                    ) : (
-                      <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/int:opacity-100 transition-opacity shrink-0" />
-                    )}
-                  </div>
-                  {/* Hostname URL */}
-                  <div
-                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/host"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(hostnameUrl);
-                    }}
-                    title="Click to copy hostname proxy URL"
-                  >
-                    <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
-                      Host
-                    </span>
-                    <p className="text-[11px] text-amber-400/80 font-mono truncate flex-1">
-                      http://{authDisplay}
-                      {dockerName}:{internalPort}
-                    </p>
-                    {copiedUrl === hostnameUrl ? (
-                      <Check className="w-3 h-3 text-amber-400 shrink-0" />
-                    ) : (
-                      <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/host:opacity-100 transition-opacity shrink-0" />
-                    )}
-                  </div>
-                  {/* External URL - only if mapped */}
-                  {externalUrl && (
-                    <div
-                      className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ext"
+                  <div className="flex flex-wrap gap-1.5">
+                    {/* Internal badge */}
+                    <button
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-all cursor-pointer max-w-full ${copiedUrl === internalUrl ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400/80 hover:border-emerald-500/40 hover:bg-emerald-500/15"}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        copyToClipboard(externalUrl);
+                        copyToClipboard(internalUrl);
                       }}
-                      title="Click to copy external proxy URL"
+                      title="Copy internal proxy URL"
                     >
-                      <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
-                        External
+                      <span className="font-sans text-[9px] font-bold uppercase tracking-wide opacity-60 shrink-0">
+                        Int
                       </span>
-                      <p className="text-[11px] text-blue-400/80 font-mono truncate flex-1">
-                        http://{authDisplay}
-                        {serverIp}:{externalPort}
-                      </p>
-                      {copiedUrl === externalUrl ? (
-                        <Check className="w-3 h-3 text-blue-400 shrink-0" />
+                      <span className="truncate">
+                        http://{authDisplay}{ip}:{internalPort}
+                      </span>
+                      {copiedUrl === internalUrl ? (
+                        <Check className="w-2.5 h-2.5 shrink-0" />
                       ) : (
-                        <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ext:opacity-100 transition-opacity shrink-0" />
+                        <Copy className="w-2.5 h-2.5 shrink-0 opacity-40" />
                       )}
-                    </div>
-                  )}
+                    </button>
+                    {/* Hostname badge */}
+                    <button
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-all cursor-pointer max-w-full ${copiedUrl === hostnameUrl ? "bg-amber-500/20 border-amber-500/40 text-amber-400" : "bg-amber-500/10 border-amber-500/20 text-amber-400/80 hover:border-amber-500/40 hover:bg-amber-500/15"}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyToClipboard(hostnameUrl);
+                      }}
+                      title="Copy hostname proxy URL"
+                    >
+                      <span className="font-sans text-[9px] font-bold uppercase tracking-wide opacity-60 shrink-0">
+                        Host
+                      </span>
+                      <span className="truncate">
+                        http://{authDisplay}{dockerName}:{internalPort}
+                      </span>
+                      {copiedUrl === hostnameUrl ? (
+                        <Check className="w-2.5 h-2.5 shrink-0" />
+                      ) : (
+                        <Copy className="w-2.5 h-2.5 shrink-0 opacity-40" />
+                      )}
+                    </button>
+                    {/* External badge */}
+                    {externalUrl && (
+                      <button
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-all cursor-pointer max-w-full ${copiedUrl === externalUrl ? "bg-blue-500/20 border-blue-500/40 text-blue-400" : "bg-blue-500/10 border-blue-500/20 text-blue-400/80 hover:border-blue-500/40 hover:bg-blue-500/15"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(externalUrl);
+                        }}
+                        title="Copy external proxy URL"
+                      >
+                        <span className="font-sans text-[9px] font-bold uppercase tracking-wide opacity-60 shrink-0">
+                          Ext
+                        </span>
+                        <span className="truncate">
+                          http://{authDisplay}{serverIp}:{externalPort}
+                        </span>
+                        {copiedUrl === externalUrl ? (
+                          <Check className="w-2.5 h-2.5 shrink-0" />
+                        ) : (
+                          <Copy className="w-2.5 h-2.5 shrink-0 opacity-40" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })()}
@@ -413,72 +412,68 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                 : null;
 
               return (
-                <div className="bg-vpn-input/50 rounded-lg px-3 py-2.5 border border-vpn-border/50 col-span-2 space-y-1.5">
-                  <p className="text-xs text-vpn-muted uppercase tracking-wider font-semibold mb-1">
+                <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2">
+                  <p className="text-xs text-vpn-muted uppercase tracking-wider font-semibold mb-1.5">
                     Shadowsocks
                   </p>
-                  <div
-                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ssint"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(ssInternal);
-                    }}
-                    title="Click to copy internal Shadowsocks URL"
-                  >
-                    <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
-                      Internal
-                    </span>
-                    <p className="text-[11px] text-emerald-400/80 font-mono truncate flex-1">
-                      {ssInternal}
-                    </p>
-                    {copiedUrl === ssInternal ? (
-                      <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                    ) : (
-                      <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ssint:opacity-100 transition-opacity shrink-0" />
-                    )}
-                  </div>
-                  <div
-                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/sshost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(ssHostname);
-                    }}
-                    title="Click to copy hostname Shadowsocks URL"
-                  >
-                    <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
-                      Host
-                    </span>
-                    <p className="text-[11px] text-amber-400/80 font-mono truncate flex-1">
-                      {ssHostname}
-                    </p>
-                    {copiedUrl === ssHostname ? (
-                      <Check className="w-3 h-3 text-amber-400 shrink-0" />
-                    ) : (
-                      <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/sshost:opacity-100 transition-opacity shrink-0" />
-                    )}
-                  </div>
-                  {ssExternal && (
-                    <div
-                      className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/ssext"
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-all cursor-pointer max-w-full ${copiedUrl === ssInternal ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400/80 hover:border-emerald-500/40 hover:bg-emerald-500/15"}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        copyToClipboard(ssExternal);
+                        copyToClipboard(ssInternal);
                       }}
-                      title="Click to copy external Shadowsocks URL"
+                      title="Copy internal Shadowsocks URL"
                     >
-                      <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
-                        External
+                      <span className="font-sans text-[9px] font-bold uppercase tracking-wide opacity-60 shrink-0">
+                        Int
                       </span>
-                      <p className="text-[11px] text-blue-400/80 font-mono truncate flex-1">
-                        {ssExternal}
-                      </p>
-                      {copiedUrl === ssExternal ? (
-                        <Check className="w-3 h-3 text-blue-400 shrink-0" />
+                      <span className="truncate">{ssInternal}</span>
+                      {copiedUrl === ssInternal ? (
+                        <Check className="w-2.5 h-2.5 shrink-0" />
                       ) : (
-                        <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/ssext:opacity-100 transition-opacity shrink-0" />
+                        <Copy className="w-2.5 h-2.5 shrink-0 opacity-40" />
                       )}
-                    </div>
-                  )}
+                    </button>
+                    <button
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-all cursor-pointer max-w-full ${copiedUrl === ssHostname ? "bg-amber-500/20 border-amber-500/40 text-amber-400" : "bg-amber-500/10 border-amber-500/20 text-amber-400/80 hover:border-amber-500/40 hover:bg-amber-500/15"}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyToClipboard(ssHostname);
+                      }}
+                      title="Copy hostname Shadowsocks URL"
+                    >
+                      <span className="font-sans text-[9px] font-bold uppercase tracking-wide opacity-60 shrink-0">
+                        Host
+                      </span>
+                      <span className="truncate">{ssHostname}</span>
+                      {copiedUrl === ssHostname ? (
+                        <Check className="w-2.5 h-2.5 shrink-0" />
+                      ) : (
+                        <Copy className="w-2.5 h-2.5 shrink-0 opacity-40" />
+                      )}
+                    </button>
+                    {ssExternal && (
+                      <button
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-all cursor-pointer max-w-full ${copiedUrl === ssExternal ? "bg-blue-500/20 border-blue-500/40 text-blue-400" : "bg-blue-500/10 border-blue-500/20 text-blue-400/80 hover:border-blue-500/40 hover:bg-blue-500/15"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(ssExternal);
+                        }}
+                        title="Copy external Shadowsocks URL"
+                      >
+                        <span className="font-sans text-[9px] font-bold uppercase tracking-wide opacity-60 shrink-0">
+                          Ext
+                        </span>
+                        <span className="truncate">{ssExternal}</span>
+                        {copiedUrl === ssExternal ? (
+                          <Check className="w-2.5 h-2.5 shrink-0" />
+                        ) : (
+                          <Copy className="w-2.5 h-2.5 shrink-0 opacity-40" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })()}
@@ -502,75 +497,71 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                 : null;
 
               return (
-                <div className="bg-vpn-input/50 rounded-lg px-3 py-2.5 border border-vpn-border/50 col-span-2 space-y-1.5">
-                  <p className="text-xs text-vpn-muted uppercase tracking-wider font-semibold mb-1">
+                <div className="bg-vpn-input/50 rounded-lg px-3 py-2 border border-vpn-border/50 col-span-2">
+                  <p className="text-xs text-vpn-muted uppercase tracking-wider font-semibold mb-1.5">
                     SOCKS5 Proxy
                   </p>
-                  {/* Internal URL */}
-                  <div
-                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/s5int"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(socks5Internal);
-                    }}
-                    title="Click to copy internal SOCKS5 URL"
-                  >
-                    <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
-                      Internal
-                    </span>
-                    <p className="text-[11px] text-purple-400/80 font-mono truncate flex-1">
-                      {socks5Internal}
-                    </p>
-                    {copiedUrl === socks5Internal ? (
-                      <Check className="w-3 h-3 text-purple-400 shrink-0" />
-                    ) : (
-                      <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/s5int:opacity-100 transition-opacity shrink-0" />
-                    )}
-                  </div>
-                  {/* Hostname URL */}
-                  <div
-                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/s5host"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(socks5Hostname);
-                    }}
-                    title="Click to copy hostname SOCKS5 URL"
-                  >
-                    <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
-                      Host
-                    </span>
-                    <p className="text-[11px] text-amber-400/80 font-mono truncate flex-1">
-                      {socks5Hostname}
-                    </p>
-                    {copiedUrl === socks5Hostname ? (
-                      <Check className="w-3 h-3 text-amber-400 shrink-0" />
-                    ) : (
-                      <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/s5host:opacity-100 transition-opacity shrink-0" />
-                    )}
-                  </div>
-                  {/* External URL - only if mapped via extra_ports */}
-                  {socks5External && (
-                    <div
-                      className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group/s5ext"
+                  <div className="flex flex-wrap gap-1.5">
+                    {/* Internal badge */}
+                    <button
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-all cursor-pointer max-w-full ${copiedUrl === socks5Internal ? "bg-purple-500/20 border-purple-500/40 text-purple-400" : "bg-purple-500/10 border-purple-500/20 text-purple-400/80 hover:border-purple-500/40 hover:bg-purple-500/15"}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        copyToClipboard(socks5External);
+                        copyToClipboard(socks5Internal);
                       }}
-                      title="Click to copy external SOCKS5 URL"
+                      title="Copy internal SOCKS5 URL"
                     >
-                      <span className="text-[11px] text-vpn-muted font-medium uppercase w-16 shrink-0">
-                        External
+                      <span className="font-sans text-[9px] font-bold uppercase tracking-wide opacity-60 shrink-0">
+                        Int
                       </span>
-                      <p className="text-[11px] text-blue-400/80 font-mono truncate flex-1">
-                        {socks5External}
-                      </p>
-                      {copiedUrl === socks5External ? (
-                        <Check className="w-3 h-3 text-blue-400 shrink-0" />
+                      <span className="truncate">{socks5Internal}</span>
+                      {copiedUrl === socks5Internal ? (
+                        <Check className="w-2.5 h-2.5 shrink-0" />
                       ) : (
-                        <Copy className="w-3 h-3 text-vpn-muted opacity-0 group-hover/s5ext:opacity-100 transition-opacity shrink-0" />
+                        <Copy className="w-2.5 h-2.5 shrink-0 opacity-40" />
                       )}
-                    </div>
-                  )}
+                    </button>
+                    {/* Hostname badge */}
+                    <button
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-all cursor-pointer max-w-full ${copiedUrl === socks5Hostname ? "bg-amber-500/20 border-amber-500/40 text-amber-400" : "bg-amber-500/10 border-amber-500/20 text-amber-400/80 hover:border-amber-500/40 hover:bg-amber-500/15"}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyToClipboard(socks5Hostname);
+                      }}
+                      title="Copy hostname SOCKS5 URL"
+                    >
+                      <span className="font-sans text-[9px] font-bold uppercase tracking-wide opacity-60 shrink-0">
+                        Host
+                      </span>
+                      <span className="truncate">{socks5Hostname}</span>
+                      {copiedUrl === socks5Hostname ? (
+                        <Check className="w-2.5 h-2.5 shrink-0" />
+                      ) : (
+                        <Copy className="w-2.5 h-2.5 shrink-0 opacity-40" />
+                      )}
+                    </button>
+                    {/* External badge */}
+                    {socks5External && (
+                      <button
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border transition-all cursor-pointer max-w-full ${copiedUrl === socks5External ? "bg-blue-500/20 border-blue-500/40 text-blue-400" : "bg-blue-500/10 border-blue-500/20 text-blue-400/80 hover:border-blue-500/40 hover:bg-blue-500/15"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(socks5External);
+                        }}
+                        title="Copy external SOCKS5 URL"
+                      >
+                        <span className="font-sans text-[9px] font-bold uppercase tracking-wide opacity-60 shrink-0">
+                          Ext
+                        </span>
+                        <span className="truncate">{socks5External}</span>
+                        {copiedUrl === socks5External ? (
+                          <Check className="w-2.5 h-2.5 shrink-0" />
+                        ) : (
+                          <Copy className="w-2.5 h-2.5 shrink-0 opacity-40" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })()}

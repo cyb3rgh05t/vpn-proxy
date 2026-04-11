@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Container,
 } from "lucide-react";
+import VpnShieldLogo from "./VpnShieldLogo";
 import { useState } from "react";
 import { useContainerData } from "../context/ContainerDataContext";
 
@@ -52,7 +53,7 @@ export default function Sidebar() {
   const sidebarContent = (
     <>
       <div className="flex items-center gap-3 px-4 py-6 border-b border-vpn-border">
-        <Shield className="w-8 h-8 text-vpn-primary" />
+        <VpnShieldLogo className="w-8 h-8 text-vpn-primary" />
         <div>
           <h1 className="text-lg font-bold text-white">VPN Proxy</h1>
           <p className="text-xs text-vpn-muted">Container Manager</p>

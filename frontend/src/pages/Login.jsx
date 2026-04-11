@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Shield, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import VpnShieldLogo from "../components/VpnShieldLogo";
 import api from "../services/api";
 
 export default function Login() {
@@ -61,7 +62,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-vpn-primary/20 mb-4">
-            <Shield className="w-8 h-8 text-vpn-primary" />
+            <VpnShieldLogo className="w-8 h-8 text-vpn-primary" />
           </div>
           <h1 className="text-2xl font-bold text-white">VPN Proxy Manager</h1>
           <p className="text-vpn-muted mt-1">

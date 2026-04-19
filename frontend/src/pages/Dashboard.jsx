@@ -91,7 +91,11 @@ export default function Dashboard() {
     const info = vpnInfoMap[String(c.id)];
     return info?.vpn_status === "running" && info?.public_ip;
   }).length;
-  const vpnDisconnected = gluetunRunning - vpnConnected;
+  // Include unhealthy containers in disconnected count (they are still active but VPN is down)
+  const gluetunActive = containers.filter((c) =>
+    ["running", "healthy", "unhealthy"].includes(c.status),
+  ).length;
+  const vpnDisconnected = gluetunActive - vpnConnected;
 
   // --- O11 stats ---
   const o11Running = o11Containers.filter((c) =>
@@ -136,12 +140,13 @@ export default function Dashboard() {
       if (c.vpn_type) map[p].types.add(c.vpn_type);
       const info = vpnInfoMap[String(c.id)];
       const isRunning = ["running", "healthy"].includes(c.status);
+      const isActive = ["running", "healthy", "unhealthy"].includes(c.status);
       const isConnected = info?.vpn_status === "running" && info?.public_ip;
       if (isRunning) map[p].running++;
       if (isConnected) {
         map[p].connected++;
         map[p].connectedItems.push({ id: c.id, name: c.name });
-      } else if (isRunning) {
+      } else if (isActive) {
         map[p].disconnected++;
         map[p].disconnectedItems.push({ id: c.id, name: c.name });
       }
@@ -286,8 +291,11 @@ export default function Dashboard() {
       );
   }, [containers, vpnInfoMap, depsMap]);
 
-  const StatCard = ({ label, value, icon: Icon, color, bg }) => (
-    <div className="bg-vpn-card border border-vpn-border rounded-xl p-4 min-w-0 hover:border-vpn-primary/30 transition-colors">
+  const StatCard = ({ label, value, icon: Icon, color, bg, filter }) => (
+    <div
+      onClick={() => filter && navigate(`/vpn-proxy?status=${filter}`)}
+      className={`bg-vpn-card border border-vpn-border rounded-xl p-4 min-w-0 hover:border-vpn-primary/30 transition-colors ${filter ? "cursor-pointer" : ""}`}
+    >
       <div className="flex items-center gap-2.5">
         <div className={`p-2 rounded-lg ${bg}`}>
           <Icon className={`w-4 h-4 ${color}`} />
@@ -451,6 +459,7 @@ export default function Dashboard() {
                 icon={Server}
                 color="text-vpn-primary"
                 bg="bg-vpn-primary/10"
+                filter="all"
               />
               <StatCard
                 label="VPN Running"
@@ -458,6 +467,7 @@ export default function Dashboard() {
                 icon={Activity}
                 color="text-emerald-400"
                 bg="bg-emerald-500/10"
+                filter="running"
               />
               <StatCard
                 label="Connected"
@@ -465,6 +475,7 @@ export default function Dashboard() {
                 icon={Wifi}
                 color="text-emerald-400"
                 bg="bg-emerald-500/10"
+                filter="vpn-connected"
               />
               <StatCard
                 label="Disconnected"
@@ -472,6 +483,7 @@ export default function Dashboard() {
                 icon={WifiOff}
                 color="text-amber-400"
                 bg="bg-amber-500/10"
+                filter="vpn-disconnected"
               />
               <StatCard
                 label="Unhealthy"
@@ -479,6 +491,7 @@ export default function Dashboard() {
                 icon={HeartCrack}
                 color="text-red-400"
                 bg="bg-red-500/10"
+                filter="unhealthy"
               />
               <StatCard
                 label="Stopped"
@@ -486,6 +499,7 @@ export default function Dashboard() {
                 icon={AlertTriangle}
                 color="text-amber-400"
                 bg="bg-amber-500/10"
+                filter="stopped"
               />
               {o11Containers.length > 0 && (
                 <>

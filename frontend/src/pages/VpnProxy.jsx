@@ -5,6 +5,7 @@ import {
   Shield,
   Activity,
   AlertTriangle,
+  HeartCrack,
   RefreshCw,
   Search,
   Server,
@@ -69,7 +70,9 @@ export default function VpnProxy() {
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(
+    () => searchParams.get("status") || null,
+  );
   const [providerFilter, setProviderFilter] = useState(
     () => searchParams.get("provider") || "all",
   );
@@ -85,7 +88,13 @@ export default function VpnProxy() {
     const info = vpnInfoMap[String(c.id)];
     return info?.vpn_status === "running" && info?.public_ip;
   }).length;
-  const vpnDisconnected = running - vpnConnected;
+  // Include unhealthy containers in disconnected count (they are still active but VPN is down)
+  const active = containers.filter((c) =>
+    ["running", "healthy", "unhealthy"].includes(c.status),
+  ).length;
+  const vpnDisconnected = active - vpnConnected;
+
+  const unhealthy = containers.filter((c) => c.status === "unhealthy").length;
 
   const stats = [
     {
@@ -129,6 +138,16 @@ export default function VpnProxy() {
       filter: "vpn-disconnected",
     },
     {
+      label: "Unhealthy",
+      value: unhealthy,
+      icon: HeartCrack,
+      color: "text-red-400",
+      bg: "bg-red-500/10",
+      hoverBorder: "hover:border-red-400",
+      activeBorder: "border-red-400 ring-1 ring-red-400/30",
+      filter: "unhealthy",
+    },
+    {
       label: "Stopped",
       value: stopped,
       icon: AlertTriangle,
@@ -151,10 +170,11 @@ export default function VpnProxy() {
       return info?.vpn_status === "running" && !!info?.public_ip;
     }
     if (statusFilter === "vpn-disconnected") {
-      if (!["running", "healthy"].includes(s)) return false;
+      if (!["running", "healthy", "unhealthy"].includes(s)) return false;
       const info = vpnInfoMap[String(container.id)];
       return !info?.public_ip || info?.vpn_status !== "running";
     }
+    if (statusFilter === "unhealthy") return s === "unhealthy";
     return true;
   };
 

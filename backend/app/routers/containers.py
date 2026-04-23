@@ -1029,38 +1029,49 @@ def redeploy_container(
                 detail=f"Container with name '{new_name}' already exists",
             )
 
-    # Apply updates from request to DB record
-    for field, value in req.model_dump(exclude_none=True).items():
-        setattr(c, field, value)
-    db.commit()
-    db.refresh(c)
+    update_data = req.model_dump(exclude_none=True)
+    target_name = update_data.get("name", c.name)
+    target_vpn_provider = update_data.get("vpn_provider", c.vpn_provider)
+    target_vpn_type = update_data.get("vpn_type", c.vpn_type)
+    target_config = update_data.get("config", c.config)
+    target_port_http_proxy = update_data.get("port_http_proxy", c.port_http_proxy)
+    target_port_shadowsocks = update_data.get("port_shadowsocks", c.port_shadowsocks)
+    target_extra_ports = update_data.get("extra_ports", c.extra_ports)
+    target_network_name = update_data.get("network_name", c.network_name)
+    target_socks5_enabled = update_data.get("socks5_enabled", c.socks5_enabled)
+    target_port_socks5 = update_data.get("port_socks5", c.port_socks5)
 
     try:
         gluetun_image = _get_gluetun_image(db)
         new_id = docker_service.redeploy_container(
             name=old_name,
             old_container_id=c.container_id,
-            vpn_provider=c.vpn_provider,
-            vpn_type=c.vpn_type,
-            config=c.config,
-            port_http_proxy=c.port_http_proxy,
-            port_shadowsocks=c.port_shadowsocks,
-            extra_ports=c.extra_ports if c.extra_ports else None,
-            network_name=c.network_name,
-            new_name=new_name if new_name and new_name != old_name else None,
+            vpn_provider=target_vpn_provider,
+            vpn_type=target_vpn_type,
+            config=target_config,
+            port_http_proxy=target_port_http_proxy,
+            port_shadowsocks=target_port_shadowsocks,
+            extra_ports=target_extra_ports if target_extra_ports else None,
+            network_name=target_network_name,
+            new_name=target_name if target_name and target_name != old_name else None,
             gluetun_image=gluetun_image,
-            socks5_enabled=c.socks5_enabled,
-            port_socks5=c.port_socks5,
+            socks5_enabled=target_socks5_enabled,
+            port_socks5=target_port_socks5,
         )
+
+        for field, value in update_data.items():
+            setattr(c, field, value)
         c.container_id = new_id
         c.status = "running"
 
         # Create SOCKS5 sidecar if enabled
-        deploy_name = new_name if new_name and new_name != old_name else old_name
-        if c.socks5_enabled:
+        deploy_name = (
+            target_name if target_name and target_name != old_name else old_name
+        )
+        if target_socks5_enabled:
             gluetun_container_name = f"gluetun-{deploy_name}"
             socks5_id = docker_service.create_socks5_sidecar(
-                deploy_name, gluetun_container_name, c.port_socks5
+                deploy_name, gluetun_container_name, target_port_socks5
             )
             c.socks5_container_id = socks5_id
         else:
@@ -1079,6 +1090,7 @@ def redeploy_container(
         db.commit()
         return {"message": "Container redeployed successfully", "container_id": new_id}
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=500, detail=f"Failed to redeploy container: {e}"
         )

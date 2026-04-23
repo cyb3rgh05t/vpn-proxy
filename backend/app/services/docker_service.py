@@ -329,11 +329,35 @@ def redeploy_container(
     port_socks5: int = 1080,
 ) -> str | None:
     """Redeploy a Gluetun container with updated config.
-    Stops dependents, removes old container, creates new one, restarts dependents.
+    Stops dependents, keeps old container as rollback backup, creates new one,
+    and restarts dependents.
     If new_name is provided, the container is renamed (new Docker name + data dir).
     Returns new container_id.
     """
     deploy_name = new_name if new_name else name
+    client = _get_client()
+    old_container = client.containers.get(old_container_id)
+    old_docker_name = (old_container.name or "").lstrip("/")
+
+    try:
+        old_container.reload()
+        was_running = old_container.status == "running"
+    except Exception:
+        was_running = True
+
+    backup_container_name: str | None = None
+    data_dir_renamed = False
+    old_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
+    new_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", deploy_name)
+
+    had_socks5_sidecar = False
+    try:
+        client.containers.get(f"socks5-{name}")
+        had_socks5_sidecar = True
+    except NotFound:
+        had_socks5_sidecar = False
+    except Exception:
+        had_socks5_sidecar = False
 
     # 1. Stop dependent containers
     stopped_deps = stop_dependents(old_container_id)
@@ -342,50 +366,132 @@ def redeploy_container(
     # 2. Remove old SOCKS5 sidecar if it exists (before removing gluetun)
     remove_socks5_sidecar(name)
 
-    # 3. Remove old container
-    remove_container(old_container_id)
-    logger.info("Removed old container %s for redeploy", old_container_id[:12])
+    # 3. Keep old container as rollback backup by renaming it away
+    backup_container_name = f"{old_docker_name}-backup-{int(time.time())}"
+    try:
+        old_container.stop(timeout=10)
+    except Exception:
+        pass
+    old_container.rename(backup_container_name)
+    logger.info(
+        "Renamed old container %s -> %s for redeploy backup",
+        old_docker_name,
+        backup_container_name,
+    )
 
     # 4. Rename data directory if name changed
     if new_name and new_name != name:
-        old_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
-        new_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", new_name)
         if os.path.exists(old_data) and not os.path.exists(new_data):
             os.rename(old_data, new_data)
+            data_dir_renamed = True
             logger.info("Renamed data dir %s -> %s", old_data, new_data)
 
-    # 5. Pull latest image before recreating
-    pull_image = gluetun_image or settings.GLUETUN_IMAGE
     try:
-        logger.info("Pulling latest image %s for redeploy ...", pull_image)
-        client = _get_client()
-        client.images.pull(pull_image)
-    except Exception as e:
-        logger.warning("Failed to pull latest image %s, using local: %s", pull_image, e)
+        # 5. Pull latest image before recreating
+        pull_image = gluetun_image or settings.GLUETUN_IMAGE
+        try:
+            logger.info("Pulling latest image %s for redeploy ...", pull_image)
+            client.images.pull(pull_image)
+        except Exception as e:
+            logger.warning(
+                "Failed to pull latest image %s, using local: %s", pull_image, e
+            )
 
-    # 6. Create new container with (possibly new) name and updated config
-    new_id = create_container(
-        name=deploy_name,
-        vpn_provider=vpn_provider,
-        vpn_type=vpn_type,
-        config=config,
-        port_http_proxy=port_http_proxy,
-        port_shadowsocks=port_shadowsocks,
-        extra_ports=extra_ports,
-        network_name=network_name,
-        gluetun_image=gluetun_image,
-        socks5_enabled=socks5_enabled,
-        port_socks5=port_socks5,
-    )
-    logger.info("Created new container %s for %s", new_id[:12], deploy_name)
+        # 6. Create new container with (possibly new) name and updated config
+        new_id = create_container(
+            name=deploy_name,
+            vpn_provider=vpn_provider,
+            vpn_type=vpn_type,
+            config=config,
+            port_http_proxy=port_http_proxy,
+            port_shadowsocks=port_shadowsocks,
+            extra_ports=extra_ports,
+            network_name=network_name,
+            gluetun_image=gluetun_image,
+            socks5_enabled=socks5_enabled,
+            port_socks5=port_socks5,
+        )
+        logger.info("Created new container %s for %s", new_id[:12], deploy_name)
 
-    # 7. Restart dependent containers (they reference by name, so they reconnect)
-    # Note: SOCKS5 sidecar will be created by the router after this returns
-    if stopped_deps:
-        started = start_dependents(new_id)
-        logger.info("Restarted %d dependents after redeploy", len(started))
+        # 7. Remove backup old container after successful create
+        try:
+            backup = client.containers.get(backup_container_name)
+            backup.remove(force=True)
+            logger.info(
+                "Removed backup container %s after successful redeploy",
+                backup_container_name,
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to remove backup container %s: %s", backup_container_name, e
+            )
 
-    return new_id
+        # 8. Start previously stopped dependents
+        if stopped_deps:
+            started = []
+            for dep_name in stopped_deps:
+                try:
+                    dep = client.containers.get(dep_name)
+                    dep.start()
+                    started.append(dep_name)
+                except Exception as e:
+                    logger.warning("Failed to start dependent %s: %s", dep_name, e)
+            logger.info("Restarted %d dependents after redeploy", len(started))
+
+        return new_id
+    except Exception:
+        # Rollback data dir rename if we changed it
+        if (
+            data_dir_renamed
+            and os.path.exists(new_data)
+            and not os.path.exists(old_data)
+        ):
+            try:
+                os.rename(new_data, old_data)
+                logger.info("Rolled back data dir rename %s -> %s", new_data, old_data)
+            except Exception as e:
+                logger.warning(
+                    "Failed to roll back data dir rename %s -> %s: %s",
+                    new_data,
+                    old_data,
+                    e,
+                )
+
+        # Restore old container name/state
+        if backup_container_name:
+            try:
+                backup = client.containers.get(backup_container_name)
+                backup.rename(old_docker_name)
+                if was_running:
+                    backup.start()
+                logger.info(
+                    "Restored old container %s after redeploy failure", old_docker_name
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to restore old container from backup %s: %s",
+                    backup_container_name,
+                    e,
+                )
+
+        # Restore old SOCKS5 sidecar if it existed before redeploy
+        if had_socks5_sidecar:
+            try:
+                create_socks5_sidecar(name, old_docker_name, port_socks5)
+            except Exception as e:
+                logger.warning("Failed to restore SOCKS5 sidecar for %s: %s", name, e)
+
+        # Restart previously stopped dependents even on failure rollback
+        for dep_name in stopped_deps:
+            try:
+                dep = client.containers.get(dep_name)
+                dep.start()
+            except Exception as e:
+                logger.warning(
+                    "Failed to restart dependent %s after rollback: %s", dep_name, e
+                )
+
+        raise
 
 
 def get_container_status(container_id: str) -> dict:

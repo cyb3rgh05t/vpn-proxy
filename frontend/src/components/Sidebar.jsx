@@ -22,13 +22,13 @@ import { useContainerData } from "../context/ContainerDataContext";
 const navItemsTop = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/vpn-proxy", icon: Shield, label: "VPN-Proxy" },
-  { to: "/o11", icon: Boxes, label: "O11" },
+  { to: "/o11", icon: Boxes, label: "OTT Panel" },
   { to: "/monitoring", icon: Activity, label: "Monitoring" },
 ];
 
 const navItemsBottom = [
   { to: "/create", icon: PlusCircle, label: "New VPN-Proxy" },
-  { to: "/create-o11", icon: PlusCircle, label: "New O11" },
+  { to: "/create-o11", icon: PlusCircle, label: "New OTT Panel" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 

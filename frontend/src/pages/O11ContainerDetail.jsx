@@ -517,6 +517,21 @@ export default function O11ContainerDetail() {
     : null;
   const parentInfo = getVpnInfoForParent(vpnParentName);
 
+  const buildProxyUrlCandidates = () => {
+    const hostName = window.location.hostname;
+    const urls = [];
+    for (const [internal, host] of Object.entries(container?.ports || {})) {
+      const [containerPort] = String(internal).split("/");
+      const hostPort = String(host || "").trim();
+      if (!hostPort) continue;
+
+      const numericContainerPort = parseInt(containerPort, 10);
+      const scheme = numericContainerPort === 1080 ? "socks5" : "http";
+      urls.push(`${scheme}://${hostName}:${hostPort}`);
+    }
+    return [...new Set(urls)].slice(0, 6);
+  };
+
   return (
     <>
       <div>
@@ -782,6 +797,7 @@ export default function O11ContainerDetail() {
                   n.toLowerCase().includes("proxy"),
                 );
                 if (!vpnParentName && proxyNets.length > 0) {
+                  const proxyUrls = buildProxyUrlCandidates();
                   return (
                     <div>
                       <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
@@ -821,6 +837,28 @@ export default function O11ContainerDetail() {
                             );
                           })}
                         </div>
+                        {proxyUrls.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs text-vpn-muted mb-2">
+                              Proxy URLs
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {proxyUrls.map((url) => (
+                                <div
+                                  key={`proxy-url-${url}`}
+                                  className="bg-vpn-input rounded-lg p-3 border border-vpn-border/50"
+                                >
+                                  <p className="text-[10px] text-vpn-muted mb-1">
+                                    {container.name}
+                                  </p>
+                                  <p className="text-xs text-purple-300 font-mono truncate">
+                                    {url}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

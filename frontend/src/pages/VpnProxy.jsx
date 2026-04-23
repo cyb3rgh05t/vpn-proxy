@@ -76,6 +76,7 @@ export default function VpnProxy() {
   const [providerFilter, setProviderFilter] = useState(
     () => searchParams.get("provider") || "all",
   );
+  const [activeCategoryTab, setActiveCategoryTab] = useState("proxy");
 
   const running = containers.filter((c) =>
     ["running", "healthy"].includes(c.status),
@@ -83,6 +84,7 @@ export default function VpnProxy() {
   const stopped = containers.filter((c) =>
     ["exited", "dead", "removed"].includes(c.status),
   ).length;
+  const created = containers.filter((c) => c.status === "created").length;
 
   const vpnConnected = containers.filter((c) => {
     const info = vpnInfoMap[String(c.id)];
@@ -148,6 +150,16 @@ export default function VpnProxy() {
       filter: "unhealthy",
     },
     {
+      label: "Created",
+      value: created,
+      icon: Square,
+      color: "text-sky-400",
+      bg: "bg-sky-500/10",
+      hoverBorder: "hover:border-sky-400",
+      activeBorder: "border-sky-400 ring-1 ring-sky-400/30",
+      filter: "created",
+    },
+    {
       label: "Stopped",
       value: stopped,
       icon: AlertTriangle,
@@ -164,7 +176,8 @@ export default function VpnProxy() {
     const s = container.status;
     if (statusFilter === "running") return ["running", "healthy"].includes(s);
     if (statusFilter === "stopped")
-      return ["exited", "dead", "removed", "created"].includes(s);
+      return ["exited", "dead", "removed"].includes(s);
+    if (statusFilter === "created") return s === "created";
     if (statusFilter === "vpn-connected") {
       const info = vpnInfoMap[String(container.id)];
       return info?.vpn_status === "running" && !!info?.public_ip;
@@ -204,12 +217,20 @@ export default function VpnProxy() {
     });
   };
 
-  const selectAll = () => {
-    setSelectedIds(new Set(filteredContainers.map((c) => c.id)));
+  const selectAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const c of visibleContainers) next.add(c.id);
+      return next;
+    });
   };
 
-  const deselectAll = () => {
-    setSelectedIds(new Set());
+  const deselectVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const c of visibleContainers) next.delete(c.id);
+      return next;
+    });
   };
 
   const exitSelectMode = () => {
@@ -343,6 +364,57 @@ export default function VpnProxy() {
       c.config?.SHADOWSOCKS?.toLowerCase() !== "on",
   );
 
+  const categoryTabs = [
+    {
+      key: "proxy",
+      label: "Proxy Containers",
+      icon: Network,
+      iconClass: "text-vpn-primary",
+      items: proxyContainers,
+    },
+    {
+      key: "socks5",
+      label: "SOCKS5 Proxy Containers",
+      icon: Shield,
+      iconClass: "text-purple-400",
+      items: socks5Containers,
+    },
+    {
+      key: "vpn",
+      label: "VPN Containers",
+      icon: Shield,
+      iconClass: "text-vpn-primary",
+      items: vpnOnlyContainers,
+    },
+  ];
+
+  const activeCategory =
+    categoryTabs.find((tab) => tab.key === activeCategoryTab) ||
+    categoryTabs[0];
+  const visibleContainers = activeCategory?.items || [];
+  const selectedVisibleCount = visibleContainers.filter((c) =>
+    selectedIds.has(c.id),
+  ).length;
+
+  useEffect(() => {
+    if (
+      categoryTabs.some(
+        (tab) => tab.key === activeCategoryTab && tab.items.length > 0,
+      )
+    ) {
+      return;
+    }
+    const firstNonEmpty = categoryTabs.find((tab) => tab.items.length > 0);
+    if (firstNonEmpty && firstNonEmpty.key !== activeCategoryTab) {
+      setActiveCategoryTab(firstNonEmpty.key);
+    }
+  }, [
+    activeCategoryTab,
+    proxyContainers.length,
+    socks5Containers.length,
+    vpnOnlyContainers.length,
+  ]);
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -445,7 +517,7 @@ export default function VpnProxy() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
         {stats.map(
           ({
             label,
@@ -538,23 +610,27 @@ export default function VpnProxy() {
           <div className="flex items-center gap-2">
             <button
               onClick={
-                selectedCount === filteredContainers.length
-                  ? deselectAll
-                  : selectAll
+                selectedVisibleCount === visibleContainers.length &&
+                visibleContainers.length > 0
+                  ? deselectVisible
+                  : selectAllVisible
               }
               className="flex items-center gap-2 px-3 py-1.5 bg-vpn-input border border-vpn-border hover:border-vpn-primary text-vpn-text text-sm rounded-lg transition-all"
             >
-              {selectedCount === filteredContainers.length ? (
+              {selectedVisibleCount === visibleContainers.length &&
+              visibleContainers.length > 0 ? (
                 <CheckSquare className="w-4 h-4 text-vpn-primary" />
               ) : (
                 <Square className="w-4 h-4 text-vpn-muted" />
               )}
-              {selectedCount === filteredContainers.length
-                ? "Deselect All"
-                : "Select All"}
+              {selectedVisibleCount === visibleContainers.length &&
+              visibleContainers.length > 0
+                ? "Deselect Visible"
+                : "Select Visible"}
             </button>
             <span className="text-sm text-vpn-muted">
-              {selectedCount} of {filteredContainers.length} selected
+              {selectedVisibleCount} of {visibleContainers.length} visible
+              selected
             </span>
           </div>
           {selectedCount > 0 && (
@@ -662,122 +738,56 @@ export default function VpnProxy() {
         </div>
       ) : (
         <>
-          {/* Proxy Containers */}
-          {proxyContainers.length > 0 && (
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-4">
-                <Network className="w-5 h-5 text-vpn-primary" />
-                <h2 className="text-lg font-semibold text-white">
-                  Proxy Containers
-                </h2>
-                <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-1 rounded-full">
-                  {proxyContainers.length}
-                </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {proxyContainers.map((container) => (
-                  <div
-                    key={container.id}
-                    id={`container-${container.id}`}
-                    className="relative"
+          <div className="bg-vpn-card border border-vpn-border rounded-lg p-2 overflow-x-auto mb-6">
+            <div className="flex gap-2 min-w-max">
+              {categoryTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeCategoryTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveCategoryTab(tab.key)}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${
+                      isActive
+                        ? "bg-vpn-primary text-black shadow-md"
+                        : "bg-vpn-input/50 text-vpn-muted hover:bg-vpn-primary/20 hover:text-vpn-primary"
+                    }`}
                   >
-                    {selectMode && (
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleSelect(container.id);
-                        }}
-                        className={`absolute inset-0 z-10 rounded-xl cursor-pointer border-2 transition-all ${
-                          selectedIds.has(container.id)
-                            ? "border-vpn-primary bg-vpn-primary/10"
-                            : "border-transparent hover:border-vpn-primary/50"
-                        }`}
-                      >
-                        <div className="absolute top-3 right-3">
-                          {selectedIds.has(container.id) ? (
-                            <CheckSquare className="w-5 h-5 text-vpn-primary" />
-                          ) : (
-                            <Square className="w-5 h-5 text-vpn-muted" />
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    <ContainerCard
-                      container={container}
-                      vpnInfo={vpnInfoMap[String(container.id)]}
-                      onRefresh={refreshContainers}
+                    <Icon
+                      className={`w-4 h-4 ${isActive ? "text-black" : tab.iconClass}`}
                     />
-                  </div>
-                ))}
-              </div>
+                    {tab.label}
+                    <span
+                      className={`text-xs ${
+                        isActive ? "text-black/70" : "text-vpn-muted"
+                      }`}
+                    >
+                      ({tab.items.length})
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          )}
+          </div>
 
-          {/* SOCKS5 Proxy Containers */}
-          {socks5Containers.length > 0 && (
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-4">
-                <Shield className="w-5 h-5 text-purple-400" />
-                <h2 className="text-lg font-semibold text-white">
-                  SOCKS5 Proxy Containers
-                </h2>
-                <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-1 rounded-full">
-                  {socks5Containers.length}
-                </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {socks5Containers.map((container) => (
-                  <div
-                    key={container.id}
-                    id={`container-${container.id}`}
-                    className="relative"
-                  >
-                    {selectMode && (
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleSelect(container.id);
-                        }}
-                        className={`absolute inset-0 z-10 rounded-xl cursor-pointer border-2 transition-all ${
-                          selectedIds.has(container.id)
-                            ? "border-vpn-primary bg-vpn-primary/10"
-                            : "border-transparent hover:border-vpn-primary/50"
-                        }`}
-                      >
-                        <div className="absolute top-3 right-3">
-                          {selectedIds.has(container.id) ? (
-                            <CheckSquare className="w-5 h-5 text-vpn-primary" />
-                          ) : (
-                            <Square className="w-5 h-5 text-vpn-muted" />
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    <ContainerCard
-                      container={container}
-                      vpnInfo={vpnInfoMap[String(container.id)]}
-                      onRefresh={refreshContainers}
-                    />
-                  </div>
-                ))}
-              </div>
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              {activeCategory && (
+                <activeCategory.icon
+                  className={`w-5 h-5 ${activeCategory.iconClass}`}
+                />
+              )}
+              <h2 className="text-lg font-semibold text-white">
+                {activeCategory?.label}
+              </h2>
+              <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-1 rounded-full">
+                {visibleContainers.length}
+              </span>
             </div>
-          )}
 
-          {/* VPN Only Containers */}
-          {vpnOnlyContainers.length > 0 && (
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <Shield className="w-5 h-5 text-vpn-primary" />
-                <h2 className="text-lg font-semibold text-white">
-                  VPN Containers
-                </h2>
-                <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-1 rounded-full">
-                  {vpnOnlyContainers.length}
-                </span>
-              </div>
+            {visibleContainers.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {vpnOnlyContainers.map((container) => (
+                {visibleContainers.map((container) => (
                   <div
                     key={container.id}
                     id={`container-${container.id}`}
@@ -812,8 +822,15 @@ export default function VpnProxy() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-12 bg-vpn-card border border-vpn-border rounded-2xl">
+                <Server className="w-12 h-12 text-vpn-border mx-auto mb-3" />
+                <p className="text-vpn-muted">
+                  No containers in this category for the current filter.
+                </p>
+              </div>
+            )}
+          </div>
         </>
       )}
 

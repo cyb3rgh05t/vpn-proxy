@@ -117,6 +117,21 @@ export default function O11() {
     !c.vpn_parent &&
     (c.networks || []).some((n) => n.toLowerCase().includes("proxy"));
 
+  const buildProxyUrlCandidates = (dep) => {
+    const hostName = window.location.hostname;
+    const urls = [];
+    for (const [internal, host] of Object.entries(dep?.ports || {})) {
+      const [containerPort] = String(internal).split("/");
+      const hostPort = String(host || "").trim();
+      if (!hostPort) continue;
+
+      const numericContainerPort = parseInt(containerPort, 10);
+      const scheme = numericContainerPort === 1080 ? "socks5" : "http";
+      urls.push(`${scheme}://${hostName}:${hostPort}`);
+    }
+    return [...new Set(urls)].slice(0, 4);
+  };
+
   const running = containers.filter((d) =>
     ["running", "healthy"].includes(d.status),
   ).length;
@@ -310,6 +325,23 @@ export default function O11() {
               ) || "proxy"}
             </span>
           </div>
+          {buildProxyUrlCandidates(dep).length > 0 && (
+            <div className="mt-2 grid grid-cols-1 gap-1.5">
+              {buildProxyUrlCandidates(dep).map((url) => (
+                <div
+                  key={`${dep.name}-${url}`}
+                  className="bg-vpn-input/70 border border-vpn-border/60 rounded px-2 py-1.5"
+                >
+                  <p className="text-[10px] text-vpn-muted mb-0.5">
+                    {dep.name}
+                  </p>
+                  <p className="text-[11px] text-purple-300 font-mono truncate">
+                    {url}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-lg px-3 py-2.5 mb-3">

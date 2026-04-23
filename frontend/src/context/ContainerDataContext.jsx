@@ -12,6 +12,10 @@ import api from "../services/api";
 const ContainerDataContext = createContext(null);
 
 const MONITORING_INTERVAL = 10000;
+const NAME_COLLATOR = new Intl.Collator("de", {
+  sensitivity: "base",
+  numeric: true,
+});
 
 const getStatusPriority = (status) => {
   const normalized = (status || "").toLowerCase();
@@ -29,10 +33,10 @@ const sortContainersByStatusAndName = (items) =>
       getStatusPriority(a?.status) - getStatusPriority(b?.status);
     if (statusDiff !== 0) return statusDiff;
 
-    const nameA = (a?.name || "").toLowerCase();
-    const nameB = (b?.name || "").toLowerCase();
-    if (nameA !== nameB)
-      return nameA.localeCompare(nameB, "de", { sensitivity: "base" });
+    const nameA = a?.name || "";
+    const nameB = b?.name || "";
+    const nameDiff = NAME_COLLATOR.compare(nameA, nameB);
+    if (nameDiff !== 0) return nameDiff;
 
     return String(a?.id || "").localeCompare(String(b?.id || ""));
   });

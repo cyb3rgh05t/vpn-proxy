@@ -56,7 +56,8 @@ export default function O11ContainerDetail() {
   const {
     containers: managedContainers,
     vpnInfoMap,
-    networkData,
+    instanceNetworkData,
+    o11Instances,
     o11Containers,
     refreshO11Containers,
   } = useContainerData();
@@ -519,28 +520,38 @@ export default function O11ContainerDetail() {
   const parentInfo = getVpnInfoForParent(vpnParentName);
 
   const activeProxyEntries = (() => {
-    const usage = networkData?.Usage || {};
     const byUrl = new Map();
 
-    for (const [category, categoryData] of Object.entries(usage)) {
-      const proxyMap = categoryData?.Proxy || {};
-      for (const [url, info] of Object.entries(proxyMap)) {
-        const normalized = String(url).replace(/^[a-z]+:\/\//i, "");
-        const host = normalized.split("/")[0]?.split(":")[0] || "";
-        const matchedContainer = managedContainers.find(
-          (c) => (c.ip_address || "") === host,
-        );
+    for (const [instanceId, instanceData] of Object.entries(
+      instanceNetworkData || {},
+    )) {
+      const usage = instanceData?.Usage || {};
+      const instanceName =
+        o11Instances.find((i) => i.id === instanceId)?.name || instanceId;
 
-        byUrl.set(url, {
-          url,
-          category,
-          containerName: matchedContainer?.name || "Unknown",
-          streamCount: Array.isArray(info?.Streams) ? info.Streams.length : 0,
-        });
+      for (const [category, categoryData] of Object.entries(usage)) {
+        const proxyMap = categoryData?.Proxy || {};
+        for (const [url, info] of Object.entries(proxyMap)) {
+          const normalized = String(url).replace(/^[a-z]+:\/\//i, "");
+          const host = normalized.split("/")[0]?.split(":")[0] || "";
+          const matchedContainer = managedContainers.find(
+            (c) => (c.ip_address || "") === host,
+          );
+
+          byUrl.set(`${instanceId}::${url}`, {
+            url,
+            category,
+            instanceName,
+            containerName: matchedContainer?.name || "Unknown",
+            streamCount: Array.isArray(info?.Streams) ? info.Streams.length : 0,
+          });
+        }
       }
     }
 
-    return Array.from(byUrl.values());
+    return Array.from(byUrl.values()).sort(
+      (a, b) => b.streamCount - a.streamCount,
+    );
   })();
 
   return (
@@ -860,7 +871,8 @@ export default function O11ContainerDetail() {
                                   className="bg-vpn-input rounded-lg p-3 border border-vpn-border/50"
                                 >
                                   <p className="text-[10px] text-vpn-muted mb-1">
-                                    {entry.containerName} ({entry.category})
+                                    {entry.containerName} ({entry.instanceName}{" "}
+                                    - {entry.category})
                                   </p>
                                   <p className="text-xs text-purple-300 font-mono truncate">
                                     {entry.url}

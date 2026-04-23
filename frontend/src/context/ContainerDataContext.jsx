@@ -13,6 +13,30 @@ const ContainerDataContext = createContext(null);
 
 const MONITORING_INTERVAL = 10000;
 
+const getStatusPriority = (status) => {
+  const normalized = (status || "").toLowerCase();
+  if (["running", "healthy"].includes(normalized)) return 0;
+  if (normalized === "unhealthy") return 1;
+  if (["starting", "restarting", "paused"].includes(normalized)) return 2;
+  if (["created"].includes(normalized)) return 3;
+  if (["exited", "dead", "removed", "error"].includes(normalized)) return 4;
+  return 5;
+};
+
+const sortContainersByStatusAndName = (items) =>
+  [...items].sort((a, b) => {
+    const statusDiff =
+      getStatusPriority(a?.status) - getStatusPriority(b?.status);
+    if (statusDiff !== 0) return statusDiff;
+
+    const nameA = (a?.name || "").toLowerCase();
+    const nameB = (b?.name || "").toLowerCase();
+    if (nameA !== nameB)
+      return nameA.localeCompare(nameB, "de", { sensitivity: "base" });
+
+    return String(a?.id || "").localeCompare(String(b?.id || ""));
+  });
+
 export function ContainerDataProvider({ children }) {
   const [containers, setContainers] = useState([]);
   const [vpnInfoMap, setVpnInfoMap] = useState({});
@@ -48,7 +72,7 @@ export function ContainerDataProvider({ children }) {
       const res = await api.get("/containers", { signal });
       const data = Array.isArray(res.data) ? res.data : [];
       startTransition(() => {
-        setContainers(data);
+        setContainers(sortContainersByStatusAndName(data));
         setError("");
       });
       return data;
@@ -105,10 +129,12 @@ export function ContainerDataProvider({ children }) {
 
     startTransition(() => {
       setO11Containers(
-        o11List.map((c) => ({
-          ...c,
-          description: o11DbInfo[c.name]?.description || null,
-        })),
+        sortContainersByStatusAndName(
+          o11List.map((c) => ({
+            ...c,
+            description: o11DbInfo[c.name]?.description || null,
+          })),
+        ),
       );
 
       // Build depsMap client-side: group dependents by their vpn_parent → managed container id

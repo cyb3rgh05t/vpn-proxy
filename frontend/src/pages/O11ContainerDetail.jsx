@@ -40,6 +40,7 @@ import {
   Minus,
   ChevronRight,
   ChevronDown,
+  Copy,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -166,6 +167,15 @@ export default function O11ContainerDetail() {
       toast.error(err.response?.data?.detail || "Failed to save description");
     } finally {
       setDescSaving(false);
+    }
+  };
+
+  const handleCopyProxyUrl = async (url) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("URL copied");
+    } catch {
+      toast.error("Failed to copy URL");
     }
   };
 
@@ -903,8 +913,8 @@ export default function O11ContainerDetail() {
                                   key={`proxy-url-${entry.url}`}
                                   className="bg-vpn-input rounded-lg p-3 border border-vpn-border/50"
                                 >
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <span className="text-[10px] text-vpn-muted truncate">
+                                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-vpn-input/80 text-vpn-muted border border-vpn-border/60 max-w-[200px] truncate">
                                       {entry.containerName}
                                     </span>
                                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-vpn-primary/15 text-vpn-primary border border-vpn-primary/30">
@@ -916,9 +926,22 @@ export default function O11ContainerDetail() {
                                       {entry.category}
                                     </span>
                                   </div>
-                                  <p className="text-xs text-purple-300 font-mono truncate">
-                                    {entry.url}
-                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs text-purple-300 font-mono truncate flex-1 min-w-0">
+                                      {entry.url}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleCopyProxyUrl(entry.url)
+                                      }
+                                      className="shrink-0 inline-flex items-center justify-center p-1 rounded border border-vpn-border/70 text-vpn-muted hover:text-white hover:border-vpn-primary/50 transition-colors"
+                                      title="Copy URL"
+                                      aria-label="Copy URL"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>

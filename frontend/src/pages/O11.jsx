@@ -21,6 +21,7 @@ import {
   Network,
   HardDrive,
   PlusCircle,
+  Copy,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -126,6 +127,15 @@ export default function O11() {
     } finally {
       setActionLoading("");
       setTimeout(() => setActionProgress(null), 1200);
+    }
+  };
+
+  const handleCopyProxyUrl = async (url) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("URL copied");
+    } catch {
+      toast.error("Failed to copy URL");
     }
   };
 
@@ -387,8 +397,8 @@ export default function O11() {
                   key={`${dep.id}-${entry.url}`}
                   className="bg-vpn-input/70 border border-vpn-border/60 rounded px-2 py-1.5"
                 >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[10px] text-vpn-muted truncate">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-vpn-input/80 text-vpn-muted border border-vpn-border/60 max-w-[180px] truncate">
                       {entry.containerName}
                     </span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-vpn-primary/15 text-vpn-primary border border-vpn-primary/30">
@@ -400,9 +410,23 @@ export default function O11() {
                       {entry.category}
                     </span>
                   </div>
-                  <p className="text-[11px] text-purple-300 font-mono truncate">
-                    {entry.url}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[11px] text-purple-300 font-mono truncate flex-1 min-w-0">
+                      {entry.url}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCopyProxyUrl(entry.url);
+                      }}
+                      className="shrink-0 inline-flex items-center justify-center p-1 rounded border border-vpn-border/70 text-vpn-muted hover:text-white hover:border-vpn-primary/50 transition-colors"
+                      title="Copy URL"
+                      aria-label="Copy URL"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

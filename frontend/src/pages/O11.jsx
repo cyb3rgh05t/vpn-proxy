@@ -136,11 +136,11 @@ export default function O11() {
   const activeProxyEntries = (() => {
     const byUrl = new Map();
     const resolveContainerNameFromHost = (rawHost) => {
-      const host = String(rawHost || "")
-        .toLowerCase()
+      const displayHost = String(rawHost || "")
         .replace(/^\[|\]$/g, "")
         .trim();
-      if (!host) return "Unknown";
+      const host = displayHost.toLowerCase();
+      if (!host) return "";
 
       const matchedContainer = managedContainers.find((c) => {
         const name = String(c.name || "").toLowerCase();
@@ -155,7 +155,7 @@ export default function O11() {
         );
       });
 
-      return matchedContainer?.name || "Unknown";
+      return matchedContainer?.name || displayHost;
     };
 
     for (const [instanceId, instanceData] of Object.entries(

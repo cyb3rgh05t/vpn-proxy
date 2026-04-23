@@ -48,6 +48,20 @@ import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
 import { useContainerData } from "../context/ContainerDataContext";
 
+const getCategoryBadgeClasses = (category) => {
+  const key = String(category || "").toLowerCase();
+  if (key === "script") {
+    return "bg-blue-500/15 text-blue-300 border border-blue-400/30";
+  }
+  if (key === "manifest") {
+    return "bg-purple-500/15 text-purple-300 border border-purple-400/30";
+  }
+  if (key === "media") {
+    return "bg-amber-500/15 text-amber-300 border border-amber-400/30";
+  }
+  return "bg-vpn-input/80 text-vpn-muted border border-vpn-border/60";
+};
+
 export default function O11ContainerDetail() {
   const { name } = useParams();
   const navigate = useNavigate();
@@ -521,6 +535,28 @@ export default function O11ContainerDetail() {
 
   const activeProxyEntries = (() => {
     const byUrl = new Map();
+    const resolveContainerNameFromHost = (rawHost) => {
+      const host = String(rawHost || "")
+        .toLowerCase()
+        .replace(/^\[|\]$/g, "")
+        .trim();
+      if (!host) return "Unknown";
+
+      const matchedContainer = managedContainers.find((c) => {
+        const name = String(c.name || "").toLowerCase();
+        const dockerName = String(c.docker_name || "").toLowerCase();
+        const gluetunName = `gluetun-${name}`;
+        const ip = String(c.ip_address || "").toLowerCase();
+        return (
+          host === ip ||
+          host === name ||
+          host === dockerName ||
+          host === gluetunName
+        );
+      });
+
+      return matchedContainer?.name || "Unknown";
+    };
 
     for (const [instanceId, instanceData] of Object.entries(
       instanceNetworkData || {},
@@ -534,15 +570,12 @@ export default function O11ContainerDetail() {
         for (const [url, info] of Object.entries(proxyMap)) {
           const normalized = String(url).replace(/^[a-z]+:\/\//i, "");
           const host = normalized.split("/")[0]?.split(":")[0] || "";
-          const matchedContainer = managedContainers.find(
-            (c) => (c.ip_address || "") === host,
-          );
 
           byUrl.set(`${instanceId}::${url}`, {
             url,
             category,
             instanceName,
-            containerName: matchedContainer?.name || "Unknown",
+            containerName: resolveContainerNameFromHost(host),
             streamCount: Array.isArray(info?.Streams) ? info.Streams.length : 0,
           });
         }
@@ -870,10 +903,19 @@ export default function O11ContainerDetail() {
                                   key={`proxy-url-${entry.url}`}
                                   className="bg-vpn-input rounded-lg p-3 border border-vpn-border/50"
                                 >
-                                  <p className="text-[10px] text-vpn-muted mb-1">
-                                    {entry.containerName} ({entry.instanceName}{" "}
-                                    - {entry.category})
-                                  </p>
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className="text-[10px] text-vpn-muted truncate">
+                                      {entry.containerName}
+                                    </span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-vpn-primary/15 text-vpn-primary border border-vpn-primary/30">
+                                      {entry.instanceName}
+                                    </span>
+                                    <span
+                                      className={`text-[9px] px-1.5 py-0.5 rounded ${getCategoryBadgeClasses(entry.category)}`}
+                                    >
+                                      {entry.category}
+                                    </span>
+                                  </div>
                                   <p className="text-xs text-purple-300 font-mono truncate">
                                     {entry.url}
                                   </p>

@@ -56,6 +56,7 @@ export default function O11ContainerDetail() {
   const {
     containers: managedContainers,
     vpnInfoMap,
+    networkData,
     o11Containers,
     refreshO11Containers,
   } = useContainerData();
@@ -517,20 +518,30 @@ export default function O11ContainerDetail() {
     : null;
   const parentInfo = getVpnInfoForParent(vpnParentName);
 
-  const buildProxyUrlCandidates = () => {
-    const hostName = window.location.hostname;
-    const urls = [];
-    for (const [internal, host] of Object.entries(container?.ports || {})) {
-      const [containerPort] = String(internal).split("/");
-      const hostPort = String(host || "").trim();
-      if (!hostPort) continue;
+  const activeProxyEntries = (() => {
+    const usage = networkData?.Usage || {};
+    const byUrl = new Map();
 
-      const numericContainerPort = parseInt(containerPort, 10);
-      const scheme = numericContainerPort === 1080 ? "socks5" : "http";
-      urls.push(`${scheme}://${hostName}:${hostPort}`);
+    for (const [category, categoryData] of Object.entries(usage)) {
+      const proxyMap = categoryData?.Proxy || {};
+      for (const [url, info] of Object.entries(proxyMap)) {
+        const normalized = String(url).replace(/^[a-z]+:\/\//i, "");
+        const host = normalized.split("/")[0]?.split(":")[0] || "";
+        const matchedContainer = managedContainers.find(
+          (c) => (c.ip_address || "") === host,
+        );
+
+        byUrl.set(url, {
+          url,
+          category,
+          containerName: matchedContainer?.name || "Unknown",
+          streamCount: Array.isArray(info?.Streams) ? info.Streams.length : 0,
+        });
+      }
     }
-    return [...new Set(urls)].slice(0, 6);
-  };
+
+    return Array.from(byUrl.values());
+  })();
 
   return (
     <>
@@ -797,7 +808,7 @@ export default function O11ContainerDetail() {
                   n.toLowerCase().includes("proxy"),
                 );
                 if (!vpnParentName && proxyNets.length > 0) {
-                  const proxyUrls = buildProxyUrlCandidates();
+                  const proxyEntries = activeProxyEntries.slice(0, 6);
                   return (
                     <div>
                       <h3 className="text-sm font-semibold text-vpn-muted uppercase tracking-wider mb-3">
@@ -837,22 +848,22 @@ export default function O11ContainerDetail() {
                             );
                           })}
                         </div>
-                        {proxyUrls.length > 0 && (
+                        {proxyEntries.length > 0 && (
                           <div className="mt-3">
                             <p className="text-xs text-vpn-muted mb-2">
                               Proxy URLs
                             </p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {proxyUrls.map((url) => (
+                              {proxyEntries.map((entry) => (
                                 <div
-                                  key={`proxy-url-${url}`}
+                                  key={`proxy-url-${entry.url}`}
                                   className="bg-vpn-input rounded-lg p-3 border border-vpn-border/50"
                                 >
                                   <p className="text-[10px] text-vpn-muted mb-1">
-                                    {container.name}
+                                    {entry.containerName} ({entry.category})
                                   </p>
                                   <p className="text-xs text-purple-300 font-mono truncate">
-                                    {url}
+                                    {entry.url}
                                   </p>
                                 </div>
                               ))}

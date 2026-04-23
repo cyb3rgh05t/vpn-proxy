@@ -37,6 +37,7 @@ export default function O11() {
     o11Containers: containers,
     containers: managedContainers,
     vpnInfoMap,
+    networkData,
     loading,
     refreshO11Containers,
     refreshAll,
@@ -117,20 +118,30 @@ export default function O11() {
     !c.vpn_parent &&
     (c.networks || []).some((n) => n.toLowerCase().includes("proxy"));
 
-  const buildProxyUrlCandidates = (dep) => {
-    const hostName = window.location.hostname;
-    const urls = [];
-    for (const [internal, host] of Object.entries(dep?.ports || {})) {
-      const [containerPort] = String(internal).split("/");
-      const hostPort = String(host || "").trim();
-      if (!hostPort) continue;
+  const activeProxyEntries = (() => {
+    const usage = networkData?.Usage || {};
+    const byUrl = new Map();
 
-      const numericContainerPort = parseInt(containerPort, 10);
-      const scheme = numericContainerPort === 1080 ? "socks5" : "http";
-      urls.push(`${scheme}://${hostName}:${hostPort}`);
+    for (const [category, categoryData] of Object.entries(usage)) {
+      const proxyMap = categoryData?.Proxy || {};
+      for (const [url, info] of Object.entries(proxyMap)) {
+        const normalized = String(url).replace(/^[a-z]+:\/\//i, "");
+        const host = normalized.split("/")[0]?.split(":")[0] || "";
+        const matchedContainer = managedContainers.find(
+          (c) => (c.ip_address || "") === host,
+        );
+
+        byUrl.set(url, {
+          url,
+          category,
+          containerName: matchedContainer?.name || "Unknown",
+          streamCount: Array.isArray(info?.Streams) ? info.Streams.length : 0,
+        });
+      }
     }
-    return [...new Set(urls)].slice(0, 4);
-  };
+
+    return Array.from(byUrl.values());
+  })();
 
   const running = containers.filter((d) =>
     ["running", "healthy"].includes(d.status),
@@ -325,18 +336,18 @@ export default function O11() {
               ) || "proxy"}
             </span>
           </div>
-          {buildProxyUrlCandidates(dep).length > 0 && (
+          {activeProxyEntries.length > 0 && (
             <div className="mt-2 grid grid-cols-1 gap-1.5">
-              {buildProxyUrlCandidates(dep).map((url) => (
+              {activeProxyEntries.slice(0, 3).map((entry) => (
                 <div
-                  key={`${dep.name}-${url}`}
+                  key={`${dep.id}-${entry.url}`}
                   className="bg-vpn-input/70 border border-vpn-border/60 rounded px-2 py-1.5"
                 >
                   <p className="text-[10px] text-vpn-muted mb-0.5">
-                    {dep.name}
+                    {entry.containerName} ({entry.category})
                   </p>
                   <p className="text-[11px] text-purple-300 font-mono truncate">
-                    {url}
+                    {entry.url}
                   </p>
                 </div>
               ))}

@@ -14,6 +14,7 @@ import {
   User,
   ExternalLink,
   Container,
+  Info,
 } from "lucide-react";
 import VpnShieldLogo from "./VpnShieldLogo";
 import { useState } from "react";
@@ -30,6 +31,7 @@ const navItemsBottom = [
   { to: "/create", icon: PlusCircle, label: "New VPN-Proxy" },
   { to: "/create-o11", icon: PlusCircle, label: "New OTT Panel" },
   { to: "/settings", icon: Settings, label: "Settings" },
+  { to: "/about", icon: Info, label: "About" },
 ];
 
 export default function Sidebar() {

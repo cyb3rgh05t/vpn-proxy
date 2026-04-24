@@ -626,7 +626,6 @@ export default function Settings() {
             { id: "notifications", label: "Notifications", icon: Bell },
             { id: "users", label: "User Management", icon: Users },
             { id: "howto", label: "How To", icon: BookOpen },
-            { id: "about", label: "About", icon: Info },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -2036,9 +2035,6 @@ export default function Settings() {
 
       {/* How To Tab */}
       {settingsTab === "howto" && <HowTo />}
-
-      {/* About Tab */}
-      {settingsTab === "about" && <About />}
     </div>
   );
 }

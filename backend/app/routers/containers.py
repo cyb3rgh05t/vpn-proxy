@@ -1058,6 +1058,10 @@ def redeploy_container(
             socks5_enabled=target_socks5_enabled,
             port_socks5=target_port_socks5,
         )
+        if not new_id:
+            raise HTTPException(
+                status_code=500, detail="Redeploy finished without container ID"
+            )
 
         for field, value in update_data.items():
             setattr(c, field, value)

@@ -408,7 +408,7 @@ def update_telegram_settings(
 
 @router.post("/telegram/test")
 def test_telegram(
-    data: dict = None,
+    data: dict | None = None,
     current_user: User = Depends(get_current_user),
 ):
     """Send a test Telegram notification using provided or saved settings."""

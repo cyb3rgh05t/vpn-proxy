@@ -18,6 +18,7 @@ from app.routers import (
     api_keys as api_keys_router,
     monitoring,
     settings as settings_router,
+    backup as backup_router,
 )
 from app.utils.logger import setup_logging, print_banner
 
@@ -322,6 +323,7 @@ app.include_router(system.router)
 app.include_router(api_keys_router.router)
 app.include_router(monitoring.router)
 app.include_router(settings_router.router)
+app.include_router(backup_router.router)
 
 
 @app.get("/api/health")

@@ -13,6 +13,7 @@ import O11ContainerDetail from "./pages/O11ContainerDetail";
 import Settings from "./pages/Settings";
 import Monitoring from "./pages/Monitoring";
 import About from "./pages/About";
+import Backup from "./pages/Backup";
 
 function App() {
   const { user, loading } = useAuth();
@@ -39,6 +40,7 @@ function App() {
           <Route path="/o11/:name" element={<O11ContainerDetail />} />
           <Route path="/monitoring" element={<Monitoring />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/backup" element={<Backup />} />
           <Route path="/about" element={<About />} />
         </Route>
       </Route>

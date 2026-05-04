@@ -206,6 +206,34 @@ def create_container(
     gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
     os.makedirs(gluetun_data, exist_ok=True)
 
+    # Write Gluetun control-server auth config (required since Gluetun v3.40,
+    # which enforces auth on all routes by default). The backend reads the
+    # apikey from the env var above for discovery; Gluetun reads it from the
+    # mounted /gluetun/auth/config.toml file to actually enforce it.
+    auth_dir = os.path.join(gluetun_data, "auth")
+    os.makedirs(auth_dir, exist_ok=True)
+    auth_config_path = os.path.join(auth_dir, "config.toml")
+    auth_toml = (
+        "[[roles]]\n"
+        'name = "vpn-proxy"\n'
+        "routes = [\n"
+        '  "GET /v1/vpn/status",\n'
+        '  "GET /v1/publicip/ip",\n'
+        '  "GET /v1/openvpn/portforwarded",\n'
+        '  "GET /v1/openvpn/settings",\n'
+        '  "GET /v1/dns/status",\n'
+        '  "GET /v1/version"\n'
+        "]\n"
+        'auth = "apikey"\n'
+        f'apikey = "{api_key}"\n'
+    )
+    try:
+        with open(auth_config_path, "w", encoding="utf-8") as f:
+            f.write(auth_toml)
+        logger.info("Wrote Gluetun auth config to %s", auth_config_path)
+    except OSError as e:
+        logger.warning("Failed to write Gluetun auth config %s: %s", auth_config_path, e)
+
     # Use HOST_DATA_DIR for Docker bind mounts when running inside a container
     if settings.HOST_DATA_DIR:
         gluetun_mount = os.path.join(settings.HOST_DATA_DIR, "gluetun", name)

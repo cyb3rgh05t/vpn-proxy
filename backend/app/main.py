@@ -328,6 +328,32 @@ def reconcile_socks5_sidecars():
         db.close()
 
 
+def reconcile_gluetun_auth_configs():
+    """Backfill /gluetun/auth/config.toml for VPN containers created before the
+    Gluetun v3.40+ auth fix. Restarts containers whose config file was just
+    written so they pick up the new auth role.
+    """
+    db = SessionLocal()
+    try:
+        rows = db.query(VPNContainer).all()
+        if not rows:
+            return
+        repaired = 0
+        for row in rows:
+            try:
+                if docker_service.ensure_gluetun_auth_config(row.name):
+                    docker_service.restart_container(f"gluetun-{row.name}")
+                    repaired += 1
+            except Exception as e:
+                logger.warning("Gluetun auth backfill failed for %s: %s", row.name, e)
+        if repaired:
+            logger.info("Repaired Gluetun auth config for %d container(s).", repaired)
+    except Exception as e:
+        logger.warning("Gluetun auth reconciliation failed: %s", e)
+    finally:
+        db.close()
+
+
 def seed_default_app_templates():
     """Seed the app_templates table on first startup if empty."""
     try:
@@ -372,6 +398,7 @@ async def lifespan(app: FastAPI):
     auto_discover_containers()
     auto_discover_o11_containers()
     reconcile_socks5_sidecars()
+    reconcile_gluetun_auth_configs()
 
     # Start Telegram notification checker
     from app.services import telegram_service

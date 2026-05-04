@@ -169,6 +169,84 @@ def remove_socks5_sidecar(name: str) -> bool:
         return False
 
 
+def _build_auth_toml(api_key: str) -> str:
+    return (
+        "[[roles]]\n"
+        'name = "vpn-proxy"\n'
+        "routes = [\n"
+        '  "GET /v1/vpn/status",\n'
+        '  "GET /v1/publicip/ip",\n'
+        '  "GET /v1/openvpn/portforwarded",\n'
+        '  "GET /v1/openvpn/settings",\n'
+        '  "GET /v1/dns/status",\n'
+        '  "GET /v1/version"\n'
+        "]\n"
+        'auth = "apikey"\n'
+        f'apikey = "{api_key}"\n'
+    )
+
+
+def ensure_gluetun_auth_config(name: str) -> bool:
+    """Ensure the auth config.toml on disk matches the running container's
+    HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE apikey. Returns True if the file was
+    just (re)written and the container should be restarted, False if nothing
+    changed (or on error).
+    """
+    container_name = f"gluetun-{name}"
+    gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
+    auth_dir = os.path.join(gluetun_data, "auth")
+    auth_path = os.path.join(auth_dir, "config.toml")
+
+    # Read api_key from the running container's env vars
+    try:
+        client = _get_client()
+        container = client.containers.get(container_name)
+        env_list = container.attrs.get("Config", {}).get("Env", []) or []
+        env = {}
+        for entry in env_list:
+            if "=" in entry:
+                k, v = entry.split("=", 1)
+                env[k] = v
+        raw = env.get("HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE", "")
+        api_key = ""
+        if raw:
+            try:
+                api_key = (json.loads(raw) or {}).get("apikey", "")
+            except Exception:
+                api_key = ""
+        if not api_key:
+            logger.warning(
+                "Cannot repair Gluetun auth for %s: no apikey env var found",
+                container_name,
+            )
+            return False
+
+        # If file already contains the same apikey, nothing to do
+        try:
+            if os.path.isfile(auth_path):
+                with open(auth_path, "r", encoding="utf-8") as f:
+                    existing = f.read()
+                if f'apikey = "{api_key}"' in existing:
+                    return False
+        except OSError:
+            pass
+
+        os.makedirs(auth_dir, exist_ok=True)
+        with open(auth_path, "w", encoding="utf-8") as f:
+            f.write(_build_auth_toml(api_key))
+        logger.info(
+            "Repaired Gluetun auth config for %s at %s", container_name, auth_path
+        )
+        return True
+    except NotFound:
+        return False
+    except Exception as e:
+        logger.warning(
+            "Failed to ensure Gluetun auth config for %s: %s", container_name, e
+        )
+        return False
+
+
 def create_container(
     name: str,
     vpn_provider: str,
@@ -203,6 +281,25 @@ def create_container(
         if value:
             env_vars[key] = str(value)
 
+    # If the user-supplied config (e.g. from a previous deploy stored in the DB)
+    # carries an existing HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE with an apikey,
+    # use that key so it stays in sync with the env var. Otherwise stick with
+    # the freshly generated one and make sure the env var reflects it.
+    existing_role_raw = env_vars.get("HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE", "")
+    try:
+        existing_role = json.loads(existing_role_raw) if existing_role_raw else {}
+    except (json.JSONDecodeError, TypeError):
+        existing_role = {}
+    existing_apikey = (
+        existing_role.get("apikey", "") if isinstance(existing_role, dict) else ""
+    )
+    if existing_role.get("auth") == "apikey" and existing_apikey:
+        api_key = existing_apikey
+    else:
+        env_vars["HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE"] = json.dumps(
+            {"auth": "apikey", "apikey": api_key}
+        )
+
     gluetun_data = os.path.join(os.path.abspath(settings.DATA_DIR), "gluetun", name)
     os.makedirs(gluetun_data, exist_ok=True)
 
@@ -213,20 +310,7 @@ def create_container(
     auth_dir = os.path.join(gluetun_data, "auth")
     os.makedirs(auth_dir, exist_ok=True)
     auth_config_path = os.path.join(auth_dir, "config.toml")
-    auth_toml = (
-        "[[roles]]\n"
-        'name = "vpn-proxy"\n'
-        "routes = [\n"
-        '  "GET /v1/vpn/status",\n'
-        '  "GET /v1/publicip/ip",\n'
-        '  "GET /v1/openvpn/portforwarded",\n'
-        '  "GET /v1/openvpn/settings",\n'
-        '  "GET /v1/dns/status",\n'
-        '  "GET /v1/version"\n'
-        "]\n"
-        'auth = "apikey"\n'
-        f'apikey = "{api_key}"\n'
-    )
+    auth_toml = _build_auth_toml(api_key)
     try:
         with open(auth_config_path, "w", encoding="utf-8") as f:
             f.write(auth_toml)

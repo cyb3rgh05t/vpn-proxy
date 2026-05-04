@@ -15,7 +15,25 @@ import {
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
 import ActionProgressDialog from "../components/ActionProgressDialog";
-import { APP_TEMPLATES, getTemplateById } from "../data/appTemplates";
+
+// Normalize a template fetched from the backend (snake_case) to the
+// camelCase shape used internally by this form.
+const normalizeTpl = (tpl) => {
+  if (!tpl) return null;
+  return {
+    id: tpl.id,
+    title: tpl.title,
+    subtitle: tpl.subtitle,
+    image: tpl.image,
+    suggestedName: tpl.suggested_name ?? tpl.suggestedName ?? "",
+    restartPolicy: tpl.restart_policy ?? tpl.restartPolicy ?? "unless-stopped",
+    envVars: tpl.env_vars ?? tpl.envVars ?? [],
+    ports: tpl.ports ?? [],
+    volumes: tpl.volumes ?? [],
+    devices: tpl.devices ?? [],
+    labels: tpl.labels ?? [],
+  };
+};
 
 export default function CreateO11Container() {
   const navigate = useNavigate();
@@ -25,6 +43,7 @@ export default function CreateO11Container() {
   const [networks, setNetworks] = useState([]);
   const [vpnContainers, setVpnContainers] = useState([]);
   const [predefinedImages, setPredefinedImages] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const isAppType = searchParams.get("type") === "app";
 
@@ -67,7 +86,8 @@ export default function CreateO11Container() {
   const fileInputRef = useRef(null);
 
   const applyTemplate = (templateId, onlyIfEmptyName = false) => {
-    const tpl = getTemplateById(templateId);
+    const raw = templates.find((t) => t.id === templateId);
+    const tpl = normalizeTpl(raw);
     if (!tpl) return;
 
     setSelectedTemplateId(tpl.id);
@@ -84,6 +104,9 @@ export default function CreateO11Container() {
     setPorts(Array.isArray(tpl.ports) ? tpl.ports : []);
     setVolumes(Array.isArray(tpl.volumes) ? tpl.volumes : []);
     setDevices(Array.isArray(tpl.devices) ? tpl.devices : []);
+    if (Array.isArray(tpl.labels) && tpl.labels.length > 0) {
+      setCustomLabels(tpl.labels);
+    }
   };
 
   useEffect(() => {
@@ -108,14 +131,19 @@ export default function CreateO11Container() {
         setPredefinedImages(imgs);
       })
       .catch(() => {});
+    api
+      .get("/app-templates")
+      .then((res) => setTemplates(Array.isArray(res.data) ? res.data : []))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     const templateFromUrl = searchParams.get("template");
-    if (templateFromUrl) {
+    if (templateFromUrl && templates.length > 0) {
       applyTemplate(templateFromUrl, true);
     }
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, templates]);
 
   // Fetch host base path when name changes
   useEffect(() => {
@@ -126,12 +154,14 @@ export default function CreateO11Container() {
     }
     const timer = setTimeout(() => {
       api
-        .get(`/containers/dependents/data-path/${encodeURIComponent(name)}`)
+        .get(
+          `/containers/dependents/data-path/${encodeURIComponent(name)}?kind=${isAppType ? "apps" : "o11"}`,
+        )
         .then((res) => setHostBasePath(res.data.base_path))
         .catch(() => {});
     }, 300);
     return () => clearTimeout(timer);
-  }, [form.name]);
+  }, [form.name, isAppType]);
 
   // --- Env Vars ---
   const addEnvVar = () => setEnvVars([...envVars, { key: "", value: "" }]);
@@ -276,7 +306,7 @@ export default function CreateO11Container() {
     if (!form.name.trim() || hostBasePath) return;
     try {
       const res = await api.get(
-        `/containers/dependents/data-path/${encodeURIComponent(form.name.trim())}`,
+        `/containers/dependents/data-path/${encodeURIComponent(form.name.trim())}?kind=${isAppType ? "apps" : "o11"}`,
       );
       setHostBasePath(res.data.base_path);
     } catch {
@@ -301,7 +331,10 @@ export default function CreateO11Container() {
         const formData = new FormData();
         formData.append("file", file);
         const targetClean = uploadTargetPath.trim().replace(/^\/+|\/+$/g, "");
-        const url = `/containers/dependents/upload-files/${encodeURIComponent(form.name.trim())}${targetClean ? `?target_path=${encodeURIComponent(targetClean)}` : ""}`;
+        const params = new URLSearchParams();
+        params.set("kind", isAppType ? "apps" : "o11");
+        if (targetClean) params.set("target_path", targetClean);
+        const url = `/containers/dependents/upload-files/${encodeURIComponent(form.name.trim())}?${params.toString()}`;
         setUploadProgress((prev) => ({
           ...prev,
           target: file.name,
@@ -344,7 +377,7 @@ export default function CreateO11Container() {
   const removeUploadedFile = async (storedPath) => {
     try {
       await api.delete(
-        `/containers/dependents/files/${encodeURIComponent(form.name.trim())}/${storedPath}`,
+        `/containers/dependents/files/${encodeURIComponent(form.name.trim())}/${storedPath}?kind=${isAppType ? "apps" : "o11"}`,
       );
     } catch {
       // ignore delete errors for pre-creation files
@@ -480,26 +513,26 @@ export default function CreateO11Container() {
         className="flex items-center gap-2 text-vpn-muted hover:text-white mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to O11
+        Back
       </button>
 
       <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
         <Boxes className="w-7 h-7 text-vpn-primary" />
-        Create O11 Container
+        Create Container
       </h1>
       <p className="text-vpn-muted mb-6">
         Deploy a new Docker container, optionally routed through a VPN.
       </p>
 
       <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6 mb-6">
-        <h2 className="text-lg font-semibold text-white mb-4">App Template</h2>
+        <h2 className="text-lg font-semibold text-white mb-4">Template</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
           <div className="md:col-span-2">
             <label className={labelClass}>Template Preset</label>
             <CustomDropdown
               value={selectedTemplateId}
               onChange={(val) => setSelectedTemplateId(val)}
-              options={APP_TEMPLATES.map((tpl) => ({
+              options={templates.map((tpl) => ({
                 value: tpl.id,
                 label: `${tpl.title} (${tpl.image})`,
               }))}
@@ -516,8 +549,8 @@ export default function CreateO11Container() {
           </button>
         </div>
         <p className="text-xs text-vpn-muted mt-2">
-          Fuellt Image, Environment, Ports und Volumes automatisch vor. Danach
-          kannst du alles individuell anpassen.
+          Pre-fills image, environment, ports and volumes. You can still adjust
+          everything individually afterwards.
         </p>
       </div>
 

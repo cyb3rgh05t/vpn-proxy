@@ -726,7 +726,7 @@ export default function O11() {
                     {filteredContainers.filter((c) => c.vpn_parent).length}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   {filteredContainers
                     .filter((c) => c.vpn_parent)
                     .map((dep) => {
@@ -762,7 +762,7 @@ export default function O11() {
                     {filteredContainers.filter((c) => isProxied(c)).length}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   {filteredContainers
                     .filter((c) => isProxied(c))
                     .map((dep) => {
@@ -802,7 +802,7 @@ export default function O11() {
                     }
                   </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   {filteredContainers
                     .filter((c) => !c.vpn_parent && !isProxied(c))
                     .map((dep) => {

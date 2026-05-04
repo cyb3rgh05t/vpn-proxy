@@ -45,7 +45,7 @@ export default function Backup() {
       const res = await api.get("/backup/list");
       setBackups(res.data);
     } catch {
-      toast.error("Backup-Liste konnte nicht geladen werden");
+      toast.error("Failed to load backup list");
     } finally {
       setLoadingList(false);
     }
@@ -71,9 +71,9 @@ export default function Backup() {
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("Backup heruntergeladen");
+      toast.success("Backup downloaded");
     } catch {
-      toast.error("Export fehlgeschlagen");
+      toast.error("Export failed");
     } finally {
       setExporting(false);
     }
@@ -88,10 +88,10 @@ export default function Backup() {
     e.target.value = "";
 
     const ok = await confirm({
-      title: "Backup wiederherstellen?",
+      title: "Restore backup?",
       message:
-        "Alle bestehenden Einstellungen und Container-Konfigurationen werden überschrieben. Laufende Container sind nicht betroffen.",
-      confirmLabel: "Wiederherstellen",
+        "All existing settings and container configurations will be overwritten. Running containers are not affected.",
+      confirmLabel: "Restore",
       variant: "danger",
     });
     if (!ok) return;
@@ -105,10 +105,10 @@ export default function Backup() {
       });
       const { restored } = res.data;
       toast.success(
-        `Backup wiederhergestellt: ${restored.settings} Einstellungen, ${restored.vpn_containers} VPN-Container (${restored.cert_files} Zertifikatsdateien), ${restored.o11_containers} OTT-Container, ${restored.users} Benutzer, ${restored.api_keys} API-Keys`,
+        `Backup restored: ${restored.settings} settings, ${restored.vpn_containers} VPN containers (${restored.cert_files} certificate files), ${restored.o11_containers} OTT containers, ${restored.users} users, ${restored.api_keys} API keys`,
       );
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Import fehlgeschlagen");
+      toast.error(err.response?.data?.detail || "Import failed");
     } finally {
       setImporting(false);
     }
@@ -119,11 +119,11 @@ export default function Backup() {
     setSaving(true);
     try {
       const res = await api.post("/backup/save", { label: savingLabel });
-      toast.success(`Backup gespeichert: ${res.data.filename}`);
+      toast.success(`Backup saved: ${res.data.filename}`);
       setSavingLabel("");
       await loadBackups();
     } catch {
-      toast.error("Speichern fehlgeschlagen");
+      toast.error("Save failed");
     } finally {
       setSaving(false);
     }
@@ -148,7 +148,7 @@ export default function Backup() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error("Download fehlgeschlagen");
+      toast.error("Download failed");
     } finally {
       setDownloadingFile(null);
     }
@@ -157,9 +157,9 @@ export default function Backup() {
   // ---- Delete server backup ----
   const handleDelete = async (filename) => {
     const ok = await confirm({
-      title: "Backup löschen?",
-      message: `"${filename}" wird dauerhaft gelöscht.`,
-      confirmLabel: "Löschen",
+      title: "Delete backup?",
+      message: `"${filename}" will be permanently deleted.`,
+      confirmLabel: "Delete",
       variant: "danger",
     });
     if (!ok) return;
@@ -167,10 +167,10 @@ export default function Backup() {
     setDeletingFile(filename);
     try {
       await api.delete(`/backup/${encodeURIComponent(filename)}`);
-      toast.success("Backup gelöscht");
+      toast.success("Backup deleted");
       setBackups((prev) => prev.filter((b) => b.filename !== filename));
     } catch {
-      toast.error("Löschen fehlgeschlagen");
+      toast.error("Delete failed");
     } finally {
       setDeletingFile(null);
     }
@@ -182,8 +182,8 @@ export default function Backup() {
       <div>
         <h1 className="text-2xl font-bold text-white">Backup & Restore</h1>
         <p className="text-sm text-vpn-muted mt-1">
-          Einstellungen, VPN-Proxy- und OTT-Container-Konfigurationen sichern
-          und wiederherstellen.
+          Back up and restore settings, VPN proxy and OTT container
+          configurations.
         </p>
       </div>
 
@@ -197,9 +197,7 @@ export default function Backup() {
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">Export</h2>
-              <p className="text-xs text-vpn-muted">
-                Als JSON-Datei herunterladen
-              </p>
+              <p className="text-xs text-vpn-muted">Download as a JSON file</p>
             </div>
           </div>
           <button
@@ -212,7 +210,7 @@ export default function Backup() {
             ) : (
               <Download className="w-4 h-4 text-vpn-primary" />
             )}
-            {exporting ? "Exportiere..." : "Backup herunterladen"}
+            {exporting ? "Exporting..." : "Download Backup"}
           </button>
         </div>
 
@@ -225,7 +223,7 @@ export default function Backup() {
             <div>
               <h2 className="text-base font-semibold text-white">Import</h2>
               <p className="text-xs text-vpn-muted">
-                Backup-Datei hochladen &amp; wiederherstellen
+                Upload a backup file &amp; restore
               </p>
             </div>
           </div>
@@ -246,7 +244,7 @@ export default function Backup() {
             ) : (
               <Upload className="w-4 h-4" />
             )}
-            {importing ? "Wiederherstelle..." : "Backup hochladen"}
+            {importing ? "Restoring..." : "Upload Backup"}
           </button>
         </div>
       </div>
@@ -259,11 +257,11 @@ export default function Backup() {
           </div>
           <div>
             <h2 className="text-base font-semibold text-white">
-              Auf Server speichern
+              Save to server
             </h2>
             <p className="text-xs text-vpn-muted">
-              Aktuellen Stand als Backup im Server-Dateisystem ablegen (max. 20
-              Backups)
+              Store the current state as a backup on the server filesystem (max.
+              20 backups)
             </p>
           </div>
         </div>
@@ -272,7 +270,7 @@ export default function Backup() {
             type="text"
             value={savingLabel}
             onChange={(e) => setSavingLabel(e.target.value)}
-            placeholder="Optionaler Name (z.B. vor-update)"
+            placeholder="Optional name (e.g. before-update)"
             maxLength={50}
             className="flex-1 bg-vpn-input border border-vpn-border rounded-lg px-3 py-2 text-sm text-white placeholder-vpn-muted focus:outline-none focus:border-vpn-primary"
           />
@@ -286,7 +284,7 @@ export default function Backup() {
             ) : (
               <Save className="w-4 h-4" />
             )}
-            {saving ? "Speichere..." : "Speichern"}
+            {saving ? "Saving..." : "Save"}
           </button>
         </div>
       </div>
@@ -297,7 +295,7 @@ export default function Backup() {
           <div className="flex items-center gap-2">
             <FileJson className="w-4 h-4 text-vpn-primary" />
             <h2 className="text-base font-semibold text-white">
-              Gespeicherte Backups
+              Saved Backups
             </h2>
             <span className="text-xs bg-vpn-primary/15 text-vpn-primary px-2 py-0.5 rounded-full">
               {backups.length}
@@ -307,7 +305,7 @@ export default function Backup() {
             onClick={loadBackups}
             disabled={loadingList}
             className="p-1.5 rounded-lg text-vpn-muted hover:text-vpn-primary transition-colors"
-            title="Aktualisieren"
+            title="Refresh"
           >
             <RefreshCw
               className={`w-4 h-4 ${loadingList ? "animate-spin" : ""}`}
@@ -322,7 +320,7 @@ export default function Backup() {
         ) : backups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-vpn-muted gap-2">
             <HardDrive className="w-8 h-8 opacity-40" />
-            <p className="text-sm">Keine Backups vorhanden</p>
+            <p className="text-sm">No backups available</p>
           </div>
         ) : (
           <ul className="divide-y divide-vpn-border">
@@ -349,7 +347,7 @@ export default function Backup() {
                     onClick={() => handleDownloadServer(b.filename)}
                     disabled={downloadingFile === b.filename}
                     className="p-1.5 rounded-lg text-vpn-muted hover:text-vpn-primary transition-colors"
-                    title="Herunterladen"
+                    title="Download"
                   >
                     {downloadingFile === b.filename ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
@@ -361,7 +359,7 @@ export default function Backup() {
                     onClick={() => handleDelete(b.filename)}
                     disabled={deletingFile === b.filename}
                     className="p-1.5 rounded-lg text-vpn-muted hover:text-red-400 transition-colors"
-                    title="Löschen"
+                    title="Delete"
                   >
                     {deletingFile === b.filename ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
@@ -381,15 +379,14 @@ export default function Backup() {
         <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
         <div className="text-xs text-blue-300 space-y-1">
           <p>
-            <strong>Was wird gesichert:</strong> Alle App-Einstellungen
-            (O11-Instanzen, Telegram, Docker-Images, Portainer-URL), VPN-Proxy-
-            und OTT-Container-Konfigurationen, VPN-Zertifikatsdateien (.ovpn,
-            .conf, .key, .crt …), Benutzerkonten (Passwort-Hashes) und API-Keys.
+            <strong>What is included:</strong> All app settings (O11 instances,
+            Telegram, Docker images, Portainer URL), VPN proxy and OTT container
+            configurations, VPN certificate files (.ovpn, .conf, .key, .crt …),
+            user accounts (password hashes) and API keys.
           </p>
           <p>
-            <strong>Was wird nicht gesichert:</strong> Laufende
-            Container-Zustände, aktive JWT-Sessions und Gluetun-interne
-            Laufzeitdaten.
+            <strong>What is not included:</strong> Running container states,
+            active JWT sessions and Gluetun-internal runtime data.
           </p>
         </div>
       </div>

@@ -30,6 +30,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/containers", tags=["containers"])
 
 
+def _resolve_dependent_data_dir(
+    name: str, kind: str = "o11", host: bool = False
+) -> str:
+    """Return the data directory for a dependent container.
+
+    kind="o11" -> <DATA_DIR>/o11/<name>   (OTT panels)
+    kind="apps" -> <DATA_DIR>/apps/<name> (App-Catalog apps)
+    If host=True and HOST_DATA_DIR is set, use the host-side path instead.
+    """
+    sub = "apps" if kind == "apps" else "o11"
+    if host and settings.HOST_DATA_DIR:
+        return os.path.join(settings.HOST_DATA_DIR, sub, name)
+    return os.path.join(os.path.abspath(settings.DATA_DIR), sub, name)
+
+
 def _get_gluetun_image(db: Session) -> str:
     """Get the configured Gluetun image from DB, falling back to config default."""
     row = db.query(AppSettings).filter(AppSettings.key == "gluetun_image").first()
@@ -330,20 +345,22 @@ def list_docker_images(
 @router.get("/dependents/data-path/{name}")
 def get_o11_data_path(
     name: str,
+    kind: str = "o11",
     current_user: User = Depends(get_current_user),
 ):
-    """Get the host-side data path for an O11 container (for volume mount hints)."""
+    """Get the host-side data path for a dependent container (volume mount hints).
+
+    kind="o11" (default) for OTT panels, kind="apps" for App-Catalog apps.
+    """
     import re
 
     if not re.match(r"^[a-zA-Z0-9_-]+$", name):
         raise HTTPException(status_code=400, detail="Invalid container name")
+    if kind not in ("o11", "apps"):
+        raise HTTPException(status_code=400, detail="Invalid kind")
 
-    if settings.HOST_DATA_DIR:
-        base = os.path.join(settings.HOST_DATA_DIR, "o11", name)
-    else:
-        base = os.path.join(os.path.abspath(settings.DATA_DIR), "o11", name)
-
-    return {"base_path": base.replace("\\", "/")}
+    base = _resolve_dependent_data_dir(name, kind=kind, host=True)
+    return {"base_path": base.replace("\\", "/"), "kind": kind}
 
 
 ALLOWED_O11_EXTENSIONS = {
@@ -380,13 +397,16 @@ async def upload_o11_file(
     name: str,
     file: UploadFile = File(...),
     target_path: str = "",
+    kind: str = "o11",
     current_user: User = Depends(get_current_user),
 ):
-    """Upload a file for an O11 container with optional target path (subdirectory)."""
+    """Upload a file for a dependent container with optional target path (subdirectory)."""
     import re
 
     if not re.match(r"^[a-zA-Z0-9_-]+$", name):
         raise HTTPException(status_code=400, detail="Invalid container name")
+    if kind not in ("o11", "apps"):
+        raise HTTPException(status_code=400, detail="Invalid kind")
 
     # Validate and sanitize target_path (e.g. "scripts", "config")
     target_path = target_path.strip().strip("/")
@@ -414,8 +434,8 @@ async def upload_o11_file(
     if len(content) > MAX_O11_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large (max 100 MB)")
 
-    # Save to data/o11/{name}/{target_path}/
-    o11_data = os.path.join(os.path.abspath(settings.DATA_DIR), "o11", name)
+    # Save to data/{kind}/{name}/{target_path}/
+    o11_data = _resolve_dependent_data_dir(name, kind=kind, host=False)
     if target_path:
         o11_data = os.path.join(o11_data, target_path)
     os.makedirs(o11_data, exist_ok=True)
@@ -425,8 +445,9 @@ async def upload_o11_file(
 
     stored_path = f"{target_path}/{filename}" if target_path else filename
     logger.info(
-        "Uploaded file '%s' for O11 container '%s' (target: %s)",
+        "Uploaded file '%s' for %s container '%s' (target: %s)",
         filename,
+        kind,
         name,
         target_path or "/",
     )
@@ -442,15 +463,18 @@ async def upload_o11_file(
 @router.get("/dependents/files/{name}")
 def list_o11_files(
     name: str,
+    kind: str = "o11",
     current_user: User = Depends(get_current_user),
 ):
-    """List uploaded files for an O11 container (recursively including subdirs)."""
+    """List uploaded files for a dependent container (recursively including subdirs)."""
     import re
 
     if not re.match(r"^[a-zA-Z0-9_-]+$", name):
         raise HTTPException(status_code=400, detail="Invalid container name")
+    if kind not in ("o11", "apps"):
+        raise HTTPException(status_code=400, detail="Invalid kind")
 
-    o11_data = os.path.join(os.path.abspath(settings.DATA_DIR), "o11", name)
+    o11_data = _resolve_dependent_data_dir(name, kind=kind, host=False)
     if not os.path.isdir(o11_data):
         return []
 
@@ -477,19 +501,22 @@ def list_o11_files(
 def delete_o11_file(
     name: str,
     filepath: str,
+    kind: str = "o11",
     current_user: User = Depends(get_current_user),
 ):
-    """Delete an uploaded file for an O11 container (supports subdirectory paths)."""
+    """Delete an uploaded file for a dependent container (supports subdirectory paths)."""
     import re
 
     if not re.match(r"^[a-zA-Z0-9_-]+$", name):
         raise HTTPException(status_code=400, detail="Invalid container name")
+    if kind not in ("o11", "apps"):
+        raise HTTPException(status_code=400, detail="Invalid kind")
 
     # Prevent path traversal
     if ".." in filepath:
         raise HTTPException(status_code=400, detail="Invalid file path")
 
-    o11_data = os.path.join(os.path.abspath(settings.DATA_DIR), "o11", name)
+    o11_data = _resolve_dependent_data_dir(name, kind=kind, host=False)
     fpath = os.path.join(o11_data, filepath)
 
     # Verify the resolved path is still within o11_data
@@ -507,7 +534,7 @@ def delete_o11_file(
         os.rmdir(parent)
         parent = os.path.dirname(parent)
 
-    logger.info("Deleted file '%s' for O11 container '%s'", filepath, name)
+    logger.info("Deleted file '%s' for %s container '%s'", filepath, kind, name)
     return {"message": f"Deleted {filepath}"}
 
 

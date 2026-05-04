@@ -232,7 +232,9 @@ def create_container(
             f.write(auth_toml)
         logger.info("Wrote Gluetun auth config to %s", auth_config_path)
     except OSError as e:
-        logger.warning("Failed to write Gluetun auth config %s: %s", auth_config_path, e)
+        logger.warning(
+            "Failed to write Gluetun auth config %s: %s", auth_config_path, e
+        )
 
     # Use HOST_DATA_DIR for Docker bind mounts when running inside a container
     if settings.HOST_DATA_DIR:

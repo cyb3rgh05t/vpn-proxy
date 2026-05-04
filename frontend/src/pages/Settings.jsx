@@ -1027,17 +1027,17 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* O11 Container Images */}
+          {/* Dependent Container Images */}
           <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-4">
               <Container className="w-5 h-5 text-vpn-primary" />
               <div>
                 <h2 className="text-lg font-semibold text-white">
-                  O11 Container Images
+                  Dependent Container Images
                 </h2>
                 <p className="text-xs text-vpn-muted">
-                  Predefined Docker images available when creating O11
-                  containers
+                  Predefined Docker images for OTT panels, apps and other
+                  dependent containers
                 </p>
               </div>
             </div>
@@ -1070,7 +1070,7 @@ export default function Settings() {
             {/* Image list */}
             {o11Images.length === 0 ? (
               <div className="text-center py-6 text-vpn-muted text-sm">
-                No O11 images configured yet. Add images above to make them
+                No images configured yet. Add images above to make them
                 available in the create form.
               </div>
             ) : (

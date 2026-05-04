@@ -10,6 +10,7 @@ from app.models.vpn_container import VPNContainer
 from app.models.o11_container import O11Container
 from app.models.api_key import APIKey
 from app.models.app_settings import AppSettings
+from app.models.app_template import AppTemplate
 from app.services import docker_service
 from app.routers import (
     auth,
@@ -19,6 +20,7 @@ from app.routers import (
     monitoring,
     settings as settings_router,
     backup as backup_router,
+    app_templates as app_templates_router,
 )
 from app.utils.logger import setup_logging, print_banner
 
@@ -326,12 +328,47 @@ def reconcile_socks5_sidecars():
         db.close()
 
 
+def seed_default_app_templates():
+    """Seed the app_templates table on first startup if empty."""
+    try:
+        from app.services.default_templates import DEFAULT_APP_TEMPLATES
+
+        db = SessionLocal()
+        try:
+            if db.query(AppTemplate).count() > 0:
+                return
+            for tpl in DEFAULT_APP_TEMPLATES:
+                db.add(
+                    AppTemplate(
+                        id=tpl["id"],
+                        title=tpl["title"],
+                        subtitle=tpl.get("subtitle"),
+                        image=tpl["image"],
+                        suggested_name=tpl.get("suggested_name"),
+                        restart_policy=tpl.get("restart_policy", "unless-stopped"),
+                        env_vars=tpl.get("env_vars", []),
+                        ports=tpl.get("ports", []),
+                        volumes=tpl.get("volumes", []),
+                        devices=tpl.get("devices", []),
+                        labels=tpl.get("labels", []),
+                        is_builtin=True,
+                    )
+                )
+            db.commit()
+            logger.info("Seeded %d default app templates.", len(DEFAULT_APP_TEMPLATES))
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning("Seeding default app templates failed: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print_banner()
     logger.info("Creating database tables...")
     Base.metadata.create_all(bind=engine)
     run_migrations()
+    seed_default_app_templates()
     auto_discover_containers()
     auto_discover_o11_containers()
     reconcile_socks5_sidecars()
@@ -374,6 +411,7 @@ app.include_router(api_keys_router.router)
 app.include_router(monitoring.router)
 app.include_router(settings_router.router)
 app.include_router(backup_router.router)
+app.include_router(app_templates_router.router)
 
 
 @app.get("/api/health")

@@ -438,7 +438,7 @@ export default function Dashboard() {
               className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
             >
               <PlusCircle className="w-4 h-4 text-vpn-primary" />
-              New o11
+              New App
             </button>
           </div>
         </div>

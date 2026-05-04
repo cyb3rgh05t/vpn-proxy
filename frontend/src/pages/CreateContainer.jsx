@@ -99,6 +99,11 @@ export default function CreateContainer() {
   const [socks5Enabled, setSocks5Enabled] = useState(false);
   const [configFields, setConfigFields] = useState({});
   const [extraPorts, setExtraPorts] = useState([]);
+  const [extraHosts, setExtraHosts] = useState([]);
+  const [devices, setDevices] = useState([]);
+  const [hostname, setHostname] = useState("");
+  const [customLabels, setCustomLabels] = useState([]);
+  const [capAdd, setCapAdd] = useState([]);
   const [envVarCategories, setEnvVarCategories] = useState({});
   const [advancedFields, setAdvancedFields] = useState({});
   const [gluetunFields, setGluetunFields] = useState({});
@@ -166,6 +171,42 @@ export default function CreateContainer() {
     const updated = [...extraPorts];
     updated[index] = { ...updated[index], [field]: value };
     setExtraPorts(updated);
+  };
+
+  const addExtraHost = () =>
+    setExtraHosts([...extraHosts, { host: "", ip: "" }]);
+  const removeExtraHost = (i) =>
+    setExtraHosts(extraHosts.filter((_, idx) => idx !== i));
+  const updateExtraHost = (i, field, value) => {
+    const updated = [...extraHosts];
+    updated[i] = { ...updated[i], [field]: value };
+    setExtraHosts(updated);
+  };
+
+  const addDevice = () => setDevices([...devices, ""]);
+  const removeDevice = (i) => setDevices(devices.filter((_, idx) => idx !== i));
+  const updateDevice = (i, value) => {
+    const updated = [...devices];
+    updated[i] = value;
+    setDevices(updated);
+  };
+
+  const addCustomLabel = () =>
+    setCustomLabels([...customLabels, { key: "", value: "" }]);
+  const removeCustomLabel = (i) =>
+    setCustomLabels(customLabels.filter((_, idx) => idx !== i));
+  const updateCustomLabel = (i, field, value) => {
+    const updated = [...customLabels];
+    updated[i] = { ...updated[i], [field]: value };
+    setCustomLabels(updated);
+  };
+
+  const addCapAdd = () => setCapAdd([...capAdd, ""]);
+  const removeCapAdd = (i) => setCapAdd(capAdd.filter((_, idx) => idx !== i));
+  const updateCapAdd = (i, value) => {
+    const updated = [...capAdd];
+    updated[i] = value;
+    setCapAdd(updated);
   };
 
   // Get provider-specific field keys to exclude from advanced settings
@@ -254,6 +295,19 @@ export default function CreateContainer() {
         parseInt(p.container) > 0,
     );
 
+    const validExtraHosts = extraHosts
+      .filter((h) => h.host.trim() && h.ip.trim())
+      .map((h) => `${h.host.trim()}:${h.ip.trim()}`);
+
+    const validDevices = devices.map((d) => d.trim()).filter(Boolean);
+    const validCapAdd = capAdd.map((c) => c.trim()).filter(Boolean);
+    const validCustomLabels = customLabels.reduce((acc, l) => {
+      const k = l.key.trim();
+      const v = l.value.trim();
+      if (k) acc[k] = v;
+      return acc;
+    }, {});
+
     // Merge provider config fields with gluetun config and advanced env var fields
     const filledGluetun = {};
     for (const [key, value] of Object.entries(gluetunFields)) {
@@ -286,7 +340,15 @@ export default function CreateContainer() {
         socks5_enabled: socks5Enabled,
         port_socks5: form.port_socks5,
         extra_ports: validExtraPorts,
+        extra_hosts: validExtraHosts.length > 0 ? validExtraHosts : undefined,
         network_name: form.network_name || undefined,
+        devices: validDevices.length > 0 ? validDevices : undefined,
+        hostname: hostname.trim() || undefined,
+        custom_labels:
+          Object.keys(validCustomLabels).length > 0
+            ? validCustomLabels
+            : undefined,
+        cap_add: validCapAdd.length > 0 ? validCapAdd : undefined,
       });
       navigate("/");
     } catch (err) {
@@ -740,6 +802,252 @@ export default function CreateContainer() {
                   <button
                     type="button"
                     onClick={() => removeExtraPort(index)}
+                    className="p-2.5 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Card: Network & Hosts */}
+        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">
+            Network &amp; Hosts
+          </h2>
+
+          {/* Hostname */}
+          <div>
+            <label className="text-sm font-medium text-vpn-muted">
+              Hostname
+            </label>
+            <p className="text-xs text-vpn-muted mt-0.5 mb-2">
+              Override container hostname (optional)
+            </p>
+            <input
+              type="text"
+              value={hostname}
+              onChange={(e) => setHostname(e.target.value)}
+              className={inputClass}
+              placeholder="e.g. plex-vpn"
+            />
+          </div>
+
+          {/* Extra Hosts */}
+          <div className="border-t border-vpn-border pt-4 mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <label className="text-sm font-medium text-vpn-muted">
+                  Extra Hosts
+                </label>
+                <p className="text-xs text-vpn-muted mt-0.5">
+                  Add custom /etc/hosts entries — e.g. block analytics domains
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addExtraHost}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-vpn-primary" />
+                Add Host
+              </button>
+            </div>
+
+            {extraHosts.length === 0 && (
+              <p className="text-xs text-vpn-muted">
+                No extra hosts configured.
+              </p>
+            )}
+
+            <div className="space-y-2">
+              {extraHosts.map((entry, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={entry.host}
+                      onChange={(e) =>
+                        updateExtraHost(index, "host", e.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="hostname (e.g. analytics.plex.tv)"
+                    />
+                  </div>
+                  <span className="text-vpn-muted">→</span>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={entry.ip}
+                      onChange={(e) =>
+                        updateExtraHost(index, "ip", e.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="IP (e.g. 127.0.0.1)"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeExtraHost(index)}
+                    className="p-2.5 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Card: Advanced Options */}
+        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">
+            Advanced Options
+          </h2>
+
+          {/* Hostname placeholder removed — moved to Network & Hosts */}
+
+          {/* Devices */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <label className="text-sm font-medium text-vpn-muted">
+                  Devices
+                </label>
+                <p className="text-xs text-vpn-muted mt-0.5">
+                  Pass host devices into the container (besides the auto-added
+                  /dev/net/tun)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addDevice}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-vpn-primary" />
+                Add Device
+              </button>
+            </div>
+            {devices.length === 0 && (
+              <p className="text-xs text-vpn-muted">No extra devices.</p>
+            )}
+            <div className="space-y-2">
+              {devices.map((d, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={d}
+                    onChange={(e) => updateDevice(i, e.target.value)}
+                    className={`${inputClass} flex-1`}
+                    placeholder="/dev/host:/dev/container[:rwm]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeDevice(i)}
+                    className="p-2.5 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Capabilities */}
+          <div className="border-t border-vpn-border pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <label className="text-sm font-medium text-vpn-muted">
+                  Capabilities (cap_add)
+                </label>
+                <p className="text-xs text-vpn-muted mt-0.5">
+                  Linux capabilities (NET_ADMIN is auto-added)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addCapAdd}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-vpn-primary" />
+                Add Capability
+              </button>
+            </div>
+            {capAdd.length === 0 && (
+              <p className="text-xs text-vpn-muted">No extra capabilities.</p>
+            )}
+            <div className="space-y-2">
+              {capAdd.map((c, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={c}
+                    onChange={(e) => updateCapAdd(i, e.target.value)}
+                    className={`${inputClass} flex-1`}
+                    placeholder="e.g. SYS_ADMIN"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeCapAdd(i)}
+                    className="p-2.5 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom Labels */}
+          <div className="border-t border-vpn-border pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <label className="text-sm font-medium text-vpn-muted">
+                  Custom Labels
+                </label>
+                <p className="text-xs text-vpn-muted mt-0.5">
+                  Additional Docker labels — e.g. Traefik routing rules
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addCustomLabel}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-vpn-primary" />
+                Add Label
+              </button>
+            </div>
+            {customLabels.length === 0 && (
+              <p className="text-xs text-vpn-muted">No custom labels.</p>
+            )}
+            <div className="space-y-2">
+              {customLabels.map((entry, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={entry.key}
+                    onChange={(e) =>
+                      updateCustomLabel(i, "key", e.target.value)
+                    }
+                    className={`${inputClass} flex-1`}
+                    placeholder="label.key"
+                  />
+                  <span className="text-vpn-muted">=</span>
+                  <input
+                    type="text"
+                    value={entry.value}
+                    onChange={(e) =>
+                      updateCustomLabel(i, "value", e.target.value)
+                    }
+                    className={`${inputClass} flex-1`}
+                    placeholder="value"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeCustomLabel(i)}
                     className="p-2.5 text-vpn-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />

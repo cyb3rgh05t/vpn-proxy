@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Loader2,
@@ -15,14 +15,18 @@ import {
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
 import ActionProgressDialog from "../components/ActionProgressDialog";
+import { APP_TEMPLATES, getTemplateById } from "../data/appTemplates";
 
 export default function CreateO11Container() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [networks, setNetworks] = useState([]);
   const [vpnContainers, setVpnContainers] = useState([]);
   const [predefinedImages, setPredefinedImages] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const isAppType = searchParams.get("type") === "app";
 
   const [form, setForm] = useState({
     name: "",
@@ -42,6 +46,19 @@ export default function CreateO11Container() {
   ]);
   const [ports, setPorts] = useState([]);
   const [volumes, setVolumes] = useState([]);
+  const [devices, setDevices] = useState([]);
+  const [hostname, setHostname] = useState("");
+  const [customLabels, setCustomLabels] = useState([]);
+  const [capAdd, setCapAdd] = useState([]);
+  const [securityOpt, setSecurityOpt] = useState([]);
+  const [namedVolumes, setNamedVolumes] = useState([]);
+  const [showVolumeModal, setShowVolumeModal] = useState(false);
+  const [newVolumeForm, setNewVolumeForm] = useState({
+    name: "",
+    driver: "local",
+    driver_opts: [{ key: "", value: "" }],
+  });
+  const [volumeBusy, setVolumeBusy] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
@@ -49,10 +66,34 @@ export default function CreateO11Container() {
   const [hostBasePath, setHostBasePath] = useState("");
   const fileInputRef = useRef(null);
 
+  const applyTemplate = (templateId, onlyIfEmptyName = false) => {
+    const tpl = getTemplateById(templateId);
+    if (!tpl) return;
+
+    setSelectedTemplateId(tpl.id);
+    setForm((prev) => ({
+      ...prev,
+      name:
+        onlyIfEmptyName && prev.name.trim()
+          ? prev.name
+          : tpl.suggestedName || prev.name,
+      image: tpl.image || prev.image,
+      restart_policy: tpl.restartPolicy || prev.restart_policy,
+    }));
+    setEnvVars(Array.isArray(tpl.envVars) ? tpl.envVars : []);
+    setPorts(Array.isArray(tpl.ports) ? tpl.ports : []);
+    setVolumes(Array.isArray(tpl.volumes) ? tpl.volumes : []);
+    setDevices(Array.isArray(tpl.devices) ? tpl.devices : []);
+  };
+
   useEffect(() => {
     api
       .get("/containers/networks")
       .then((res) => setNetworks(Array.isArray(res.data) ? res.data : []))
+      .catch(() => {});
+    api
+      .get("/containers/volumes")
+      .then((res) => setNamedVolumes(Array.isArray(res.data) ? res.data : []))
       .catch(() => {});
     api
       .get("/containers")
@@ -68,6 +109,13 @@ export default function CreateO11Container() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const templateFromUrl = searchParams.get("template");
+    if (templateFromUrl) {
+      applyTemplate(templateFromUrl, true);
+    }
+  }, [searchParams]);
 
   // Fetch host base path when name changes
   useEffect(() => {
@@ -115,6 +163,112 @@ export default function CreateO11Container() {
     const updated = [...volumes];
     updated[i] = { ...updated[i], [field]: value };
     setVolumes(updated);
+  };
+
+  // --- Devices ---
+  const addDevice = () => setDevices([...devices, ""]);
+  const removeDevice = (i) => setDevices(devices.filter((_, idx) => idx !== i));
+  const updateDevice = (i, value) => {
+    const updated = [...devices];
+    updated[i] = value;
+    setDevices(updated);
+  };
+
+  // --- Custom Labels ---
+  const addCustomLabel = () =>
+    setCustomLabels([...customLabels, { key: "", value: "" }]);
+  const removeCustomLabel = (i) =>
+    setCustomLabels(customLabels.filter((_, idx) => idx !== i));
+  const updateCustomLabel = (i, field, value) => {
+    const updated = [...customLabels];
+    updated[i] = { ...updated[i], [field]: value };
+    setCustomLabels(updated);
+  };
+
+  // --- Cap Add ---
+  const addCapAdd = () => setCapAdd([...capAdd, ""]);
+  const removeCapAdd = (i) => setCapAdd(capAdd.filter((_, idx) => idx !== i));
+  const updateCapAdd = (i, value) => {
+    const updated = [...capAdd];
+    updated[i] = value;
+    setCapAdd(updated);
+  };
+
+  // --- Security Opt ---
+  const addSecurityOpt = () => setSecurityOpt([...securityOpt, ""]);
+  const removeSecurityOpt = (i) =>
+    setSecurityOpt(securityOpt.filter((_, idx) => idx !== i));
+  const updateSecurityOpt = (i, value) => {
+    const updated = [...securityOpt];
+    updated[i] = value;
+    setSecurityOpt(updated);
+  };
+
+  // --- Named Volumes (Docker volume create) ---
+  const refreshNamedVolumes = async () => {
+    try {
+      const res = await api.get("/containers/volumes");
+      setNamedVolumes(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      // ignore
+    }
+  };
+
+  const updateNewVolumeOpt = (i, field, value) => {
+    const updated = [...newVolumeForm.driver_opts];
+    updated[i] = { ...updated[i], [field]: value };
+    setNewVolumeForm({ ...newVolumeForm, driver_opts: updated });
+  };
+
+  const addNewVolumeOpt = () =>
+    setNewVolumeForm({
+      ...newVolumeForm,
+      driver_opts: [...newVolumeForm.driver_opts, { key: "", value: "" }],
+    });
+
+  const removeNewVolumeOpt = (i) =>
+    setNewVolumeForm({
+      ...newVolumeForm,
+      driver_opts: newVolumeForm.driver_opts.filter((_, idx) => idx !== i),
+    });
+
+  const submitNewVolume = async () => {
+    const name = newVolumeForm.name.trim();
+    if (!name) return;
+    setVolumeBusy(true);
+    try {
+      const opts = newVolumeForm.driver_opts.reduce((acc, o) => {
+        const k = o.key.trim();
+        if (k) acc[k] = o.value.trim();
+        return acc;
+      }, {});
+      await api.post("/containers/volumes", {
+        name,
+        driver: newVolumeForm.driver.trim() || "local",
+        driver_opts: Object.keys(opts).length > 0 ? opts : undefined,
+      });
+      await refreshNamedVolumes();
+      setNewVolumeForm({
+        name: "",
+        driver: "local",
+        driver_opts: [{ key: "", value: "" }],
+      });
+      setShowVolumeModal(false);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to create volume");
+    } finally {
+      setVolumeBusy(false);
+    }
+  };
+
+  const deleteNamedVolume = async (name) => {
+    if (!window.confirm(`Delete Docker volume '${name}'?`)) return;
+    try {
+      await api.delete(`/containers/volumes/${encodeURIComponent(name)}`);
+      await refreshNamedVolumes();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to delete volume");
+    }
   };
 
   // --- File Upload ---
@@ -268,6 +422,17 @@ export default function CreateO11Container() {
       (v) => v.source.trim() && v.target.trim(),
     );
 
+    // Filter valid devices
+    const validDevices = devices.filter((d) => d.trim());
+    const validCapAdd = capAdd.map((c) => c.trim()).filter(Boolean);
+    const validSecurityOpt = securityOpt.map((s) => s.trim()).filter(Boolean);
+    const validCustomLabels = customLabels.reduce((acc, l) => {
+      const k = l.key.trim();
+      const v = l.value.trim();
+      if (k) acc[k] = v;
+      return acc;
+    }, {});
+
     try {
       let imageName = form.image.trim();
       if (imageName.toLowerCase().startsWith("docker pull ")) {
@@ -281,10 +446,20 @@ export default function CreateO11Container() {
           Object.keys(environment).length > 0 ? environment : undefined,
         ports: validPorts.length > 0 ? validPorts : undefined,
         volumes: validVolumes.length > 0 ? validVolumes : undefined,
+        devices: validDevices.length > 0 ? validDevices : undefined,
         restart_policy: form.restart_policy,
         command: form.command.trim() || undefined,
+        hostname: hostname.trim() || undefined,
+        custom_labels:
+          Object.keys(validCustomLabels).length > 0
+            ? validCustomLabels
+            : undefined,
+        cap_add: validCapAdd.length > 0 ? validCapAdd : undefined,
+        security_opt:
+          validSecurityOpt.length > 0 ? validSecurityOpt : undefined,
+        labels: isAppType ? { "managed-by": "vpn-proxy-app" } : undefined,
       });
-      navigate("/o11");
+      navigate(isAppType ? "/apps" : "/o11");
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to create container");
     } finally {
@@ -315,6 +490,36 @@ export default function CreateO11Container() {
       <p className="text-vpn-muted mb-6">
         Deploy a new Docker container, optionally routed through a VPN.
       </p>
+
+      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6 mb-6">
+        <h2 className="text-lg font-semibold text-white mb-4">App Template</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <div className="md:col-span-2">
+            <label className={labelClass}>Template Preset</label>
+            <CustomDropdown
+              value={selectedTemplateId}
+              onChange={(val) => setSelectedTemplateId(val)}
+              options={APP_TEMPLATES.map((tpl) => ({
+                value: tpl.id,
+                label: `${tpl.title} (${tpl.image})`,
+              }))}
+              placeholder="Choose a preset template..."
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => applyTemplate(selectedTemplateId)}
+            disabled={!selectedTemplateId}
+            className="h-[42px] px-4 rounded-lg border border-vpn-border text-vpn-text hover:border-vpn-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Apply Template
+          </button>
+        </div>
+        <p className="text-xs text-vpn-muted mt-2">
+          Fuellt Image, Environment, Ports und Volumes automatisch vor. Danach
+          kannst du alles individuell anpassen.
+        </p>
+      </div>
 
       {error && (
         <div className="p-3 mb-6 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
@@ -656,18 +861,37 @@ export default function CreateO11Container() {
                 Volume Mounts
               </h2>
               <p className="text-xs text-vpn-muted mt-0.5">
-                Bind mount host directories into the container.
+                Bind mount host directories or named Docker volumes into the
+                container.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={addVolume}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5 text-vpn-primary" />
-              Add Volume
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowVolumeModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-vpn-primary" />
+                Named Volumes
+              </button>
+              <button
+                type="button"
+                onClick={addVolume}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-vpn-primary" />
+                Add Volume
+              </button>
+            </div>
           </div>
+
+          {namedVolumes.length > 0 && (
+            <div className="mb-3 text-xs text-vpn-muted">
+              Tip: To use a named volume, set source to its name (e.g.{" "}
+              <code className="text-vpn-primary/80">unionfs</code>) — no leading
+              slash.
+            </div>
+          )}
 
           {volumes.length === 0 ? (
             <p className="text-xs text-vpn-muted">No volumes configured.</p>
@@ -720,9 +944,231 @@ export default function CreateO11Container() {
           )}
         </div>
 
+        {/* Card: Devices */}
+        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-white">Devices</h2>
+              <p className="text-xs text-vpn-muted mt-0.5">
+                Pass host devices into the container (e.g.{" "}
+                <code className="text-vpn-primary/80">/dev/dri:/dev/dri</code>{" "}
+                for GPU transcoding).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={addDevice}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5 text-vpn-primary" />
+              Add Device
+            </button>
+          </div>
+
+          {devices.length === 0 ? (
+            <p className="text-xs text-vpn-muted">No devices configured.</p>
+          ) : (
+            <div className="space-y-2">
+              {devices.map((d, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={d}
+                    onChange={(e) => updateDevice(i, e.target.value)}
+                    placeholder="/dev/host:/dev/container (e.g. /dev/dri:/dev/dri)"
+                    className="flex-1 px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm font-mono placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeDevice(i)}
+                    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Card: Advanced Options (Hostname, Cap Add, Security Opt, Custom Labels) */}
+        <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6 space-y-5">
+          <h2 className="text-lg font-semibold text-white">Advanced Options</h2>
+
+          {/* Hostname */}
+          <div>
+            <label className="block text-sm font-medium text-vpn-muted mb-1">
+              Hostname
+            </label>
+            <p className="text-xs text-vpn-muted mb-2">
+              Override container hostname (ignored when network_mode is{" "}
+              <code>container:</code>).
+            </p>
+            <input
+              type="text"
+              value={hostname}
+              onChange={(e) => setHostname(e.target.value)}
+              placeholder="e.g. plex"
+              className="w-full px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+            />
+          </div>
+
+          {/* Cap Add */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted">
+                  Capabilities (cap_add)
+                </label>
+                <p className="text-xs text-vpn-muted mt-0.5">
+                  Linux capabilities — e.g. <code>SYS_ADMIN</code>,{" "}
+                  <code>NET_ADMIN</code>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addCapAdd}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-vpn-primary" />
+                Add
+              </button>
+            </div>
+            {capAdd.length === 0 ? (
+              <p className="text-xs text-vpn-muted">No capabilities.</p>
+            ) : (
+              <div className="space-y-2">
+                {capAdd.map((c, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={c}
+                      onChange={(e) => updateCapAdd(i, e.target.value)}
+                      placeholder="SYS_ADMIN"
+                      className="flex-1 px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm font-mono placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeCapAdd(i)}
+                      className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Security Opt */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted">
+                  Security Options (security_opt)
+                </label>
+                <p className="text-xs text-vpn-muted mt-0.5">
+                  e.g. <code>seccomp=unconfined</code>,{" "}
+                  <code>no-new-privileges:true</code>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addSecurityOpt}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-vpn-primary" />
+                Add
+              </button>
+            </div>
+            {securityOpt.length === 0 ? (
+              <p className="text-xs text-vpn-muted">No security options.</p>
+            ) : (
+              <div className="space-y-2">
+                {securityOpt.map((s, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={s}
+                      onChange={(e) => updateSecurityOpt(i, e.target.value)}
+                      placeholder="seccomp=unconfined"
+                      className="flex-1 px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm font-mono placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeSecurityOpt(i)}
+                      className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Custom Labels */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted">
+                  Custom Labels
+                </label>
+                <p className="text-xs text-vpn-muted mt-0.5">
+                  Additional Docker labels (Traefik, dockupdater, etc.)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addCustomLabel}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-vpn-primary" />
+                Add
+              </button>
+            </div>
+            {customLabels.length === 0 ? (
+              <p className="text-xs text-vpn-muted">No custom labels.</p>
+            ) : (
+              <div className="space-y-2">
+                {customLabels.map((entry, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={entry.key}
+                      onChange={(e) =>
+                        updateCustomLabel(i, "key", e.target.value)
+                      }
+                      placeholder="traefik.enable"
+                      className="flex-1 px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm font-mono placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                    />
+                    <span className="text-vpn-muted">=</span>
+                    <input
+                      type="text"
+                      value={entry.value}
+                      onChange={(e) =>
+                        updateCustomLabel(i, "value", e.target.value)
+                      }
+                      placeholder="true"
+                      className="flex-1 px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm font-mono placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeCustomLabel(i)}
+                      className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Card: File Upload */}
         <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-1">File Upload</h2>
+          <h2 className="text-lg font-semibold text-white mb-1">File Upload</h2>{" "}
           <p className="text-xs text-vpn-muted mb-4">
             Upload configuration or script files into the container. Set the{" "}
             <span className="text-vpn-primary">Container Target Path</span> to
@@ -730,7 +1176,6 @@ export default function CreateO11Container() {
             <span className="text-vpn-primary">"Generate Volume Mounts"</span>{" "}
             to auto-create the bind mounts.
           </p>
-
           {!form.name.trim() ? (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
               <p className="text-xs text-amber-400">
@@ -858,6 +1303,200 @@ export default function CreateO11Container() {
         finished={uploadProgress?.finished}
         error={uploadProgress?.error}
       />
+
+      {/* Named Volumes Modal */}
+      {showVolumeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setShowVolumeModal(false)}
+        >
+          <div
+            className="bg-vpn-card border border-vpn-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-vpn-border flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Named Docker Volumes
+                </h2>
+                <p className="text-xs text-vpn-muted mt-0.5">
+                  Manage volumes with custom drivers (e.g.{" "}
+                  <code className="text-vpn-primary/80">local-persist</code>)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVolumeModal(false)}
+                className="p-2 text-vpn-muted hover:text-white rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Existing volumes */}
+            <div className="p-6 border-b border-vpn-border">
+              <h3 className="text-sm font-semibold text-white mb-3">
+                Existing Volumes ({namedVolumes.length})
+              </h3>
+              {namedVolumes.length === 0 ? (
+                <p className="text-xs text-vpn-muted">No named volumes.</p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {namedVolumes.map((v) => (
+                    <div
+                      key={v.name}
+                      className="flex items-center justify-between gap-2 p-3 bg-vpn-input border border-vpn-border rounded-lg"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white text-sm font-mono truncate">
+                            {v.name}
+                          </span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20">
+                            {v.driver}
+                          </span>
+                        </div>
+                        {v.mountpoint && (
+                          <p className="text-xs text-vpn-muted truncate mt-0.5">
+                            {v.mountpoint}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteNamedVolume(v.name)}
+                        className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Create volume form */}
+            <div className="p-6 space-y-4">
+              <h3 className="text-sm font-semibold text-white">
+                Create New Volume
+              </h3>
+
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={newVolumeForm.name}
+                  onChange={(e) =>
+                    setNewVolumeForm({ ...newVolumeForm, name: e.target.value })
+                  }
+                  placeholder="e.g. unionfs"
+                  className="w-full px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-vpn-muted mb-1">
+                  Driver
+                </label>
+                <input
+                  type="text"
+                  value={newVolumeForm.driver}
+                  onChange={(e) =>
+                    setNewVolumeForm({
+                      ...newVolumeForm,
+                      driver: e.target.value,
+                    })
+                  }
+                  placeholder="local | local-persist | nfs"
+                  className="w-full px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm font-mono placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                />
+                <p className="text-xs text-vpn-muted mt-1">
+                  Note: Custom drivers like <code>local-persist</code> must be
+                  installed on the Docker host as a plugin.
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-vpn-muted">
+                    Driver Options
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addNewVolumeOpt}
+                    className="flex items-center gap-1.5 px-2 py-1 text-xs bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all"
+                  >
+                    <Plus className="w-3 h-3 text-vpn-primary" />
+                    Add Option
+                  </button>
+                </div>
+                <p className="text-xs text-vpn-muted mb-2">
+                  For local-persist:{" "}
+                  <code className="text-vpn-primary/80">mountpoint</code> ={" "}
+                  <code className="text-vpn-primary/80">/mnt</code>
+                </p>
+                <div className="space-y-2">
+                  {newVolumeForm.driver_opts.map((o, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={o.key}
+                        onChange={(e) =>
+                          updateNewVolumeOpt(i, "key", e.target.value)
+                        }
+                        placeholder="key (e.g. mountpoint)"
+                        className="flex-1 px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm font-mono placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                      />
+                      <span className="text-vpn-muted">=</span>
+                      <input
+                        type="text"
+                        value={o.value}
+                        onChange={(e) =>
+                          updateNewVolumeOpt(i, "value", e.target.value)
+                        }
+                        placeholder="value (e.g. /mnt)"
+                        className="flex-1 px-3 py-2 bg-vpn-input border border-vpn-border rounded-lg text-white text-sm font-mono placeholder-vpn-muted focus:outline-none focus:ring-2 focus:ring-vpn-primary focus:border-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewVolumeOpt(i)}
+                        className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-vpn-border flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowVolumeModal(false)}
+                className="px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all text-sm"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={submitNewVolume}
+                disabled={volumeBusy || !newVolumeForm.name.trim()}
+                className="px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {volumeBusy ? (
+                  <Loader2 className="w-4 h-4 text-vpn-primary animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 text-vpn-primary" />
+                )}
+                Create Volume
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

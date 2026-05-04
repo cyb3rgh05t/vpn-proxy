@@ -22,6 +22,11 @@ class O11Container(Base):
     volumes: Mapped[Optional[list[dict[str, Any]]]] = mapped_column(
         JSON, nullable=True, default=list
     )
+    devices: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)
+    hostname: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    custom_labels: Mapped[Optional[dict[str, str]]] = mapped_column(JSON, nullable=True)
+    cap_add: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)
+    security_opt: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)
     restart_policy: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True, default="unless-stopped"
     )

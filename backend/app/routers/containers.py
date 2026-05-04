@@ -121,6 +121,61 @@ def list_networks(
         raise HTTPException(status_code=503, detail="Docker is not available")
 
 
+@router.get("/volumes")
+def list_volumes(
+    current_user: User = Depends(get_current_user),
+):
+    """List available Docker named volumes."""
+    try:
+        return docker_service.list_docker_volumes()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
+
+
+@router.post("/volumes")
+def create_volume(
+    body: dict,
+    current_user: User = Depends(get_current_user),
+):
+    """Create a named Docker volume.
+
+    Body: { name, driver?, driver_opts?, labels? }
+    Example for local-persist:
+      { "name": "unionfs", "driver": "local-persist",
+        "driver_opts": {"mountpoint": "/mnt"} }
+    """
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Volume name is required")
+    try:
+        return docker_service.create_docker_volume(
+            name=name,
+            driver=(body.get("driver") or "local").strip(),
+            driver_opts=body.get("driver_opts") or None,
+            labels=body.get("labels") or None,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create volume: {e}")
+
+
+@router.delete("/volumes/{name}")
+def delete_volume(
+    name: str,
+    force: bool = False,
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a named Docker volume."""
+    try:
+        docker_service.remove_docker_volume(name, force=force)
+        return {"ok": True, "message": f"Volume '{name}' removed"}
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to remove volume: {e}")
+
+
 @router.get("/stacks")
 def list_stacks(
     current_user: User = Depends(get_current_user),
@@ -207,9 +262,15 @@ def create_o11_container(
             environment=body.get("environment"),
             ports=body.get("ports"),
             volumes=body.get("volumes"),
+            devices=body.get("devices") or None,
             restart_policy=body.get("restart_policy", "unless-stopped"),
             command=body.get("command"),
             labels=body.get("labels"),
+            hostname=body.get("hostname") or None,
+            custom_labels=body.get("custom_labels") or None,
+            cap_add=body.get("cap_add") or None,
+            security_opt=body.get("security_opt") or None,
+            extra_hosts=body.get("extra_hosts") or None,
         )
 
         # Save to database
@@ -220,8 +281,13 @@ def create_o11_container(
             environment=body.get("environment"),
             ports=body.get("ports"),
             volumes=body.get("volumes"),
+            devices=body.get("devices") or None,
             restart_policy=body.get("restart_policy", "unless-stopped"),
             command=body.get("command"),
+            hostname=body.get("hostname") or None,
+            custom_labels=body.get("custom_labels") or None,
+            cap_add=body.get("cap_add") or None,
+            security_opt=body.get("security_opt") or None,
             container_id=container_id,
             status="created",
             created_by=current_user.id,
@@ -766,7 +832,12 @@ def create_container(
             port_http_proxy=req.port_http_proxy,
             port_shadowsocks=req.port_shadowsocks,
             extra_ports=req.extra_ports,
+            extra_hosts=req.extra_hosts if req.extra_hosts else None,
             network_name=req.network_name,
+            devices=req.devices if req.devices else None,
+            hostname=req.hostname if req.hostname else None,
+            custom_labels=req.custom_labels if req.custom_labels else None,
+            cap_add=req.cap_add if req.cap_add else None,
             gluetun_image=gluetun_image,
             socks5_enabled=req.socks5_enabled,
             port_socks5=req.port_socks5,
@@ -807,7 +878,12 @@ def create_container(
         port_socks5=req.port_socks5,
         socks5_container_id=socks5_container_id,
         extra_ports=req.extra_ports,
+        extra_hosts=req.extra_hosts if req.extra_hosts else None,
         network_name=req.network_name,
+        devices=req.devices if req.devices else None,
+        hostname=req.hostname if req.hostname else None,
+        custom_labels=req.custom_labels if req.custom_labels else None,
+        cap_add=req.cap_add if req.cap_add else None,
         container_id=container_id,
         status="running",
         created_by=current_user.id,
@@ -1037,7 +1113,12 @@ def redeploy_container(
     target_port_http_proxy = update_data.get("port_http_proxy", c.port_http_proxy)
     target_port_shadowsocks = update_data.get("port_shadowsocks", c.port_shadowsocks)
     target_extra_ports = update_data.get("extra_ports", c.extra_ports)
+    target_extra_hosts = update_data.get("extra_hosts", c.extra_hosts)
     target_network_name = update_data.get("network_name", c.network_name)
+    target_devices = update_data.get("devices", c.devices)
+    target_hostname = update_data.get("hostname", c.hostname)
+    target_custom_labels = update_data.get("custom_labels", c.custom_labels)
+    target_cap_add = update_data.get("cap_add", c.cap_add)
     target_socks5_enabled = update_data.get("socks5_enabled", c.socks5_enabled)
     target_port_socks5 = update_data.get("port_socks5", c.port_socks5)
 
@@ -1052,7 +1133,12 @@ def redeploy_container(
             port_http_proxy=target_port_http_proxy,
             port_shadowsocks=target_port_shadowsocks,
             extra_ports=target_extra_ports if target_extra_ports else None,
+            extra_hosts=target_extra_hosts if target_extra_hosts else None,
             network_name=target_network_name,
+            devices=target_devices if target_devices else None,
+            hostname=target_hostname if target_hostname else None,
+            custom_labels=target_custom_labels if target_custom_labels else None,
+            cap_add=target_cap_add if target_cap_add else None,
             new_name=target_name if target_name and target_name != old_name else None,
             gluetun_image=gluetun_image,
             socks5_enabled=target_socks5_enabled,
@@ -1234,6 +1320,7 @@ def export_compose(
             port_http_proxy=c.port_http_proxy,
             port_shadowsocks=c.port_shadowsocks,
             extra_ports=c.extra_ports if c.extra_ports else None,
+            extra_hosts=c.extra_hosts if c.extra_hosts else None,
             network_name=c.network_name,
             gluetun_image=gluetun_image,
             socks5_enabled=c.socks5_enabled,

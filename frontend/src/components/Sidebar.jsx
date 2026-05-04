@@ -16,6 +16,8 @@ import {
   Container,
   Info,
   DatabaseBackup,
+  Grid3X3,
+  AppWindow,
 } from "lucide-react";
 import VpnShieldLogo from "./VpnShieldLogo";
 import { useState } from "react";
@@ -25,12 +27,14 @@ const navItemsTop = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/vpn-proxy", icon: Shield, label: "VPN-Proxy" },
   { to: "/o11", icon: Boxes, label: "OTT Panel" },
+  { to: "/apps", icon: AppWindow, label: "Apps" },
+  { to: "/app-catalog", icon: Grid3X3, label: "App Catalog" },
   { to: "/monitoring", icon: Activity, label: "Monitoring" },
 ];
 
 const navItemsBottom = [
   { to: "/create", icon: PlusCircle, label: "New VPN-Proxy" },
-  { to: "/create-o11", icon: PlusCircle, label: "New OTT Panel" },
+  { to: "/create-o11", icon: PlusCircle, label: "New App Container" },
   { to: "/backup", icon: DatabaseBackup, label: "Backup" },
   { to: "/settings", icon: Settings, label: "Settings" },
   { to: "/about", icon: Info, label: "About" },

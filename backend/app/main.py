@@ -201,6 +201,56 @@ def run_migrations():
                 logger.info(
                     "Migrated: added 'socks5_container_id' column to vpn_containers."
                 )
+            if "extra_hosts" not in columns:
+                conn.execute(
+                    sqlalchemy.text(
+                        "ALTER TABLE vpn_containers ADD COLUMN extra_hosts JSON"
+                    )
+                )
+                conn.commit()
+                logger.info("Migrated: added 'extra_hosts' column to vpn_containers.")
+            for col_name, col_type in (
+                ("devices", "JSON"),
+                ("hostname", "VARCHAR(255)"),
+                ("custom_labels", "JSON"),
+                ("cap_add", "JSON"),
+            ):
+                if col_name not in columns:
+                    conn.execute(
+                        sqlalchemy.text(
+                            f"ALTER TABLE vpn_containers ADD COLUMN {col_name} {col_type}"
+                        )
+                    )
+                    conn.commit()
+                    logger.info(
+                        "Migrated: added '%s' column to vpn_containers.", col_name
+                    )
+        if "o11_containers" in inspector.get_table_names():
+            o11_cols = [c["name"] for c in inspector.get_columns("o11_containers")]
+            if "devices" not in o11_cols:
+                conn.execute(
+                    sqlalchemy.text(
+                        "ALTER TABLE o11_containers ADD COLUMN devices JSON"
+                    )
+                )
+                conn.commit()
+                logger.info("Migrated: added 'devices' column to o11_containers.")
+            for col_name, col_type in (
+                ("hostname", "VARCHAR(255)"),
+                ("custom_labels", "JSON"),
+                ("cap_add", "JSON"),
+                ("security_opt", "JSON"),
+            ):
+                if col_name not in o11_cols:
+                    conn.execute(
+                        sqlalchemy.text(
+                            f"ALTER TABLE o11_containers ADD COLUMN {col_name} {col_type}"
+                        )
+                    )
+                    conn.commit()
+                    logger.info(
+                        "Migrated: added '%s' column to o11_containers.", col_name
+                    )
 
 
 def reconcile_socks5_sidecars():

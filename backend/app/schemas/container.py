@@ -14,7 +14,12 @@ class ContainerCreate(BaseModel):
     socks5_enabled: bool = False
     port_socks5: int = 1080
     extra_ports: list[dict] = []
+    extra_hosts: Optional[list[str]] = None
     network_name: Optional[str] = None
+    devices: Optional[list[str]] = None
+    hostname: Optional[str] = None
+    custom_labels: Optional[dict[str, str]] = None
+    cap_add: Optional[list[str]] = None
 
     @field_validator("name")
     @classmethod
@@ -46,8 +51,13 @@ class ContainerUpdate(BaseModel):
     socks5_enabled: Optional[bool] = None
     port_socks5: Optional[int] = None
     extra_ports: Optional[list[dict]] = None
+    extra_hosts: Optional[list[str]] = None
     description: Optional[str] = None
     network_name: Optional[str] = None
+    devices: Optional[list[str]] = None
+    hostname: Optional[str] = None
+    custom_labels: Optional[dict[str, str]] = None
+    cap_add: Optional[list[str]] = None
 
     @field_validator("name")
     @classmethod
@@ -78,9 +88,14 @@ class ContainerResponse(BaseModel):
     port_socks5: int = 1080
     socks5_container_id: Optional[str] = None
     extra_ports: Optional[list[dict]] = []
+    extra_hosts: Optional[list[str]] = None
     container_id: Optional[str] = None
     docker_name: Optional[str] = None
     network_name: Optional[str] = None
+    devices: Optional[list[str]] = None
+    hostname: Optional[str] = None
+    custom_labels: Optional[dict[str, str]] = None
+    cap_add: Optional[list[str]] = None
     ip_address: Optional[str] = None
     status: str
     created_by: Optional[int] = None

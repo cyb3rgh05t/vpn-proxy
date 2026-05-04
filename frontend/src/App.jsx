@@ -14,6 +14,8 @@ import Settings from "./pages/Settings";
 import Monitoring from "./pages/Monitoring";
 import About from "./pages/About";
 import Backup from "./pages/Backup";
+import AppCatalog from "./pages/AppCatalog";
+import Apps from "./pages/Apps";
 
 function App() {
   const { user, loading } = useAuth();
@@ -34,6 +36,8 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/vpn-proxy" element={<VpnProxy />} />
           <Route path="/o11" element={<O11 />} />
+          <Route path="/apps" element={<Apps />} />
+          <Route path="/app-catalog" element={<AppCatalog />} />
           <Route path="/create" element={<CreateContainer />} />
           <Route path="/create-o11" element={<CreateO11Container />} />
           <Route path="/containers/:id" element={<ContainerDetail />} />

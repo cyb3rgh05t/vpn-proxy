@@ -22,6 +22,7 @@ import {
   HardDrive,
   PlusCircle,
   Copy,
+  Grid3X3,
 } from "lucide-react";
 import api from "../services/api";
 import StatusBadge from "../components/StatusBadge";
@@ -633,11 +634,18 @@ export default function O11() {
               Refresh
             </button>
             <button
+              onClick={() => navigate("/app-catalog")}
+              className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
+            >
+              <Grid3X3 className="w-4 h-4 text-vpn-primary" />
+              Templates
+            </button>
+            <button
               onClick={() => navigate("/create-o11")}
               className="flex items-center gap-2 px-4 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg transition-all shadow-sm"
             >
               <PlusCircle className="w-4 h-4 text-vpn-primary" />
-              New O11
+              New OTT Container
             </button>
           </div>
         </div>

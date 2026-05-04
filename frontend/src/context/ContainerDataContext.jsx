@@ -45,6 +45,7 @@ export function ContainerDataProvider({ children }) {
   const [containers, setContainers] = useState([]);
   const [vpnInfoMap, setVpnInfoMap] = useState({});
   const [o11Containers, setO11Containers] = useState([]);
+  const [appContainers, setAppContainers] = useState([]);
   const [depsMap, setDepsMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -130,11 +131,22 @@ export function ContainerDataProvider({ children }) {
     const o11List = allDeps.filter(
       (c) => c.labels?.["managed-by"] === "vpn-proxy-o11",
     );
+    const appList = allDeps.filter(
+      (c) => c.labels?.["managed-by"] === "vpn-proxy-app",
+    );
 
     startTransition(() => {
       setO11Containers(
         sortContainersByStatusAndName(
           o11List.map((c) => ({
+            ...c,
+            description: o11DbInfo[c.name]?.description || null,
+          })),
+        ),
+      );
+      setAppContainers(
+        sortContainersByStatusAndName(
+          appList.map((c) => ({
             ...c,
             description: o11DbInfo[c.name]?.description || null,
           })),
@@ -381,6 +393,7 @@ export function ContainerDataProvider({ children }) {
         containers,
         vpnInfoMap,
         o11Containers,
+        appContainers,
         depsMap,
         loading,
         error,

@@ -177,7 +177,12 @@ def create_container(
     port_http_proxy: int = 8888,
     port_shadowsocks: int = 8388,
     extra_ports: list[dict] | None = None,
+    extra_hosts: list[str] | None = None,
     network_name: str | None = None,
+    devices: list[str] | None = None,
+    hostname: str | None = None,
+    custom_labels: dict[str, str] | None = None,
+    cap_add: list[str] | None = None,
     gluetun_image: str | None = None,
     socks5_enabled: bool = False,
     port_socks5: int = 1080,
@@ -242,24 +247,50 @@ def create_container(
                 ports[f"{container_port}/{protocol}"] = host
 
     try:
+        base_devices = ["/dev/net/tun:/dev/net/tun"]
+        if devices:
+            for d in devices:
+                if d and d not in base_devices:
+                    base_devices.append(d)
+        base_cap_add = ["NET_ADMIN"]
+        if cap_add:
+            for c in cap_add:
+                if c and c not in base_cap_add:
+                    base_cap_add.append(c)
+        base_labels = {
+            CONTAINER_LABEL: CONTAINER_LABEL_VALUE,
+            COMPOSE_PROJECT_LABEL: COMPOSE_PROJECT_VALUE,
+            "vpn-proxy-name": name,
+        }
+        if custom_labels:
+            for k, v in custom_labels.items():
+                if k and k not in base_labels:
+                    base_labels[k] = str(v)
         run_kwargs: dict[str, Any] = {
             "image": gluetun_image or settings.GLUETUN_IMAGE,
             "name": container_name,
-            "cap_add": ["NET_ADMIN"],
-            "devices": ["/dev/net/tun:/dev/net/tun"],
+            "cap_add": base_cap_add,
+            "devices": base_devices,
             "environment": env_vars,
             "ports": ports,
             "volumes": {gluetun_mount: {"bind": "/gluetun", "mode": "rw"}},
             "detach": True,
             "restart_policy": {"Name": "unless-stopped", "MaximumRetryCount": 0},
-            "labels": {
-                CONTAINER_LABEL: CONTAINER_LABEL_VALUE,
-                COMPOSE_PROJECT_LABEL: COMPOSE_PROJECT_VALUE,
-                "vpn-proxy-name": name,
-            },
+            "labels": base_labels,
         }
+        if hostname:
+            run_kwargs["hostname"] = hostname
         if network_name:
             run_kwargs["network"] = network_name
+        if extra_hosts:
+            # Docker SDK expects a dict {"hostname": "ip"}, input is ["hostname:ip", ...]
+            hosts_dict: dict[str, str] = {}
+            for entry in extra_hosts:
+                parts = entry.rsplit(":", 1)
+                if len(parts) == 2:
+                    hosts_dict[parts[0].strip()] = parts[1].strip()
+            if hosts_dict:
+                run_kwargs["extra_hosts"] = hosts_dict
         container = client.containers.run(**run_kwargs)
         return container.id  # type: ignore[union-attr]
     except APIError as e:
@@ -322,7 +353,12 @@ def redeploy_container(
     port_http_proxy: int = 8888,
     port_shadowsocks: int = 8388,
     extra_ports: list[dict] | None = None,
+    extra_hosts: list[str] | None = None,
     network_name: str | None = None,
+    devices: list[str] | None = None,
+    hostname: str | None = None,
+    custom_labels: dict[str, str] | None = None,
+    cap_add: list[str] | None = None,
     new_name: str | None = None,
     gluetun_image: str | None = None,
     socks5_enabled: bool = False,
@@ -406,7 +442,12 @@ def redeploy_container(
             port_http_proxy=port_http_proxy,
             port_shadowsocks=port_shadowsocks,
             extra_ports=extra_ports,
+            extra_hosts=extra_hosts,
             network_name=network_name,
+            devices=devices,
+            hostname=hostname,
+            custom_labels=custom_labels,
+            cap_add=cap_add,
             gluetun_image=gluetun_image,
             socks5_enabled=socks5_enabled,
             port_socks5=port_socks5,
@@ -1575,6 +1616,71 @@ def list_docker_stacks() -> list[str]:
     return sorted(stacks)
 
 
+def list_docker_volumes() -> list[dict]:
+    """List all Docker named volumes."""
+    client = _get_client()
+    result = []
+    try:
+        for vol in client.volumes.list():
+            result.append(
+                {
+                    "name": vol.name,
+                    "driver": vol.attrs.get("Driver", ""),
+                    "mountpoint": vol.attrs.get("Mountpoint", ""),
+                    "labels": vol.attrs.get("Labels") or {},
+                    "options": vol.attrs.get("Options") or {},
+                    "scope": vol.attrs.get("Scope", ""),
+                }
+            )
+    except Exception as e:
+        logger.error("Failed to list Docker volumes: %s", e)
+    return result
+
+
+def create_docker_volume(
+    name: str,
+    driver: str = "local",
+    driver_opts: dict | None = None,
+    labels: dict | None = None,
+) -> dict:
+    """Create a Docker named volume with optional driver and driver_opts.
+
+    Common usage:
+        create_docker_volume("unionfs", driver="local-persist",
+                             driver_opts={"mountpoint": "/mnt"})
+    """
+    client = _get_client()
+    try:
+        kwargs: dict[str, Any] = {"name": name, "driver": driver or "local"}
+        if driver_opts:
+            kwargs["driver_opts"] = {k: str(v) for k, v in driver_opts.items() if k}
+        if labels:
+            kwargs["labels"] = {k: str(v) for k, v in labels.items() if k}
+        vol = client.volumes.create(**kwargs)
+        return {
+            "name": vol.name,
+            "driver": vol.attrs.get("Driver", ""),
+            "mountpoint": vol.attrs.get("Mountpoint", ""),
+        }
+    except APIError as e:
+        logger.error("Failed to create volume %s: %s", name, e)
+        raise
+
+
+def remove_docker_volume(name: str, force: bool = False) -> bool:
+    """Remove a Docker named volume."""
+    client = _get_client()
+    try:
+        vol = client.volumes.get(name)
+        vol.remove(force=force)
+        return True
+    except NotFound:
+        return True
+    except APIError as e:
+        logger.error("Failed to remove volume %s: %s", name, e)
+        raise
+
+
 def create_o11_container(
     name: str,
     image: str,
@@ -1582,9 +1688,15 @@ def create_o11_container(
     environment: dict | None = None,
     ports: dict | None = None,
     volumes: list[dict] | None = None,
+    devices: list[str] | None = None,
     restart_policy: str = "unless-stopped",
     command: str | None = None,
     labels: dict | None = None,
+    hostname: str | None = None,
+    custom_labels: dict | None = None,
+    cap_add: list[str] | None = None,
+    security_opt: list[str] | None = None,
+    extra_hosts: list[str] | None = None,
 ) -> str | None:
     """Create a generic Docker container (O11 container).
     Returns the container ID.
@@ -1631,6 +1743,10 @@ def create_o11_container(
     }
     if labels:
         container_labels.update(labels)
+    if custom_labels:
+        for k, v in custom_labels.items():
+            if k:
+                container_labels[k] = str(v)
 
     run_kwargs: dict[str, Any] = {
         "image": image,
@@ -1645,6 +1761,27 @@ def create_o11_container(
 
     if network_mode and network_mode != "bridge":
         run_kwargs["network_mode"] = network_mode
+
+    if devices:
+        run_kwargs["devices"] = devices
+
+    if hostname and hostname.strip() and not network_mode.startswith("container:"):
+        run_kwargs["hostname"] = hostname.strip()
+
+    if cap_add:
+        run_kwargs["cap_add"] = [c for c in cap_add if c]
+
+    if security_opt:
+        run_kwargs["security_opt"] = [s for s in security_opt if s]
+
+    if extra_hosts and not network_mode.startswith("container:"):
+        hosts_dict: dict[str, str] = {}
+        for entry in extra_hosts:
+            parts = entry.rsplit(":", 1)
+            if len(parts) == 2:
+                hosts_dict[parts[0].strip()] = parts[1].strip()
+        if hosts_dict:
+            run_kwargs["extra_hosts"] = hosts_dict
 
     if command and command.strip():
         run_kwargs["command"] = command.strip()

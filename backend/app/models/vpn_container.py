@@ -25,7 +25,12 @@ class VPNContainer(Base):
     extra_ports: Mapped[Optional[list[dict[str, Any]]]] = mapped_column(
         JSON, nullable=True
     )
+    extra_hosts: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)
     network_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    devices: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)
+    hostname: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    custom_labels: Mapped[Optional[dict[str, str]]] = mapped_column(JSON, nullable=True)
+    cap_add: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)
     container_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="created")
     created_by: Mapped[Optional[int]] = mapped_column(

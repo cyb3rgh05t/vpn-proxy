@@ -11,3 +11,4 @@ data/
 venv/
 .venv/
 *.egg-info/
+AGENTS.md

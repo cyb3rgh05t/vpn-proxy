@@ -631,6 +631,7 @@ def redeploy_dependent(
             volumes=body.get("volumes"),
             restart_policy=body.get("restart_policy"),
             command=body.get("command"),
+            labels=body.get("labels"),
         )
 
         # Update database record if it exists
@@ -650,6 +651,8 @@ def redeploy_dependent(
                 record.restart_policy = body["restart_policy"]
             if body.get("command") is not None:
                 record.command = body["command"]
+            if body.get("labels") is not None:
+                record.custom_labels = body["labels"]
             record.container_id = new_container_id
             record.status = "running"
             db.commit()

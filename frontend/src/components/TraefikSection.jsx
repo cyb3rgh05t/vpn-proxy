@@ -70,6 +70,84 @@ export function traefikLabelsFrom(cfg, fallbackName) {
   return labels;
 }
 
+/**
+ * Parse a labels dict back into a TraefikConfig + remaining (non-traefik) labels.
+ * Returns { config, otherLabels } where:
+ *   - config matches DEFAULT_TRAEFIK shape; enabled is true if traefik.enable=true.
+ *   - otherLabels is a copy of labels with all traefik.* keys removed.
+ */
+export function parseTraefikLabels(labels) {
+  const otherLabels = {};
+  const cfg = { ...DEFAULT_TRAEFIK };
+  if (!labels || typeof labels !== "object") {
+    return { config: cfg, otherLabels };
+  }
+
+  let svc = "";
+  let domainVar = "";
+  let subdomain = "";
+  for (const [k, v] of Object.entries(labels)) {
+    if (!k.startsWith("traefik.") && !k.startsWith("traefik-")) {
+      otherLabels[k] = v;
+      continue;
+    }
+    if (k === "traefik.enable") {
+      cfg.enabled = String(v).toLowerCase() === "true";
+      continue;
+    }
+    if (k === "traefik.docker.network") {
+      cfg.network = String(v);
+      continue;
+    }
+    // Routers: traefik.http.routers.<svc>-rtr.<prop>
+    let m = k.match(
+      /^traefik\.http\.routers\.([^.]+?)-rtr\.(.+)$/,
+    );
+    if (m) {
+      svc = svc || m[1];
+      const prop = m[2];
+      if (prop === "entrypoints") cfg.entrypoint = String(v);
+      else if (prop === "rule") {
+        // Host(`<sub>.<domain>`)
+        const hm = String(v).match(/Host\(`([^`]+)`\)/);
+        if (hm) {
+          const host = hm[1];
+          const dot = host.indexOf(".");
+          if (dot > 0) {
+            subdomain = host.slice(0, dot);
+            domainVar = host.slice(dot + 1);
+          } else {
+            subdomain = host;
+          }
+        }
+      } else if (prop === "tls") {
+        cfg.tls = String(v).toLowerCase() === "true";
+      } else if (prop === "tls.certresolver") {
+        cfg.certResolver = String(v);
+      } else if (prop === "middlewares") {
+        cfg.middlewares = String(v);
+      }
+      continue;
+    }
+    // Services: traefik.http.services.<svc>-svc.loadbalancer.server.<prop>
+    m = k.match(
+      /^traefik\.http\.services\.([^.]+?)-svc\.loadbalancer\.server\.(port|scheme)$/,
+    );
+    if (m) {
+      svc = svc || m[1];
+      if (m[2] === "port") cfg.port = String(v);
+      else if (m[2] === "scheme") cfg.scheme = String(v);
+      continue;
+    }
+    // Unknown traefik.* label — keep as a custom label so we don't lose it.
+    otherLabels[k] = v;
+  }
+  if (svc) cfg.service = svc;
+  if (subdomain) cfg.subdomain = subdomain;
+  if (domainVar) cfg.domainVar = domainVar;
+  return { config: cfg, otherLabels };
+}
+
 export default function TraefikSection({
   value,
   onChange,

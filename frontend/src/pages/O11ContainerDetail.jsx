@@ -46,6 +46,11 @@ import api from "../services/api";
 import Spinner from "../components/Spinner";
 import StatusBadge from "../components/StatusBadge";
 import ActionProgressDialog from "../components/ActionProgressDialog";
+import TraefikSection, {
+  DEFAULT_TRAEFIK,
+  traefikLabelsFrom,
+  parseTraefikLabels,
+} from "../components/TraefikSection";
 import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
 import { useContainerData } from "../context/ContainerDataContext";
@@ -122,6 +127,8 @@ export default function O11ContainerDetail() {
   const [editVolumes, setEditVolumes] = useState([]);
   const [editCommand, setEditCommand] = useState("");
   const [editRestartPolicy, setEditRestartPolicy] = useState("unless-stopped");
+  const [editTraefik, setEditTraefik] = useState(DEFAULT_TRAEFIK);
+  const [editOtherLabels, setEditOtherLabels] = useState({});
   const [redeploying, setRedeploying] = useState(false);
 
   const fetchContainer = useCallback(async () => {
@@ -471,6 +478,10 @@ export default function O11ContainerDetail() {
         : container.cmd || "",
     );
     setEditRestartPolicy(container.restart_policy?.Name || "unless-stopped");
+    // Parse Traefik labels back into config + remember other labels so they survive a redeploy.
+    const parsed = parseTraefikLabels(container.labels || {});
+    setEditTraefik(parsed.config);
+    setEditOtherLabels(parsed.otherLabels);
     setEditingConfig(true);
   };
 
@@ -498,6 +509,10 @@ export default function O11ContainerDetail() {
         restart_policy: editRestartPolicy,
         command: editCommand.trim() || null,
       };
+      // Merge Traefik-generated labels with the existing non-traefik labels.
+      const traefikLabels = traefikLabelsFrom(editTraefik, name);
+      const mergedLabels = { ...editOtherLabels, ...traefikLabels };
+      payload.labels = mergedLabels;
       const res = await api.post(
         `/containers/dependents/${encodeURIComponent(name)}/redeploy`,
         payload,
@@ -1614,6 +1629,13 @@ export default function O11ContainerDetail() {
                     )}
                   </div>
                 </div>
+
+                {/* Traefik Reverse Proxy */}
+                <TraefikSection
+                  value={editTraefik}
+                  onChange={setEditTraefik}
+                  containerName={name}
+                />
 
                 {/* Environment Variables */}
                 <div>

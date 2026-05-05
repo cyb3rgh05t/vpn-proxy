@@ -34,6 +34,11 @@ import Spinner from "../components/Spinner";
 import CustomDropdown from "../components/CustomDropdown";
 import StatusBadge from "../components/StatusBadge";
 import ActionProgressDialog from "../components/ActionProgressDialog";
+import TraefikSection, {
+  DEFAULT_TRAEFIK,
+  traefikLabelsFrom,
+  parseTraefikLabels,
+} from "../components/TraefikSection";
 import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
 import { useContainerData } from "../context/ContainerDataContext";
@@ -76,6 +81,8 @@ export default function ContainerDetail() {
   const [editHttpProxyEnabled, setEditHttpProxyEnabled] = useState(true);
   const [editShadowsocksEnabled, setEditShadowsocksEnabled] = useState(false);
   const [editSocks5Enabled, setEditSocks5Enabled] = useState(false);
+  const [editTraefik, setEditTraefik] = useState(DEFAULT_TRAEFIK);
+  const [editOtherLabels, setEditOtherLabels] = useState({});
   const [redeploying, setRedeploying] = useState(false);
   const [configFiles, setConfigFiles] = useState([]);
   const [uploadingConfig, setUploadingConfig] = useState(false);
@@ -304,6 +311,10 @@ export default function ContainerDetail() {
     setEditShadowsocksPort(container.port_shadowsocks || 8388);
     setEditSocks5Port(container.port_socks5 || 1080);
     setEditSocks5Enabled(container.socks5_enabled || false);
+    // Parse Traefik labels and remember the rest as untouched custom labels.
+    const parsed = parseTraefikLabels(container.custom_labels || {});
+    setEditTraefik(parsed.config);
+    setEditOtherLabels(parsed.otherLabels);
     setEditingConfig(true);
     fetchConfigFiles();
   };
@@ -404,6 +415,12 @@ export default function ContainerDetail() {
         socks5_enabled: editSocks5Enabled,
         port_socks5: editSocks5Port,
       };
+      // Merge Traefik-generated labels with the existing non-traefik custom labels.
+      const traefikLabels = traefikLabelsFrom(
+        editTraefik,
+        nameChanged ? editName : container.name,
+      );
+      payload.custom_labels = { ...editOtherLabels, ...traefikLabels };
       if (nameChanged) {
         payload.name = editName;
       }
@@ -1579,6 +1596,15 @@ export default function ContainerDetail() {
                       Add Port Mapping
                     </button>
                   </div>
+                </div>
+
+                {/* Traefik Reverse Proxy */}
+                <div className="pt-4 border-t border-vpn-border">
+                  <TraefikSection
+                    value={editTraefik}
+                    onChange={setEditTraefik}
+                    containerName={editName || container.name}
+                  />
                 </div>
 
                 {/* VPN Config Files */}

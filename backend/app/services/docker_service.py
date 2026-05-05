@@ -1921,6 +1921,7 @@ def redeploy_o11_container(
     volumes: list[dict] | None = None,
     restart_policy: str | None = None,
     command: str | None = None,
+    labels: dict | None = None,
 ) -> str | None:
     """Redeploy an O11 container with updated configuration.
     Preserves network_mode, labels, capabilities etc. from the existing container.
@@ -1948,8 +1949,24 @@ def redeploy_o11_container(
 
     # Preserve existing container properties
     old_env = config.get("Env", [])
-    labels = config.get("Labels", {})
-    labels[COMPOSE_PROJECT_LABEL] = COMPOSE_PROJECT_VALUE
+    labels_existing = config.get("Labels", {}) or {}
+    if labels is not None:
+        # Replace all traefik.* labels with the provided ones, preserve the rest.
+        merged_labels = {
+            k: v
+            for k, v in labels_existing.items()
+            if not (
+                k.startswith("traefik.") or k.startswith("traefik-")
+            )
+        }
+        for k, v in labels.items():
+            merged_labels[k] = str(v)
+        labels_final = merged_labels
+    else:
+        labels_final = dict(labels_existing)
+    labels_final[COMPOSE_PROJECT_LABEL] = COMPOSE_PROJECT_VALUE
+    # Keep variable name `labels` consistent below
+    labels = labels_final
     cmd = config.get("Cmd")
     entrypoint = config.get("Entrypoint")
     hostname = config.get("Hostname", "")

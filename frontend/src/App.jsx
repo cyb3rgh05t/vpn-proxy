@@ -42,6 +42,7 @@ function App() {
           <Route path="/create-o11" element={<CreateO11Container />} />
           <Route path="/containers/:id" element={<ContainerDetail />} />
           <Route path="/o11/:name" element={<O11ContainerDetail />} />
+          <Route path="/apps/:name" element={<O11ContainerDetail />} />
           <Route path="/monitoring" element={<Monitoring />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/backup" element={<Backup />} />

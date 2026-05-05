@@ -5,7 +5,7 @@ import {
   useRef,
   startTransition,
 } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Play,
@@ -66,6 +66,8 @@ const getCategoryBadgeClasses = (category) => {
 export default function O11ContainerDetail() {
   const { name } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const backPath = location.pathname.startsWith("/apps") ? "/apps" : "/o11";
   const toast = useToast();
   const confirm = useConfirm();
   const {
@@ -128,11 +130,11 @@ export default function O11ContainerDetail() {
       );
       startTransition(() => setContainer(res.data));
     } catch {
-      navigate("/o11");
+      navigate(backPath);
     } finally {
       setLoading(false);
     }
-  }, [name, navigate]);
+  }, [name, navigate, backPath]);
 
   const fetchDbInfo = useCallback(async () => {
     try {
@@ -385,7 +387,7 @@ export default function O11ContainerDetail() {
       refreshO11Containers();
       setTimeout(() => {
         setActionProgress(null);
-        navigate("/o11");
+        navigate(backPath);
       }, 1200);
     } catch (err) {
       const msg = err.response?.data?.detail || "Failed to delete container";
@@ -601,11 +603,11 @@ export default function O11ContainerDetail() {
     <>
       <div>
         <button
-          onClick={() => navigate("/o11")}
+          onClick={() => navigate(backPath)}
           className="flex items-center gap-2 text-vpn-muted hover:text-white mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to O11
+          Back to {backPath === "/apps" ? "Apps" : "O11"}
         </button>
 
         {/* Header */}

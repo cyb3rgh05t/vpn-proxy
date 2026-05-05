@@ -815,11 +815,13 @@ def list_containers(
     status_map: dict[str, dict] = {}
     container_ids = [c.container_id for c in containers if c.container_id]
     if container_ids:
+
         def _fetch(cid: str):
             try:
                 return cid, docker_service.get_container_status(cid)
             except Exception:
                 return cid, None
+
         with ThreadPoolExecutor(max_workers=min(10, len(container_ids))) as ex:
             for cid, info in ex.map(_fetch, container_ids):
                 if info is not None:

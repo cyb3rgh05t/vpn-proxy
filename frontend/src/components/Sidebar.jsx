@@ -2,7 +2,6 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard,
-  PlusCircle,
   Settings,
   LogOut,
   Shield,
@@ -33,8 +32,6 @@ const navItemsTop = [
 ];
 
 const navItemsBottom = [
-  { to: "/create", icon: PlusCircle, label: "New VPN-Proxy" },
-  { to: "/create-o11", icon: PlusCircle, label: "New OTT / App" },
   { to: "/backup", icon: DatabaseBackup, label: "Backup" },
   { to: "/settings", icon: Settings, label: "Settings" },
   { to: "/about", icon: Info, label: "About" },

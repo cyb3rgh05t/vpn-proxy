@@ -52,20 +52,50 @@ export default function VpnProxy() {
 
   // Scroll to container card when navigated with hash
   useEffect(() => {
+    scrolledRef.current = false;
+  }, [location.hash]);
+
+  useEffect(() => {
     if (scrolledRef.current || !location.hash || loading) return;
-    const el = document.getElementById(location.hash.slice(1));
-    if (el) {
-      scrolledRef.current = true;
-      setTimeout(() => {
+    const hashId = location.hash.slice(1); // e.g. "container-42"
+    const idMatch = hashId.match(/^container-(\d+)$/);
+    if (idMatch) {
+      const targetId = Number(idMatch[1]);
+      const target = containers.find((c) => c.id === targetId);
+      if (target) {
+        // Make sure filters don't hide the target card
+        if (statusFilter) setStatusFilter(null);
+        // Switch to the category tab where this container lives
+        let targetTab = "vpn";
+        if (target.socks5_enabled) targetTab = "socks5";
+        else if (
+          target.config?.HTTPPROXY?.toLowerCase() === "on" ||
+          target.config?.SHADOWSOCKS?.toLowerCase() === "on"
+        )
+          targetTab = "proxy";
+        if (targetTab !== activeCategoryTab) {
+          setActiveCategoryTab(targetTab);
+        }
+      }
+    }
+    // Run after render of the (possibly newly switched) tab
+    const tryScroll = () => {
+      const el = document.getElementById(hashId);
+      if (el) {
+        scrolledRef.current = true;
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("ring-2", "ring-vpn-primary", "rounded-xl");
         setTimeout(
-          () => el.classList.remove("ring-2", "ring-vpn-primary", "rounded-xl"),
+          () =>
+            el.classList.remove("ring-2", "ring-vpn-primary", "rounded-xl"),
           2000,
         );
-      }, 100);
-    }
-  }, [location.hash, loading]);
+      }
+    };
+    const t = setTimeout(tryScroll, 150);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.hash, loading, containers, activeCategoryTab]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
@@ -786,8 +816,15 @@ export default function VpnProxy() {
             </div>
 
             {visibleContainers.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {visibleContainers.map((container) => (
+              (() => {
+                const isStopped = (c) =>
+                  ["exited", "created", "removed", "dead"].includes(c.status);
+                const activeItems = visibleContainers.filter(
+                  (c) => !isStopped(c),
+                );
+                const stoppedItems = visibleContainers.filter(isStopped);
+
+                const renderCard = (container) => (
                   <div
                     key={container.id}
                     id={`container-${container.id}`}
@@ -820,8 +857,45 @@ export default function VpnProxy() {
                       onRefresh={refreshContainers}
                     />
                   </div>
-                ))}
-              </div>
+                );
+
+                return (
+                  <div className="space-y-8">
+                    {activeItems.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Wifi className="w-4 h-4 text-emerald-400" />
+                          <h3 className="text-sm font-semibold uppercase tracking-wide text-emerald-400">
+                            Active
+                          </h3>
+                          <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full">
+                            {activeItems.length}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {activeItems.map(renderCard)}
+                        </div>
+                      </div>
+                    )}
+                    {stoppedItems.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <WifiOff className="w-4 h-4 text-red-400" />
+                          <h3 className="text-sm font-semibold uppercase tracking-wide text-red-400">
+                            Stopped
+                          </h3>
+                          <span className="text-xs text-vpn-muted bg-vpn-input px-2 py-0.5 rounded-full">
+                            {stoppedItems.length}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 opacity-75">
+                          {stoppedItems.map(renderCard)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
             ) : (
               <div className="text-center py-12 bg-vpn-card border border-vpn-border rounded-2xl">
                 <Server className="w-12 h-12 text-vpn-border mx-auto mb-3" />

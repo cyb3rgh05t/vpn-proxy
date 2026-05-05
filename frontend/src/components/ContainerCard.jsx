@@ -154,12 +154,6 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
     container.status,
   );
 
-  const serverLocation =
-    container.config?.SERVER_COUNTRIES ||
-    container.config?.SERVER_CITIES ||
-    container.config?.SERVER_REGIONS ||
-    null;
-
   // Parse predefined locations into array
   const predefinedLocations = [];
   if (container.config?.SERVER_COUNTRIES)
@@ -239,7 +233,7 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
           </div>
 
           {/* IP & Location Row */}
-          {(vpnInfo?.public_ip || serverLocation) && (
+          {(vpnInfo?.public_ip || vpnInfo?.country) && (
             <div className="flex items-center gap-3 flex-wrap">
               {vpnInfo?.public_ip && (
                 <div className="flex items-center gap-1.5 text-xs">
@@ -249,12 +243,12 @@ export default function ContainerCard({ container, vpnInfo, onRefresh }) {
                   </span>
                 </div>
               )}
-              {(vpnInfo?.country || serverLocation) && (
-                <div className="flex items-center gap-1 text-xs text-vpn-muted">
-                  <MapPin className="w-3 h-3" />
-                  <span>{vpnInfo?.country || serverLocation}</span>
+              {vpnInfo?.country && (
+                <div className="flex items-center gap-1 text-xs text-vpn-muted min-w-0">
+                  <MapPin className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">{vpnInfo.country}</span>
                   {vpnInfo?.region && (
-                    <span className="text-vpn-muted/60">
+                    <span className="text-vpn-muted/60 truncate">
                       · {vpnInfo.region}
                     </span>
                   )}

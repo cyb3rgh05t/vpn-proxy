@@ -127,10 +127,18 @@ export default function Dashboard() {
           proxyCount: 0,
           httpProxyCount: 0,
           shadowsocksCount: 0,
+          socks5Count: 0,
           clientCount: 0,
           portForwardCount: 0,
           ips: new Set(),
           locationMap: {},
+          countriesMap: {},
+          citiesMap: {},
+          ipsMap: {},
+          httpProxyItems: [],
+          shadowsocksItems: [],
+          socks5Items: [],
+          portForwardItems: [],
           connectedItems: [],
           disconnectedItems: [],
           unhealthyItems: [],
@@ -158,10 +166,28 @@ export default function Dashboard() {
         map[p].unhealthy++;
         map[p].unhealthyItems.push({ id: c.id, name: c.name });
       }
-      if (info?.country) map[p].countries.add(info.country);
-      if (info?.region) map[p].cities.add(info.region);
-      if (info?.public_ip) map[p].ips.add(info.public_ip);
-      if (info?.port_forwarded) map[p].portForwardCount++;
+      if (info?.country) {
+        map[p].countries.add(info.country);
+        if (!map[p].countriesMap[info.country])
+          map[p].countriesMap[info.country] = [];
+        map[p].countriesMap[info.country].push({ id: c.id, name: c.name });
+      }
+      if (info?.region) {
+        map[p].cities.add(info.region);
+        if (!map[p].citiesMap[info.region])
+          map[p].citiesMap[info.region] = [];
+        map[p].citiesMap[info.region].push({ id: c.id, name: c.name });
+      }
+      if (info?.public_ip) {
+        map[p].ips.add(info.public_ip);
+        if (!map[p].ipsMap[info.public_ip])
+          map[p].ipsMap[info.public_ip] = [];
+        map[p].ipsMap[info.public_ip].push({ id: c.id, name: c.name });
+      }
+      if (info?.port_forwarded) {
+        map[p].portForwardCount++;
+        map[p].portForwardItems.push({ id: c.id, name: c.name });
+      }
       if (c.config?.SERVER_COUNTRIES)
         c.config.SERVER_COUNTRIES.split(",").forEach((s) => {
           const loc = s.trim();
@@ -181,10 +207,16 @@ export default function Dashboard() {
       if (c.config?.HTTPPROXY?.toLowerCase() === "on") {
         map[p].proxyCount++;
         map[p].httpProxyCount++;
+        map[p].httpProxyItems.push({ id: c.id, name: c.name });
       }
       if (c.config?.SHADOWSOCKS?.toLowerCase() === "on") {
         map[p].proxyCount++;
         map[p].shadowsocksCount++;
+        map[p].shadowsocksItems.push({ id: c.id, name: c.name });
+      }
+      if (c.socks5_enabled) {
+        map[p].socks5Count++;
+        map[p].socks5Items.push({ id: c.id, name: c.name });
       }
       const deps = depsMap[c.id] || [];
       map[p].clientCount += deps.length;
@@ -199,6 +231,9 @@ export default function Dashboard() {
         cities: [...data.cities],
         ips: [...data.ips],
         locationMap: data.locationMap,
+        countriesMap: data.countriesMap,
+        citiesMap: data.citiesMap,
+        ipsMap: data.ipsMap,
       }));
   }, [containers, vpnInfoMap, depsMap]);
 
@@ -768,56 +803,241 @@ export default function Dashboard() {
                           )}
 
                           {/* Info badges */}
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {p.countries.length > 0 && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
-                                <MapPin className="w-2.5 h-2.5" />
-                                {p.countries.length}{" "}
-                                {p.countries.length === 1
-                                  ? "country"
-                                  : "countries"}
-                              </span>
-                            )}
-                            {p.cities.length > 0 && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-input text-vpn-muted border border-vpn-border/50">
-                                <Globe className="w-2.5 h-2.5" />
-                                {p.cities.length}{" "}
-                                {p.cities.length === 1 ? "region" : "regions"}
-                              </span>
-                            )}
-                            {p.httpProxyCount > 0 && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                <Network className="w-2.5 h-2.5" />
-                                {p.httpProxyCount} HTTP proxy
-                              </span>
-                            )}
-                            {p.shadowsocksCount > 0 && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                <Network className="w-2.5 h-2.5" />
-                                {p.shadowsocksCount} Shadowsocks
-                              </span>
-                            )}
-                            {p.clientCount > 0 && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                <Users className="w-2.5 h-2.5" />
-                                {p.clientCount}{" "}
-                                {p.clientCount === 1 ? "client" : "clients"}
-                              </span>
-                            )}
-                            {p.portForwardCount > 0 && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20">
-                                <ArrowUpDown className="w-2.5 h-2.5" />
-                                {p.portForwardCount} forwarded
-                              </span>
-                            )}
-                            {p.ips.length > 0 && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                <Globe className="w-2.5 h-2.5" />
-                                {p.ips.length}{" "}
-                                {p.ips.length === 1 ? "IP" : "IPs"}
-                              </span>
-                            )}
-                          </div>
+                          {(() => {
+                            const BadgeWithTooltip = ({
+                              children,
+                              tooltip,
+                              className,
+                            }) => (
+                              <div className="group/badge relative">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] cursor-default ${className}`}
+                                >
+                                  {children}
+                                </span>
+                                {tooltip && (
+                                  <div className="absolute bottom-full left-0 mb-1 hidden group-hover/badge:block z-50">
+                                    <div className="bg-vpn-card border border-vpn-border rounded-lg shadow-xl p-2 min-w-[160px]">
+                                      {tooltip}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                            const ContainerLinkList = ({ items }) => (
+                              <div className="space-y-0.5">
+                                {items.map((item) => (
+                                  <button
+                                    key={item.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(
+                                        `/vpn-proxy#container-${item.id}`,
+                                      );
+                                    }}
+                                    className="flex items-center gap-1.5 w-full px-1.5 py-1 rounded text-[10px] text-vpn-text hover:bg-vpn-bg/60 hover:text-vpn-primary transition-colors text-left"
+                                  >
+                                    <Server className="w-2.5 h-2.5 flex-shrink-0" />
+                                    <span className="truncate">
+                                      {item.name}
+                                    </span>
+                                    <ChevronRight className="w-2.5 h-2.5 ml-auto opacity-50 flex-shrink-0" />
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                            const GroupedTooltip = ({ map: m, label }) => (
+                              <div className="space-y-1.5">
+                                <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium">
+                                  {label}
+                                </p>
+                                {Object.entries(m).map(([key, items]) => (
+                                  <div key={key}>
+                                    <p className="text-[9px] text-vpn-muted px-1.5 mb-0.5">
+                                      {key}
+                                    </p>
+                                    <ContainerLinkList items={items} />
+                                  </div>
+                                ))}
+                              </div>
+                            );
+
+                            const reachBadges = (
+                              <>
+                                {p.countries.length > 0 && (
+                                  <BadgeWithTooltip
+                                    className="bg-vpn-input text-vpn-muted border border-vpn-border/50"
+                                    tooltip={
+                                      <GroupedTooltip
+                                        m={p.countriesMap}
+                                        label="Countries"
+                                      />
+                                    }
+                                  >
+                                    <MapPin className="w-2.5 h-2.5" />
+                                    {p.countries.length}{" "}
+                                    {p.countries.length === 1
+                                      ? "country"
+                                      : "countries"}
+                                  </BadgeWithTooltip>
+                                )}
+                                {p.cities.length > 0 && (
+                                  <BadgeWithTooltip
+                                    className="bg-vpn-input text-vpn-muted border border-vpn-border/50"
+                                    tooltip={
+                                      <GroupedTooltip
+                                        m={p.citiesMap}
+                                        label="Regions"
+                                      />
+                                    }
+                                  >
+                                    <Globe className="w-2.5 h-2.5" />
+                                    {p.cities.length}{" "}
+                                    {p.cities.length === 1
+                                      ? "region"
+                                      : "regions"}
+                                  </BadgeWithTooltip>
+                                )}
+                                {p.ips.length > 0 && (
+                                  <BadgeWithTooltip
+                                    className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                    tooltip={
+                                      <GroupedTooltip
+                                        m={p.ipsMap}
+                                        label="Public IPs"
+                                      />
+                                    }
+                                  >
+                                    <Globe className="w-2.5 h-2.5" />
+                                    {p.ips.length}{" "}
+                                    {p.ips.length === 1 ? "IP" : "IPs"}
+                                  </BadgeWithTooltip>
+                                )}
+                              </>
+                            );
+
+                            const proxyBadges = (
+                              <>
+                                {p.httpProxyCount > 0 && (
+                                  <BadgeWithTooltip
+                                    className="bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                    tooltip={
+                                      <>
+                                        <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1">
+                                          HTTP proxy
+                                        </p>
+                                        <ContainerLinkList
+                                          items={p.httpProxyItems}
+                                        />
+                                      </>
+                                    }
+                                  >
+                                    <Network className="w-2.5 h-2.5" />
+                                    {p.httpProxyCount} HTTP proxy
+                                  </BadgeWithTooltip>
+                                )}
+                                {p.shadowsocksCount > 0 && (
+                                  <BadgeWithTooltip
+                                    className="bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                    tooltip={
+                                      <>
+                                        <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1">
+                                          Shadowsocks
+                                        </p>
+                                        <ContainerLinkList
+                                          items={p.shadowsocksItems}
+                                        />
+                                      </>
+                                    }
+                                  >
+                                    <Network className="w-2.5 h-2.5" />
+                                    {p.shadowsocksCount} Shadowsocks
+                                  </BadgeWithTooltip>
+                                )}
+                                {p.socks5Count > 0 && (
+                                  <BadgeWithTooltip
+                                    className="bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                    tooltip={
+                                      <>
+                                        <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1">
+                                          SOCKS5
+                                        </p>
+                                        <ContainerLinkList
+                                          items={p.socks5Items}
+                                        />
+                                      </>
+                                    }
+                                  >
+                                    <Shield className="w-2.5 h-2.5" />
+                                    {p.socks5Count} SOCKS5
+                                  </BadgeWithTooltip>
+                                )}
+                                {p.portForwardCount > 0 && (
+                                  <BadgeWithTooltip
+                                    className="bg-vpn-primary/10 text-vpn-primary border border-vpn-primary/20"
+                                    tooltip={
+                                      <>
+                                        <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1">
+                                          Port forwarded
+                                        </p>
+                                        <ContainerLinkList
+                                          items={p.portForwardItems}
+                                        />
+                                      </>
+                                    }
+                                  >
+                                    <ArrowUpDown className="w-2.5 h-2.5" />
+                                    {p.portForwardCount} forwarded
+                                  </BadgeWithTooltip>
+                                )}
+                                {p.clientCount > 0 && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                    <Users className="w-2.5 h-2.5" />
+                                    {p.clientCount}{" "}
+                                    {p.clientCount === 1 ? "client" : "clients"}
+                                  </span>
+                                )}
+                              </>
+                            );
+
+                            const hasReach =
+                              p.countries.length > 0 ||
+                              p.cities.length > 0 ||
+                              p.ips.length > 0;
+                            const hasProxy =
+                              p.httpProxyCount > 0 ||
+                              p.shadowsocksCount > 0 ||
+                              p.socks5Count > 0 ||
+                              p.portForwardCount > 0 ||
+                              p.clientCount > 0;
+
+                            return (
+                              <div className="space-y-2">
+                                {hasReach && (
+                                  <div>
+                                    <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
+                                      <Globe className="w-2.5 h-2.5" />
+                                      Reach (live)
+                                    </p>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {reachBadges}
+                                    </div>
+                                  </div>
+                                )}
+                                {hasProxy && (
+                                  <div>
+                                    <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
+                                      <Network className="w-2.5 h-2.5" />
+                                      Proxies & Routing
+                                    </p>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {proxyBadges}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                           {/* Server locations with containers */}
                           {Object.keys(p.locationMap).length > 0 && (
                             <div className="mt-2 pt-2 border-t border-vpn-border/30 space-y-1.5">

@@ -1723,8 +1723,10 @@ def generate_o11_compose_yaml(
     if network_mode and network_mode != "bridge":
         service["network_mode"] = network_mode
 
-    if hostname and hostname.strip() and not (
-        network_mode and network_mode.startswith("container:")
+    if (
+        hostname
+        and hostname.strip()
+        and not (network_mode and network_mode.startswith("container:"))
     ):
         service["hostname"] = hostname.strip()
 

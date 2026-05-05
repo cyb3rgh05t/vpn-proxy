@@ -614,18 +614,14 @@ def change_dependent_network_mode(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get(
-    "/dependents/{container_name}/compose", response_class=PlainTextResponse
-)
+@router.get("/dependents/{container_name}/compose", response_class=PlainTextResponse)
 def export_o11_compose(
     container_name: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Export an O11/App container as docker-compose YAML."""
-    record = (
-        db.query(O11Container).filter(O11Container.name == container_name).first()
-    )
+    record = db.query(O11Container).filter(O11Container.name == container_name).first()
     if not record:
         raise HTTPException(status_code=404, detail="Container not found")
     try:

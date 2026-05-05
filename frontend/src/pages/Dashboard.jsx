@@ -350,6 +350,12 @@ export default function Dashboard() {
     </div>
   );
 
+  const isFirstLoad =
+    loading && containers.length === 0 && o11Containers.length === 0;
+  const isEmpty =
+    !loading && containers.length === 0 && o11Containers.length === 0;
+  const hasContent = !isFirstLoad && !isEmpty;
+
   return (
     <>
       <div>
@@ -484,7 +490,7 @@ export default function Dashboard() {
         </div>
 
         {/* Skeleton loader on first load */}
-        {loading && containers.length === 0 && o11Containers.length === 0 && (
+        {isFirstLoad && (
           <div className="space-y-6">
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -500,7 +506,7 @@ export default function Dashboard() {
         )}
 
         {/* Empty state on a fresh install */}
-        {!loading && containers.length === 0 && o11Containers.length === 0 && (
+        {isEmpty && (
           <EmptyState
             icon={Server}
             title="Welcome to VPN Proxy"
@@ -554,13 +560,7 @@ export default function Dashboard() {
         )}
 
         {/* Stats Row */}
-        {!(loading && containers.length === 0 && o11Containers.length === 0) &&
-          !(
-            !loading &&
-            containers.length === 0 &&
-            o11Containers.length === 0
-          ) &&
-          visibility.stats && (
+        {hasContent && visibility.stats && (
             <div className="mb-6">
               <div
                 className={`grid gap-3 ${

@@ -1628,6 +1628,7 @@ def generate_compose_yaml(
     port_http_proxy: int = 8888,
     port_shadowsocks: int = 8388,
     extra_ports: list[dict] | None = None,
+    extra_hosts: list[str] | None = None,
     network_name: str | None = None,
     gluetun_image: str | None = None,
     socks5_enabled: bool = False,
@@ -1674,6 +1675,8 @@ def generate_compose_yaml(
     }
     if port_list:
         service["ports"] = port_list
+    if extra_hosts:
+        service["extra_hosts"] = list(extra_hosts)
     if network_name:
         service["networks"] = [network_name]
 
@@ -1959,12 +1962,10 @@ def redeploy_o11_container(
         }
         for k, v in labels.items():
             merged_labels[k] = str(v)
-        labels_final = merged_labels
+        final_labels = merged_labels
     else:
-        labels_final = dict(labels_existing)
-    labels_final[COMPOSE_PROJECT_LABEL] = COMPOSE_PROJECT_VALUE
-    # Keep variable name `labels` consistent below
-    labels = labels_final
+        final_labels = dict(labels_existing)
+    final_labels[COMPOSE_PROJECT_LABEL] = COMPOSE_PROJECT_VALUE
     cmd = config.get("Cmd")
     entrypoint = config.get("Entrypoint")
     hostname = config.get("Hostname", "")
@@ -2040,7 +2041,7 @@ def redeploy_o11_container(
         "command": new_cmd,
         "entrypoint": entrypoint,
         "environment": new_env,
-        "labels": labels,
+        "labels": final_labels,
         "network_mode": (
             network_mode if network_mode and network_mode != "default" else None
         ),

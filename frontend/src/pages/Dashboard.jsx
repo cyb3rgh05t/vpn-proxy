@@ -174,14 +174,12 @@ export default function Dashboard() {
       }
       if (info?.region) {
         map[p].cities.add(info.region);
-        if (!map[p].citiesMap[info.region])
-          map[p].citiesMap[info.region] = [];
+        if (!map[p].citiesMap[info.region]) map[p].citiesMap[info.region] = [];
         map[p].citiesMap[info.region].push({ id: c.id, name: c.name });
       }
       if (info?.public_ip) {
         map[p].ips.add(info.public_ip);
-        if (!map[p].ipsMap[info.public_ip])
-          map[p].ipsMap[info.public_ip] = [];
+        if (!map[p].ipsMap[info.public_ip]) map[p].ipsMap[info.public_ip] = [];
         map[p].ipsMap[info.public_ip].push({ id: c.id, name: c.name });
       }
       if (info?.port_forwarded) {
@@ -851,7 +849,7 @@ export default function Dashboard() {
                                 <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium">
                                   {label}
                                 </p>
-                                {Object.entries(m).map(([key, items]) => (
+                                {Object.entries(m || {}).map(([key, items]) => (
                                   <div key={key}>
                                     <p className="text-[9px] text-vpn-muted px-1.5 mb-0.5">
                                       {key}
@@ -1039,14 +1037,14 @@ export default function Dashboard() {
                             );
                           })()}
                           {/* Server locations with containers */}
-                          {Object.keys(p.locationMap).length > 0 && (
+                          {Object.keys(p.locationMap || {}).length > 0 && (
                             <div className="mt-2 pt-2 border-t border-vpn-border/30 space-y-1.5">
                               <p className="text-[9px] text-vpn-muted/60 uppercase tracking-wider font-medium flex items-center gap-1">
                                 <MapPin className="w-2.5 h-2.5" />
                                 Server Locations
                               </p>
                               <div className="flex flex-wrap gap-1">
-                                {Object.entries(p.locationMap)
+                                {Object.entries(p.locationMap || {})
                                   .slice(0, 8)
                                   .map(([loc, items]) => (
                                     <div
@@ -1090,9 +1088,12 @@ export default function Dashboard() {
                                       </div>
                                     </div>
                                   ))}
-                                {Object.keys(p.locationMap).length > 8 && (
+                                {Object.keys(p.locationMap || {}).length >
+                                  8 && (
                                   <span className="text-[9px] text-vpn-muted px-1.5 py-0.5">
-                                    +{Object.keys(p.locationMap).length - 8}{" "}
+                                    +
+                                    {Object.keys(p.locationMap || {}).length -
+                                      8}{" "}
                                     more
                                   </span>
                                 )}

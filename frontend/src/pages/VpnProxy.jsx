@@ -86,8 +86,7 @@ export default function VpnProxy() {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("ring-2", "ring-vpn-primary", "rounded-xl");
         setTimeout(
-          () =>
-            el.classList.remove("ring-2", "ring-vpn-primary", "rounded-xl"),
+          () => el.classList.remove("ring-2", "ring-vpn-primary", "rounded-xl"),
           2000,
         );
       }

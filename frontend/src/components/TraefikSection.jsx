@@ -131,8 +131,8 @@ export default function TraefikSection({
                 className={baseInput}
               />
               <p className="text-[11px] text-vpn-muted/70 mt-1">
-                Used in <code>{`<svc>-rtr`}</code> /{" "}
-                <code>{`<svc>-svc`}</code>. Defaults to container name.
+                Used in <code>{`<svc>-rtr`}</code> / <code>{`<svc>-svc`}</code>.
+                Defaults to container name.
               </p>
             </div>
 

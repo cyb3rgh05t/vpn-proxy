@@ -34,8 +34,7 @@ const navItemsTop = [
 
 const navItemsBottom = [
   { to: "/create", icon: PlusCircle, label: "New VPN-Proxy" },
-  { to: "/create-o11", icon: PlusCircle, label: "New OTT Panel" },
-  { to: "/create-o11?type=app", icon: PlusCircle, label: "New App" },
+  { to: "/create-o11", icon: PlusCircle, label: "New OTT / App" },
   { to: "/backup", icon: DatabaseBackup, label: "Backup" },
   { to: "/settings", icon: Settings, label: "Settings" },
   { to: "/about", icon: Info, label: "About" },

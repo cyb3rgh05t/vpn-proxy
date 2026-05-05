@@ -12,9 +12,7 @@ export default function EmptyHint({ icon: Icon = Inbox, label, hint }) {
       <Icon className="w-5 h-5 text-vpn-muted/70 flex-shrink-0" />
       <div className="text-sm">
         <div className="font-medium text-vpn-muted">{label}</div>
-        {hint && (
-          <div className="text-xs text-vpn-muted/70 mt-0.5">{hint}</div>
-        )}
+        {hint && <div className="text-xs text-vpn-muted/70 mt-0.5">{hint}</div>}
       </div>
     </div>
   );

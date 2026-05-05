@@ -614,6 +614,41 @@ def change_dependent_network_mode(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get(
+    "/dependents/{container_name}/compose", response_class=PlainTextResponse
+)
+def export_o11_compose(
+    container_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export an O11/App container as docker-compose YAML."""
+    record = (
+        db.query(O11Container).filter(O11Container.name == container_name).first()
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Container not found")
+    try:
+        yaml_content = docker_service.generate_o11_compose_yaml(
+            name=record.name,
+            image=record.image or "",
+            network_mode=record.network_mode or "bridge",
+            environment=record.environment or None,
+            ports=record.ports if record.ports else None,  # type: ignore[arg-type]
+            volumes=record.volumes or None,
+            devices=record.devices or None,
+            restart_policy=record.restart_policy or "unless-stopped",
+            command=record.command or None,
+            hostname=record.hostname or None,
+            custom_labels=record.custom_labels or None,
+            cap_add=record.cap_add or None,
+            security_opt=record.security_opt or None,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Docker is not available")
+    return yaml_content
+
+
 @router.post("/dependents/{container_name}/redeploy")
 def redeploy_dependent(
     container_name: str,

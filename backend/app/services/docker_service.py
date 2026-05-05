@@ -1699,6 +1699,103 @@ def generate_compose_yaml(
     return yaml.dump(compose, default_flow_style=False, sort_keys=False)
 
 
+def generate_o11_compose_yaml(
+    name: str,
+    image: str,
+    network_mode: str | None = "bridge",
+    environment: dict | None = None,
+    ports: list[dict] | None = None,
+    volumes: list[dict] | None = None,
+    devices: list[str] | None = None,
+    restart_policy: str | None = "unless-stopped",
+    command: str | None = None,
+    hostname: str | None = None,
+    custom_labels: dict | None = None,
+    cap_add: list[str] | None = None,
+    security_opt: list[str] | None = None,
+) -> str:
+    """Generate a docker-compose YAML for an O11/App container."""
+    service: dict[str, Any] = {
+        "image": image,
+        "container_name": name,
+    }
+
+    if network_mode and network_mode != "bridge":
+        service["network_mode"] = network_mode
+
+    if hostname and hostname.strip() and not (
+        network_mode and network_mode.startswith("container:")
+    ):
+        service["hostname"] = hostname.strip()
+
+    env_clean: dict[str, str] = {}
+    if environment:
+        for k, v in environment.items():
+            if v is not None and str(v).strip():
+                env_clean[k] = str(v)
+    if env_clean:
+        service["environment"] = env_clean
+
+    if cap_add:
+        clean = [c for c in cap_add if c]
+        if clean:
+            service["cap_add"] = clean
+
+    if security_opt:
+        clean = [s for s in security_opt if s]
+        if clean:
+            service["security_opt"] = clean
+
+    if devices:
+        clean = [d for d in devices if d]
+        if clean:
+            service["devices"] = clean
+
+    if volumes:
+        vol_list: list[str] = []
+        for v in volumes:
+            source = (v.get("source") or "").strip()
+            target = (v.get("target") or "").strip()
+            mode = (v.get("mode") or "rw").strip()
+            if source and target:
+                vol_list.append(f"{source}:{target}:{mode}")
+        if vol_list:
+            service["volumes"] = vol_list
+
+    if restart_policy:
+        service["restart"] = restart_policy
+
+    if ports and not (network_mode and network_mode.startswith("container:")):
+        port_list: list[str] = []
+        for p in ports:
+            host_port = int(p.get("host", 0) or 0)
+            container_port = int(p.get("container", 0) or 0)
+            protocol = (p.get("protocol") or "tcp").lower()
+            if host_port > 0 and container_port > 0 and protocol in ("tcp", "udp"):
+                if protocol == "udp":
+                    port_list.append(f"{host_port}:{container_port}/udp")
+                else:
+                    port_list.append(f"{host_port}:{container_port}")
+        if port_list:
+            service["ports"] = port_list
+
+    labels_dict: dict[str, str] = {
+        "managed-by": "vpn-proxy-o11",
+        COMPOSE_PROJECT_LABEL: COMPOSE_PROJECT_VALUE,
+    }
+    if custom_labels:
+        for k, v in custom_labels.items():
+            if k:
+                labels_dict[k] = str(v)
+    service["labels"] = labels_dict
+
+    if command and command.strip():
+        service["command"] = command.strip()
+
+    compose = {"services": {name: service}}
+    return yaml.dump(compose, default_flow_style=False, sort_keys=False)
+
+
 def list_docker_networks() -> list[dict]:
     """List all Docker networks."""
     client = _get_client()

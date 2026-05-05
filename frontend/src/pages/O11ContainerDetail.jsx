@@ -41,6 +41,7 @@ import {
   ChevronRight,
   ChevronDown,
   Copy,
+  Download,
 } from "lucide-react";
 import api from "../services/api";
 import Spinner from "../components/Spinner";
@@ -376,6 +377,23 @@ export default function O11ContainerDetail() {
     } finally {
       setActionLoading("");
       setTimeout(() => setActionProgress(null), 1200);
+    }
+  };
+
+  const handleExportCompose = async () => {
+    try {
+      const res = await api.get(
+        `/containers/dependents/${encodeURIComponent(name)}/compose`,
+      );
+      const blob = new Blob([res.data], { type: "text/yaml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `docker-compose-${name}.yml`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to export compose file");
     }
   };
 
@@ -724,6 +742,13 @@ export default function O11ContainerDetail() {
                 className={`w-4 h-4 text-vpn-primary ${actionLoading === "restart" ? "animate-spin" : ""}`}
               />
               Restart
+            </button>
+            <button
+              onClick={handleExportCompose}
+              className="flex items-center gap-2 px-3 py-2 bg-vpn-card border border-vpn-border hover:border-vpn-primary text-vpn-text rounded-lg text-sm transition-all shadow-sm"
+            >
+              <Download className="w-4 h-4 text-vpn-primary" />
+              Export Compose
             </button>
             <button
               onClick={openEditModal}

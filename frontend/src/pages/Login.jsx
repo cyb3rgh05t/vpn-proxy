@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { AlertCircle } from "lucide-react";
 import VpnShieldLogo from "../components/VpnShieldLogo";
+import Spinner from "../components/Spinner";
 import api from "../services/api";
 
 export default function Login() {

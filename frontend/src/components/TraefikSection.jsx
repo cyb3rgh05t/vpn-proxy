@@ -100,9 +100,7 @@ export function parseTraefikLabels(labels) {
       continue;
     }
     // Routers: traefik.http.routers.<svc>-rtr.<prop>
-    let m = k.match(
-      /^traefik\.http\.routers\.([^.]+?)-rtr\.(.+)$/,
-    );
+    let m = k.match(/^traefik\.http\.routers\.([^.]+?)-rtr\.(.+)$/);
     if (m) {
       svc = svc || m[1];
       const prop = m[2];

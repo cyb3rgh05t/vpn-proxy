@@ -1955,9 +1955,7 @@ def redeploy_o11_container(
         merged_labels = {
             k: v
             for k, v in labels_existing.items()
-            if not (
-                k.startswith("traefik.") or k.startswith("traefik-")
-            )
+            if not (k.startswith("traefik.") or k.startswith("traefik-"))
         }
         for k, v in labels.items():
             merged_labels[k] = str(v)

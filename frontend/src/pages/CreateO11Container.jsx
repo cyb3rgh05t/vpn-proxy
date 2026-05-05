@@ -522,7 +522,9 @@ export default function CreateO11Container() {
       </p>
 
       <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6 mb-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Container Type</h2>
+        <h2 className="text-lg font-semibold text-white mb-4">
+          Container Type
+        </h2>
         <p className="text-sm text-vpn-muted mb-3">
           Choose where this container will be listed after creation.
         </p>

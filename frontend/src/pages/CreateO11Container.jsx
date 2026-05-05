@@ -45,7 +45,12 @@ export default function CreateO11Container() {
   const [predefinedImages, setPredefinedImages] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const isAppType = searchParams.get("type") === "app";
+  // Container kind toggle: "app" -> shows up on Apps page, "o11" -> shows up on OTT Panel page.
+  // Defaults from URL (?type=app) but user can switch explicitly.
+  const [containerKind, setContainerKind] = useState(
+    searchParams.get("type") === "app" ? "app" : "o11",
+  );
+  const isAppType = containerKind === "app";
 
   const [form, setForm] = useState({
     name: "",
@@ -501,7 +506,7 @@ export default function CreateO11Container() {
   return (
     <div>
       <button
-        onClick={() => navigate("/o11")}
+        onClick={() => navigate(isAppType ? "/apps" : "/o11")}
         className="flex items-center gap-2 text-vpn-muted hover:text-white mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -510,11 +515,46 @@ export default function CreateO11Container() {
 
       <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
         <Boxes className="w-7 h-7 text-vpn-primary" />
-        Create Container
+        Create {isAppType ? "App" : "OTT Panel"} Container
       </h1>
       <p className="text-vpn-muted mb-6">
         Deploy a new Docker container, optionally routed through a VPN.
       </p>
+
+      <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6 mb-6">
+        <h2 className="text-lg font-semibold text-white mb-4">Container Type</h2>
+        <p className="text-sm text-vpn-muted mb-3">
+          Choose where this container will be listed after creation.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setContainerKind("o11")}
+            className={`px-4 py-3 rounded-lg border text-left transition-colors ${
+              !isAppType
+                ? "border-vpn-primary bg-vpn-primary/10 text-white"
+                : "border-vpn-border text-vpn-muted hover:border-vpn-primary/50"
+            }`}
+          >
+            <div className="font-semibold">OTT Panel</div>
+            <div className="text-xs opacity-75">
+              Listed on the OTT Panel page
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setContainerKind("app")}
+            className={`px-4 py-3 rounded-lg border text-left transition-colors ${
+              isAppType
+                ? "border-vpn-primary bg-vpn-primary/10 text-white"
+                : "border-vpn-border text-vpn-muted hover:border-vpn-primary/50"
+            }`}
+          >
+            <div className="font-semibold">App</div>
+            <div className="text-xs opacity-75">Listed on the Apps page</div>
+          </button>
+        </div>
+      </div>
 
       <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6 mb-6">
         <h2 className="text-lg font-semibold text-white mb-4">Template</h2>

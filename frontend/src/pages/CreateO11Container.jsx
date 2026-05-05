@@ -20,6 +20,7 @@ import TraefikSection, {
   DEFAULT_TRAEFIK,
   traefikLabelsFrom,
 } from "../components/TraefikSection";
+import { useToast } from "../context/ToastContext";
 
 // Normalize a template fetched from the backend (snake_case) to the
 // camelCase shape used internally by this form.
@@ -43,8 +44,8 @@ const normalizeTpl = (tpl) => {
 export default function CreateO11Container() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [networks, setNetworks] = useState([]);
   const [vpnContainers, setVpnContainers] = useState([]);
   const [predefinedImages, setPredefinedImages] = useState([]);
@@ -288,7 +289,7 @@ export default function CreateO11Container() {
       });
       setShowVolumeModal(false);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to create volume");
+      toast.error(err.response?.data?.detail || "Failed to create volume");
     } finally {
       setVolumeBusy(false);
     }
@@ -300,7 +301,7 @@ export default function CreateO11Container() {
       await api.delete(`/containers/volumes/${encodeURIComponent(name)}`);
       await refreshNamedVolumes();
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to delete volume");
+      toast.error(err.response?.data?.detail || "Failed to delete volume");
     }
   };
 
@@ -369,7 +370,7 @@ export default function CreateO11Container() {
         finished: true,
         error: err.response?.data?.detail || "Failed to upload file",
       }));
-      setError(err.response?.data?.detail || "Failed to upload file");
+      toast.error(err.response?.data?.detail || "Failed to upload file");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -423,7 +424,6 @@ export default function CreateO11Container() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     // Determine network_mode
@@ -457,6 +457,19 @@ export default function CreateO11Container() {
     const validVolumes = volumes.filter(
       (v) => v.source.trim() && v.target.trim(),
     );
+
+    // Validate that container target paths are absolute. Docker requires this and
+    // otherwise returns a cryptic 500. Catch it client-side with a clear message.
+    const badVolume = validVolumes.find(
+      (v) => !v.target.trim().startsWith("/"),
+    );
+    if (badVolume) {
+      toast.error(
+        `Volume target must be an absolute path (start with '/'): '${badVolume.target}'`,
+      );
+      setLoading(false);
+      return;
+    }
 
     // Filter valid devices
     const validDevices = devices.filter((d) => d.trim());
@@ -496,9 +509,10 @@ export default function CreateO11Container() {
           validSecurityOpt.length > 0 ? validSecurityOpt : undefined,
         labels: isAppType ? { "managed-by": "vpn-proxy-app" } : undefined,
       });
+      toast.success(`Container '${form.name.trim()}' created`);
       navigate(isAppType ? "/apps" : "/o11");
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to create container");
+      toast.error(err.response?.data?.detail || "Failed to create container");
     } finally {
       setLoading(false);
     }
@@ -594,12 +608,6 @@ export default function CreateO11Container() {
           everything individually afterwards.
         </p>
       </div>
-
-      {error && (
-        <div className="p-3 mb-6 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-          {error}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Card: General */}

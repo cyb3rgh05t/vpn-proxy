@@ -270,6 +270,20 @@ def create_o11_container(
     except docker_service.NotFound:
         pass
 
+    # Validate volumes — Docker requires absolute container paths and otherwise
+    # returns a cryptic 500. Catch it here and return a friendly 400.
+    for v in body.get("volumes") or []:
+        target = (v.get("target") or "").strip()
+        source = (v.get("source") or "").strip()
+        if target and not target.startswith("/"):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Volume target must be an absolute path (start with '/'): "
+                    f"got '{target}' for source '{source}'"
+                ),
+            )
+
     try:
         container_id = docker_service.create_o11_container(
             name=name,

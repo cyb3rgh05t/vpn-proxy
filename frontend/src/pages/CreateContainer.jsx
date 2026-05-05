@@ -21,6 +21,7 @@ import TraefikSection, {
   DEFAULT_TRAEFIK,
   traefikLabelsFrom,
 } from "../components/TraefikSection";
+import { useToast } from "../context/ToastContext";
 
 const WHITELISTED_KEYS = new Set([
   "PGID",
@@ -85,10 +86,10 @@ const AUTO_SET_KEYS = new Set([
 
 export default function CreateContainer() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [providers, setProviders] = useState([]);
   const [providerDetails, setProviderDetails] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -127,7 +128,7 @@ export default function CreateContainer() {
     // Parallelize independent requests for faster page load
     Promise.all([
       api.get("/containers/providers").catch((e) => {
-        setError("Failed to load providers");
+        toast.error("Failed to load providers");
         return { data: [] };
       }),
       api.get("/containers/env-variables").catch(() => ({ data: {} })),
@@ -277,7 +278,7 @@ export default function CreateContainer() {
         finished: true,
         error: err.response?.data?.detail || "Failed to upload file",
       }));
-      setError(err.response?.data?.detail || "Failed to upload file");
+      toast.error(err.response?.data?.detail || "Failed to upload file");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -291,7 +292,6 @@ export default function CreateContainer() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     const validExtraPorts = extraPorts.filter(
@@ -358,9 +358,10 @@ export default function CreateContainer() {
             : undefined,
         cap_add: validCapAdd.length > 0 ? validCapAdd : undefined,
       });
+      toast.success(`Container '${form.name}' created`);
       navigate("/");
     } catch (err) {
-      setError(
+      toast.error(
         err.response?.data?.detail ||
           (Array.isArray(err.response?.data?.detail)
             ? err.response.data.detail[0]?.msg
@@ -392,12 +393,6 @@ export default function CreateContainer() {
       <p className="text-vpn-muted mb-6">
         Configure and deploy a new Gluetun VPN container.
       </p>
-
-      {error && (
-        <div className="p-3 mb-6 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-          {error}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Card: General */}

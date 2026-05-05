@@ -15,6 +15,11 @@ import {
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
 import ActionProgressDialog from "../components/ActionProgressDialog";
+import EmptyHint from "../components/EmptyHint";
+import TraefikSection, {
+  DEFAULT_TRAEFIK,
+  traefikLabelsFrom,
+} from "../components/TraefikSection";
 
 // Normalize a template fetched from the backend (snake_case) to the
 // camelCase shape used internally by this form.
@@ -75,6 +80,7 @@ export default function CreateO11Container() {
   const [customLabels, setCustomLabels] = useState([]);
   const [capAdd, setCapAdd] = useState([]);
   const [securityOpt, setSecurityOpt] = useState([]);
+  const [traefikConfig, setTraefikConfig] = useState(DEFAULT_TRAEFIK);
   const [namedVolumes, setNamedVolumes] = useState([]);
   const [showVolumeModal, setShowVolumeModal] = useState(false);
   const [newVolumeForm, setNewVolumeForm] = useState({
@@ -456,6 +462,7 @@ export default function CreateO11Container() {
     const validDevices = devices.filter((d) => d.trim());
     const validCapAdd = capAdd.map((c) => c.trim()).filter(Boolean);
     const validSecurityOpt = securityOpt.map((s) => s.trim()).filter(Boolean);
+    const traefikLabels = traefikLabelsFrom(traefikConfig, form.name.trim());
     const validCustomLabels = customLabels.reduce((acc, l) => {
       const k = l.key.trim();
       const v = l.value.trim();
@@ -481,8 +488,8 @@ export default function CreateO11Container() {
         command: form.command.trim() || undefined,
         hostname: hostname.trim() || undefined,
         custom_labels:
-          Object.keys(validCustomLabels).length > 0
-            ? validCustomLabels
+          Object.keys({ ...traefikLabels, ...validCustomLabels }).length > 0
+            ? { ...traefikLabels, ...validCustomLabels }
             : undefined,
         cap_add: validCapAdd.length > 0 ? validCapAdd : undefined,
         security_opt:
@@ -1033,7 +1040,10 @@ export default function CreateO11Container() {
           </div>
 
           {devices.length === 0 ? (
-            <p className="text-xs text-vpn-muted">No devices configured.</p>
+            <EmptyHint
+              label="No devices configured"
+              hint="Pass GPU/USB/serial devices into the container, e.g. /dev/dri:/dev/dri."
+            />
           ) : (
             <div className="space-y-2">
               {devices.map((d, i) => (
@@ -1057,6 +1067,13 @@ export default function CreateO11Container() {
             </div>
           )}
         </div>
+
+        {/* Card: Traefik Reverse Proxy */}
+        <TraefikSection
+          value={traefikConfig}
+          onChange={setTraefikConfig}
+          containerName={form.name}
+        />
 
         {/* Card: Advanced Options (Hostname, Cap Add, Security Opt, Custom Labels) */}
         <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6 space-y-5">
@@ -1102,7 +1119,10 @@ export default function CreateO11Container() {
               </button>
             </div>
             {capAdd.length === 0 ? (
-              <p className="text-xs text-vpn-muted">No capabilities.</p>
+              <EmptyHint
+                label="No capabilities"
+                hint="Add Linux capabilities like SYS_ADMIN or NET_ADMIN if needed."
+              />
             ) : (
               <div className="space-y-2">
                 {capAdd.map((c, i) => (
@@ -1149,7 +1169,10 @@ export default function CreateO11Container() {
               </button>
             </div>
             {securityOpt.length === 0 ? (
-              <p className="text-xs text-vpn-muted">No security options.</p>
+              <EmptyHint
+                label="No security options"
+                hint="e.g. seccomp=unconfined or no-new-privileges:true."
+              />
             ) : (
               <div className="space-y-2">
                 {securityOpt.map((s, i) => (
@@ -1195,7 +1218,10 @@ export default function CreateO11Container() {
               </button>
             </div>
             {customLabels.length === 0 ? (
-              <p className="text-xs text-vpn-muted">No custom labels.</p>
+              <EmptyHint
+                label="No custom labels"
+                hint="Use the Traefik section above for routing, or add manual labels here."
+              />
             ) : (
               <div className="space-y-2">
                 {customLabels.map((entry, i) => (
@@ -1406,7 +1432,10 @@ export default function CreateO11Container() {
                 Existing Volumes ({namedVolumes.length})
               </h3>
               {namedVolumes.length === 0 ? (
-                <p className="text-xs text-vpn-muted">No named volumes.</p>
+                <EmptyHint
+                  label="No named volumes"
+                  hint="Create one with the button above, or use a host path mount."
+                />
               ) : (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {namedVolumes.map((v) => (

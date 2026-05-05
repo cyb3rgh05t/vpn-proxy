@@ -16,6 +16,11 @@ import {
 import api from "../services/api";
 import CustomDropdown from "../components/CustomDropdown";
 import ActionProgressDialog from "../components/ActionProgressDialog";
+import EmptyHint from "../components/EmptyHint";
+import TraefikSection, {
+  DEFAULT_TRAEFIK,
+  traefikLabelsFrom,
+} from "../components/TraefikSection";
 
 const WHITELISTED_KEYS = new Set([
   "PGID",
@@ -104,6 +109,7 @@ export default function CreateContainer() {
   const [hostname, setHostname] = useState("");
   const [customLabels, setCustomLabels] = useState([]);
   const [capAdd, setCapAdd] = useState([]);
+  const [traefikConfig, setTraefikConfig] = useState(DEFAULT_TRAEFIK);
   const [envVarCategories, setEnvVarCategories] = useState({});
   const [advancedFields, setAdvancedFields] = useState({});
   const [gluetunFields, setGluetunFields] = useState({});
@@ -302,6 +308,7 @@ export default function CreateContainer() {
 
     const validDevices = devices.map((d) => d.trim()).filter(Boolean);
     const validCapAdd = capAdd.map((c) => c.trim()).filter(Boolean);
+    const traefikLabels = traefikLabelsFrom(traefikConfig, form.name.trim());
     const validCustomLabels = customLabels.reduce((acc, l) => {
       const k = l.key.trim();
       const v = l.value.trim();
@@ -346,8 +353,8 @@ export default function CreateContainer() {
         devices: validDevices.length > 0 ? validDevices : undefined,
         hostname: hostname.trim() || undefined,
         custom_labels:
-          Object.keys(validCustomLabels).length > 0
-            ? validCustomLabels
+          Object.keys({ ...traefikLabels, ...validCustomLabels }).length > 0
+            ? { ...traefikLabels, ...validCustomLabels }
             : undefined,
         cap_add: validCapAdd.length > 0 ? validCapAdd : undefined,
       });
@@ -858,9 +865,10 @@ export default function CreateContainer() {
             </div>
 
             {extraHosts.length === 0 && (
-              <p className="text-xs text-vpn-muted">
-                No extra hosts configured.
-              </p>
+              <EmptyHint
+                label="No extra hosts configured"
+                hint="Click 'Add Host' to map a hostname to a custom IP."
+              />
             )}
 
             <div className="space-y-2">
@@ -902,13 +910,20 @@ export default function CreateContainer() {
           </div>
         </div>
 
+        {/* Card: Traefik Reverse Proxy */}
+        <TraefikSection
+          value={traefikConfig}
+          onChange={setTraefikConfig}
+          containerName={form.name}
+          inputClass={inputClass}
+          labelClass={labelClass}
+        />
+
         {/* Card: Advanced Options */}
         <div className="bg-vpn-card border border-vpn-border rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4">
             Advanced Options
           </h2>
-
-          {/* Hostname placeholder removed — moved to Network & Hosts */}
 
           {/* Devices */}
           <div>
@@ -932,7 +947,10 @@ export default function CreateContainer() {
               </button>
             </div>
             {devices.length === 0 && (
-              <p className="text-xs text-vpn-muted">No extra devices.</p>
+              <EmptyHint
+                label="No extra devices"
+                hint="/dev/net/tun is mounted automatically."
+              />
             )}
             <div className="space-y-2">
               {devices.map((d, i) => (
@@ -977,7 +995,10 @@ export default function CreateContainer() {
               </button>
             </div>
             {capAdd.length === 0 && (
-              <p className="text-xs text-vpn-muted">No extra capabilities.</p>
+              <EmptyHint
+                label="No extra capabilities"
+                hint="NET_ADMIN is granted automatically for VPN routing."
+              />
             )}
             <div className="space-y-2">
               {capAdd.map((c, i) => (
@@ -1022,7 +1043,10 @@ export default function CreateContainer() {
               </button>
             </div>
             {customLabels.length === 0 && (
-              <p className="text-xs text-vpn-muted">No custom labels.</p>
+              <EmptyHint
+                label="No custom labels"
+                hint="Use the Traefik section above for routing labels, or add manual labels here."
+              />
             )}
             <div className="space-y-2">
               {customLabels.map((entry, i) => (

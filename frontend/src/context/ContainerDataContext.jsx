@@ -367,9 +367,22 @@ export function ContainerDataProvider({ children }) {
   useEffect(() => {
     fetchAll();
     initMonitoring();
-    const interval = setInterval(fetchAll, 5000);
+    // Poll every 10s, but skip when tab is hidden to avoid hammering backend
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchAll();
+      }
+    }, 10000);
+    // Refresh immediately when tab becomes visible again
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchAll();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
       fetchAllAbortRef.current?.abort();
     };
   }, [fetchAll, initMonitoring]);

@@ -118,18 +118,19 @@ export default function CreateContainer() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    api
-      .get("/containers/providers")
-      .then((res) => setProviders(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setError("Failed to load providers"));
-    api
-      .get("/containers/env-variables")
-      .then((res) => setEnvVarCategories(res.data || {}))
-      .catch(() => {});
-    api
-      .get("/containers/networks")
-      .then((res) => setNetworks(Array.isArray(res.data) ? res.data : []))
-      .catch(() => {});
+    // Parallelize independent requests for faster page load
+    Promise.all([
+      api.get("/containers/providers").catch((e) => {
+        setError("Failed to load providers");
+        return { data: [] };
+      }),
+      api.get("/containers/env-variables").catch(() => ({ data: {} })),
+      api.get("/containers/networks").catch(() => ({ data: [] })),
+    ]).then(([providersRes, envVarsRes, networksRes]) => {
+      setProviders(Array.isArray(providersRes.data) ? providersRes.data : []);
+      setEnvVarCategories(envVarsRes.data || {});
+      setNetworks(Array.isArray(networksRes.data) ? networksRes.data : []);
+    });
   }, []);
 
   useEffect(() => {

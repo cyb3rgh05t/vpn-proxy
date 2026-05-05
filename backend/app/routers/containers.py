@@ -1,5 +1,6 @@
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
@@ -753,22 +754,43 @@ def get_vpn_info_batch(
 ):
     """Get VPN info for all running containers in one call."""
     containers = db.query(VPNContainer).all()
-    result = {}
-    for c in containers:
-        if c.container_id:
-            try:
-                status_info = docker_service.get_container_status(c.container_id)
-                if status_info["status"] in (
-                    "running",
-                    "healthy",
-                    "unhealthy",
-                    "starting",
-                ):
-                    result[str(c.id)] = docker_service.get_gluetun_vpn_info(
-                        c.container_id
-                    )
-            except Exception:
-                pass
+    targets = [c for c in containers if c.container_id]
+    if not targets:
+        return {}
+
+    # Phase 1: parallel status check (cheap-ish Docker API call)
+    def _status(c):
+        try:
+            return c, docker_service.get_container_status(c.container_id)
+        except Exception:
+            return c, None
+
+    running = []
+    with ThreadPoolExecutor(max_workers=min(10, len(targets))) as ex:
+        for c, info in ex.map(_status, targets):
+            if info and info.get("status") in (
+                "running",
+                "healthy",
+                "unhealthy",
+                "starting",
+            ):
+                running.append(c)
+
+    if not running:
+        return {}
+
+    # Phase 2: parallel Gluetun HTTP probes — was the slowest step (3 HTTP per container, serial).
+    def _vpn_info(c):
+        try:
+            return str(c.id), docker_service.get_gluetun_vpn_info(c.container_id)
+        except Exception:
+            return str(c.id), None
+
+    result: dict = {}
+    with ThreadPoolExecutor(max_workers=min(10, len(running))) as ex:
+        for cid, info in ex.map(_vpn_info, running):
+            if info is not None:
+                result[cid] = info
     return result
 
 
@@ -786,44 +808,64 @@ def list_containers(
     current_user: User = Depends(get_current_user),
 ):
     containers = db.query(VPNContainer).all()
+
+    # Pre-fetch Docker statuses in parallel — biggest perf win for this endpoint.
+    # Each get_container_status() does a blocking Docker API call (~50-200ms);
+    # serial loop = N * latency, parallel = ~max latency.
+    status_map: dict[str, dict] = {}
+    container_ids = [c.container_id for c in containers if c.container_id]
+    if container_ids:
+        def _fetch(cid: str):
+            try:
+                return cid, docker_service.get_container_status(cid)
+            except Exception:
+                return cid, None
+        with ThreadPoolExecutor(max_workers=min(10, len(container_ids))) as ex:
+            for cid, info in ex.map(_fetch, container_ids):
+                if info is not None:
+                    status_map[cid] = info
+
     result = []
     for c in containers:
         data = ContainerResponse.model_validate(c)
         if c.container_id:
             try:
-                status_info = docker_service.get_container_status(c.container_id)
-                data.status = status_info["status"]
-                data.docker_name = status_info.get("docker_name")
-                data.ip_address = status_info.get("ip_address")
-                # If container was removed/replaced, try to find it by name/label
-                if status_info["status"] in ("removed", "error"):
-                    found = docker_service.find_container_by_name(c.name)
-                    if found:
-                        old_id = c.container_id
-                        c.container_id = found["container_id"]
-                        c.status = found["status"]
-                        db.commit()
-                        data.status = found["status"]
-                        data.container_id = found["container_id"]
-                        data.docker_name = docker_service.get_container_docker_name(
-                            found["container_id"]
-                        )
-                        # Restart dependents so they reconnect to new container
-                        if (
-                            found["status"] == "running"
-                            and old_id != found["container_id"]
-                        ):
-                            docker_service.restart_dependents(found["container_id"])
-                    else:
-                        # Container is truly gone — auto-remove from DB
-                        logger.info(
-                            "Container '%s' (id=%s) removed from Docker, deleting from DB",
-                            c.name,
-                            c.id,
-                        )
-                        db.delete(c)
-                        db.commit()
-                        continue
+                status_info = status_map.get(c.container_id)
+                if status_info is None:
+                    data.status = "unknown"
+                else:
+                    data.status = status_info["status"]
+                    data.docker_name = status_info.get("docker_name")
+                    data.ip_address = status_info.get("ip_address")
+                    # If container was removed/replaced, try to find it by name/label
+                    if status_info["status"] in ("removed", "error"):
+                        found = docker_service.find_container_by_name(c.name)
+                        if found:
+                            old_id = c.container_id
+                            c.container_id = found["container_id"]
+                            c.status = found["status"]
+                            db.commit()
+                            data.status = found["status"]
+                            data.container_id = found["container_id"]
+                            data.docker_name = docker_service.get_container_docker_name(
+                                found["container_id"]
+                            )
+                            # Restart dependents so they reconnect to new container
+                            if (
+                                found["status"] == "running"
+                                and old_id != found["container_id"]
+                            ):
+                                docker_service.restart_dependents(found["container_id"])
+                        else:
+                            # Container is truly gone — auto-remove from DB
+                            logger.info(
+                                "Container '%s' (id=%s) removed from Docker, deleting from DB",
+                                c.name,
+                                c.id,
+                            )
+                            db.delete(c)
+                            db.commit()
+                            continue
             except Exception:
                 data.status = "unknown"
         result.append(data)

@@ -50,6 +50,17 @@ export default function VpnProxy() {
   const [bulkProgress, setBulkProgress] = useState(null); // { action, total, done, success, failed }
   const [actionProgress, setActionProgress] = useState(null);
 
+  const [refreshing, setRefreshing] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState(
+    () => searchParams.get("status") || null,
+  );
+  const [providerFilter, setProviderFilter] = useState(
+    () => searchParams.get("provider") || "all",
+  );
+  const [activeCategoryTab, setActiveCategoryTab] = useState("proxy");
+
   // Scroll to container card when navigated with hash
   useEffect(() => {
     scrolledRef.current = false;
@@ -95,17 +106,6 @@ export default function VpnProxy() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.hash, loading, containers, activeCategoryTab]);
-
-  const [refreshing, setRefreshing] = useState(false);
-  const [discovering, setDiscovering] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState(
-    () => searchParams.get("status") || null,
-  );
-  const [providerFilter, setProviderFilter] = useState(
-    () => searchParams.get("provider") || "all",
-  );
-  const [activeCategoryTab, setActiveCategoryTab] = useState("proxy");
 
   const running = containers.filter((c) =>
     ["running", "healthy"].includes(c.status),

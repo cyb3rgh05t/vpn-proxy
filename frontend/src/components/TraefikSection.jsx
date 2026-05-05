@@ -99,15 +99,20 @@ export default function TraefikSection({
             </p>
           </div>
         </div>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={!!cfg.enabled}
-            onChange={(e) => set({ enabled: e.target.checked })}
-            className="w-4 h-4 accent-vpn-primary"
+        <button
+          type="button"
+          onClick={() => set({ enabled: !cfg.enabled })}
+          aria-pressed={!!cfg.enabled}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            cfg.enabled ? "bg-vpn-primary" : "bg-vpn-border"
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              cfg.enabled ? "translate-x-6" : "translate-x-1"
+            }`}
           />
-          <span className="text-sm text-white">Enable</span>
-        </label>
+        </button>
       </div>
 
       {!cfg.enabled ? (
@@ -223,21 +228,27 @@ export default function TraefikSection({
               </p>
             </div>
 
-            <div className="md:col-span-2 flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="traefik-tls"
-                checked={!!cfg.tls}
-                onChange={(e) => set({ tls: e.target.checked })}
-                className="w-4 h-4 accent-vpn-primary"
-              />
-              <label
-                htmlFor="traefik-tls"
-                className="text-sm text-white cursor-pointer flex items-center gap-1.5"
-              >
+            <div className="md:col-span-2 flex items-center justify-between bg-vpn-input/40 border border-vpn-border rounded-lg px-4 py-3">
+              <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-vpn-primary" />
-                Enable TLS
-              </label>
+                <span className="text-sm text-white font-medium">
+                  Enable TLS
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => set({ tls: !cfg.tls })}
+                aria-pressed={!!cfg.tls}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  cfg.tls ? "bg-vpn-primary" : "bg-vpn-border"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    cfg.tls ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
             </div>
           </div>
 

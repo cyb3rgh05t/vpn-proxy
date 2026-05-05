@@ -16,6 +16,7 @@ import About from "./pages/About";
 import Backup from "./pages/Backup";
 import AppCatalog from "./pages/AppCatalog";
 import Apps from "./pages/Apps";
+import Spinner from "./components/Spinner";
 
 function App() {
   const { user, loading } = useAuth();
@@ -23,7 +24,7 @@ function App() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-vpn-bg">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-vpn-primary"></div>
+        <Spinner size="xl" />
       </div>
     );
   }

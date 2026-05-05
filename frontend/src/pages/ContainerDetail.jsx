@@ -30,6 +30,7 @@ import {
   Check,
 } from "lucide-react";
 import api from "../services/api";
+import Spinner from "../components/Spinner";
 import CustomDropdown from "../components/CustomDropdown";
 import StatusBadge from "../components/StatusBadge";
 import ActionProgressDialog from "../components/ActionProgressDialog";
@@ -435,7 +436,7 @@ export default function ContainerDetail() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-vpn-primary"></div>
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -631,7 +632,7 @@ export default function ContainerDetail() {
                     VPN Status
                   </h3>
                   <div className="bg-vpn-input/30 border border-vpn-border/50 rounded-xl p-4 flex items-center gap-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-vpn-primary"></div>
+                    <Spinner size="sm" />
                     <span className="text-sm text-vpn-muted">
                       Loading VPN status...
                     </span>

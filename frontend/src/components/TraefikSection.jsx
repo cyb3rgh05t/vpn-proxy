@@ -1,4 +1,5 @@
 import { Network as NetworkIcon, Globe, Shield } from "lucide-react";
+import CustomDropdown from "./CustomDropdown";
 
 /**
  * Default Traefik config — matches the user's existing label scheme:
@@ -11,6 +12,7 @@ import { Network as NetworkIcon, Globe, Shield } from "lucide-react";
  *   traefik.http.routers.<svc>-rtr.middlewares=chain-authelia@file
  *   traefik.http.routers.<svc>-rtr.service=<svc>-svc
  *   traefik.http.services.<svc>-svc.loadbalancer.server.port=<port>
+ *   traefik.http.services.<svc>-svc.loadbalancer.server.scheme=<scheme>  (optional)
  */
 export const DEFAULT_TRAEFIK = {
   enabled: false,
@@ -18,6 +20,7 @@ export const DEFAULT_TRAEFIK = {
   subdomain: "", // defaults to container name
   domainVar: "${DOMAIN}",
   port: "",
+  scheme: "", // "" | "http" | "https" — only emitted when set
   network: "proxy",
   entrypoint: "https",
   tls: true,
@@ -59,6 +62,10 @@ export function traefikLabelsFrom(cfg, fallbackName) {
   if (cfg.port && String(cfg.port).trim()) {
     labels[`traefik.http.services.${svc}-svc.loadbalancer.server.port`] =
       String(cfg.port).trim();
+  }
+  if (cfg.scheme && String(cfg.scheme).trim()) {
+    labels[`traefik.http.services.${svc}-svc.loadbalancer.server.scheme`] =
+      String(cfg.scheme).trim();
   }
   return labels;
 }
@@ -143,26 +150,33 @@ export default function TraefikSection({
 
             <div>
               <label className={baseLabel}>Subdomain</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={cfg.subdomain}
-                  onChange={(e) => set({ subdomain: e.target.value })}
-                  placeholder={fallbackSvc || "tempest"}
-                  className={`${baseInput} flex-1`}
-                />
-                <span className="text-vpn-muted text-sm">.</span>
-                <input
-                  type="text"
-                  value={cfg.domainVar}
-                  onChange={(e) => set({ domainVar: e.target.value })}
-                  placeholder="${DOMAIN}"
-                  className={`${baseInput} w-40 font-mono text-xs`}
-                />
-              </div>
+              <input
+                type="text"
+                value={cfg.subdomain}
+                onChange={(e) => set({ subdomain: e.target.value })}
+                placeholder={fallbackSvc || "tempest"}
+                className={baseInput}
+              />
               <p className="text-[11px] text-vpn-muted/70 mt-1">
-                Final host: <code>{fallbackSub || "<svc>"}.</code>
-                <code>{cfg.domainVar || "${DOMAIN}"}</code>
+                Final host:{" "}
+                <code className="text-vpn-primary">
+                  {fallbackSub || "<svc>"}.{cfg.domainVar || "${DOMAIN}"}
+                </code>
+              </p>
+            </div>
+
+            <div>
+              <label className={baseLabel}>Domain</label>
+              <input
+                type="text"
+                value={cfg.domainVar}
+                onChange={(e) => set({ domainVar: e.target.value })}
+                placeholder="${DOMAIN}"
+                className={`${baseInput} font-mono`}
+              />
+              <p className="text-[11px] text-vpn-muted/70 mt-1">
+                Use a literal domain (e.g. <code>example.com</code>) or an env
+                variable like <code>{"${DOMAIN}"}</code>.
               </p>
             </div>
 
@@ -177,6 +191,23 @@ export default function TraefikSection({
               />
               <p className="text-[11px] text-vpn-muted/70 mt-1">
                 The internal port Traefik should forward to.
+              </p>
+            </div>
+
+            <div>
+              <label className={baseLabel}>Backend scheme</label>
+              <CustomDropdown
+                value={cfg.scheme || ""}
+                onChange={(v) => set({ scheme: v })}
+                options={[
+                  { value: "", label: "Auto (default)" },
+                  { value: "http", label: "http" },
+                  { value: "https", label: "https" },
+                ]}
+              />
+              <p className="text-[11px] text-vpn-muted/70 mt-1">
+                Adds <code>loadbalancer.server.scheme</code> — set to{" "}
+                <code>https</code> when the backend itself uses TLS (e.g. Plex).
               </p>
             </div>
 

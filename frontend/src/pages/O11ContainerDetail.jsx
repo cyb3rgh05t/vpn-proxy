@@ -43,6 +43,7 @@ import {
   Copy,
 } from "lucide-react";
 import api from "../services/api";
+import Spinner from "../components/Spinner";
 import StatusBadge from "../components/StatusBadge";
 import ActionProgressDialog from "../components/ActionProgressDialog";
 import { useToast } from "../context/ToastContext";
@@ -524,7 +525,7 @@ export default function O11ContainerDetail() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-vpn-primary"></div>
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -1242,7 +1243,7 @@ export default function O11ContainerDetail() {
 
                 {filesLoading ? (
                   <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-vpn-primary"></div>
+                    <Spinner size="md" />
                   </div>
                 ) : uploadedFiles.length === 0 ? (
                   <div className="text-center py-8 bg-vpn-input/30 border border-vpn-border/50 rounded-xl">

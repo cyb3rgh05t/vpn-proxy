@@ -12,6 +12,7 @@ import {
   Grid3X3,
 } from "lucide-react";
 import api from "../services/api";
+import Spinner from "../components/Spinner";
 import ActionProgressDialog from "../components/ActionProgressDialog";
 import O11ContainerCard, { isProxied } from "../components/O11ContainerCard";
 import { useToast } from "../context/ToastContext";
@@ -324,7 +325,7 @@ export default function Apps() {
         {/* Container Grid */}
         {loading ? (
           <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-vpn-primary"></div>
+            <Spinner size="lg" />
           </div>
         ) : filteredContainers.length === 0 ? (
           <div className="text-center py-16 bg-vpn-card border border-vpn-border rounded-2xl">

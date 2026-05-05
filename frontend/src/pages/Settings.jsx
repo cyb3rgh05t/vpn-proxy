@@ -37,6 +37,7 @@ import {
   Send,
 } from "lucide-react";
 import api from "../services/api";
+import Spinner from "../components/Spinner";
 import HowTo from "./HowTo";
 import About from "./About";
 import { useContainerData } from "../context/ContainerDataContext";
@@ -669,7 +670,7 @@ export default function Settings() {
 
             {dockerLoading && !dockerStatus ? (
               <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-vpn-primary"></div>
+                <Spinner size="md" />
               </div>
             ) : dockerStatus ? (
               <div className="space-y-4">
@@ -1385,7 +1386,7 @@ export default function Settings() {
 
             {telegramLoading ? (
               <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-vpn-primary"></div>
+                <Spinner size="md" />
               </div>
             ) : (
               <div className="space-y-5">

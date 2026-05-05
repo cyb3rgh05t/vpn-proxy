@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../services/api";
+import Spinner from "../components/Spinner";
 import ContainerCard from "../components/ContainerCard";
 import ActionProgressDialog from "../components/ActionProgressDialog";
 import { useToast } from "../context/ToastContext";
@@ -727,7 +728,7 @@ export default function VpnProxy() {
       {/* Container Grid */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-vpn-primary"></div>
+          <Spinner size="lg" />
         </div>
       ) : error ? (
         <div className="text-center py-12">

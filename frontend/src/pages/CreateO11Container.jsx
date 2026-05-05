@@ -188,10 +188,7 @@ export default function CreateO11Container() {
 
   // --- Volumes ---
   const addVolume = () =>
-    setVolumes([
-      ...volumes,
-      { source: hostBasePath || "", target: "/opt/o11", mode: "rw" },
-    ]);
+    setVolumes([...volumes, { source: "", target: "", mode: "rw" }]);
   const removeVolume = (i) => setVolumes(volumes.filter((_, idx) => idx !== i));
   const updateVolume = (i, field, value) => {
     const updated = [...volumes];
@@ -510,7 +507,14 @@ export default function CreateO11Container() {
         labels: isAppType ? { "managed-by": "vpn-proxy-app" } : undefined,
       });
       toast.success(`Container '${form.name.trim()}' created`);
-      navigate(isAppType ? "/apps" : "/o11");
+      const createdName = form.name.trim();
+      navigate(
+        createdName
+          ? `${isAppType ? "/apps" : "/o11"}/${encodeURIComponent(createdName)}`
+          : isAppType
+            ? "/apps"
+            : "/o11",
+      );
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to create container");
     } finally {

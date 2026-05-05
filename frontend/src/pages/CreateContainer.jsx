@@ -338,7 +338,7 @@ export default function CreateContainer() {
     };
 
     try {
-      await api.post("/containers", {
+      const res = await api.post("/containers", {
         name: form.name,
         vpn_provider: form.vpn_provider,
         vpn_type: form.vpn_type,
@@ -359,7 +359,8 @@ export default function CreateContainer() {
         cap_add: validCapAdd.length > 0 ? validCapAdd : undefined,
       });
       toast.success(`Container '${form.name}' created`);
-      navigate("/");
+      const newId = res?.data?.id;
+      navigate(newId ? `/containers/${newId}` : "/vpn-proxy");
     } catch (err) {
       toast.error(
         err.response?.data?.detail ||

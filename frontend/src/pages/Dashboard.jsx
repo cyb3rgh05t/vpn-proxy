@@ -27,6 +27,12 @@ import {
 import api from "../services/api";
 import WorldMap from "../components/WorldMap";
 import ActionProgressDialog from "../components/ActionProgressDialog";
+import EmptyState from "../components/EmptyState";
+import {
+  SkeletonStatCard,
+  SkeletonCard,
+  SkeletonBlock,
+} from "../components/Skeleton";
 import { useToast } from "../context/ToastContext";
 import { useContainerData } from "../context/ContainerDataContext";
 
@@ -38,6 +44,7 @@ export default function Dashboard() {
     vpnInfoMap,
     depsMap,
     o11Containers,
+    loading,
     refreshContainers,
     refreshAll,
   } = useContainerData();
@@ -476,92 +483,168 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats Row */}
-        {visibility.stats && (
-          <div className="mb-6">
-            <div
-              className={`grid gap-3 ${
-                o11Containers.length > 0
-                  ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9"
-                  : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
-              }`}
-            >
-              <StatCard
-                label="VPN Total"
-                value={containers.length}
-                icon={Server}
-                color="text-vpn-primary"
-                bg="bg-vpn-primary/10"
-                filter="all"
-              />
-              <StatCard
-                label="VPN Running"
-                value={gluetunRunning}
-                icon={Activity}
-                color="text-emerald-400"
-                bg="bg-emerald-500/10"
-                filter="running"
-              />
-              <StatCard
-                label="Connected"
-                value={vpnConnected}
-                icon={Wifi}
-                color="text-emerald-400"
-                bg="bg-emerald-500/10"
-                filter="vpn-connected"
-              />
-              <StatCard
-                label="Disconnected"
-                value={vpnDisconnected}
-                icon={WifiOff}
-                color="text-amber-400"
-                bg="bg-amber-500/10"
-                filter="vpn-disconnected"
-              />
-              <StatCard
-                label="Unhealthy"
-                value={gluetunUnhealthy}
-                icon={HeartCrack}
-                color="text-red-400"
-                bg="bg-red-500/10"
-                filter="unhealthy"
-              />
-              <StatCard
-                label="Stopped"
-                value={gluetunStopped}
-                icon={AlertTriangle}
-                color="text-amber-400"
-                bg="bg-amber-500/10"
-                filter="stopped"
-              />
-              {o11Containers.length > 0 && (
-                <>
-                  <StatCard
-                    label="O11 Total"
-                    value={o11Containers.length}
-                    icon={Boxes}
-                    color="text-vpn-primary"
-                    bg="bg-vpn-primary/10"
-                  />
-                  <StatCard
-                    label="O11 Running"
-                    value={o11Running}
-                    icon={Activity}
-                    color="text-emerald-400"
-                    bg="bg-emerald-500/10"
-                  />
-                  <StatCard
-                    label="O11 Stopped"
-                    value={o11Stopped}
-                    icon={AlertTriangle}
-                    color="text-amber-400"
-                    bg="bg-amber-500/10"
-                  />
-                </>
-              )}
+        {/* Skeleton loader on first load */}
+        {loading && containers.length === 0 && o11Containers.length === 0 && (
+          <div className="space-y-6">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonStatCard key={i} />
+              ))}
+            </div>
+            <SkeletonBlock className="h-72 w-full rounded-2xl" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <SkeletonCard />
+              <SkeletonCard />
             </div>
           </div>
         )}
+
+        {/* Empty state on a fresh install */}
+        {!loading && containers.length === 0 && o11Containers.length === 0 && (
+          <EmptyState
+            icon={Server}
+            title="Welcome to VPN Proxy"
+            description="No containers have been set up yet. Discover existing Docker containers, or create your first VPN-Proxy or App container to get started."
+            actions={[
+              {
+                label: "Discover existing",
+                icon: Search,
+                onClick: async () => {
+                  setDiscovering(true);
+                  setActionProgress({
+                    action: "discover",
+                    target: "Containers",
+                  });
+                  try {
+                    const res = await api.post("/containers/discover");
+                    toast.success(res.data.message);
+                    setActionProgress({
+                      action: "discover",
+                      target: "Containers",
+                      finished: true,
+                    });
+                    refreshContainers();
+                  } catch {
+                    toast.error("Failed to discover containers");
+                    setActionProgress({
+                      action: "discover",
+                      target: "Containers",
+                      finished: true,
+                      error: "Failed to discover containers",
+                    });
+                  } finally {
+                    setDiscovering(false);
+                    setTimeout(() => setActionProgress(null), 1200);
+                  }
+                },
+              },
+              {
+                label: "New VPN-Proxy",
+                icon: PlusCircle,
+                onClick: () => navigate("/create"),
+                primary: true,
+              },
+              {
+                label: "New App",
+                icon: PlusCircle,
+                onClick: () => navigate("/create-o11"),
+              },
+            ]}
+          />
+        )}
+
+        {/* Stats Row */}
+        {!(loading && containers.length === 0 && o11Containers.length === 0) &&
+          !(
+            !loading &&
+            containers.length === 0 &&
+            o11Containers.length === 0
+          ) &&
+          visibility.stats && (
+            <div className="mb-6">
+              <div
+                className={`grid gap-3 ${
+                  o11Containers.length > 0
+                    ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9"
+                    : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
+                }`}
+              >
+                <StatCard
+                  label="VPN Total"
+                  value={containers.length}
+                  icon={Server}
+                  color="text-vpn-primary"
+                  bg="bg-vpn-primary/10"
+                  filter="all"
+                />
+                <StatCard
+                  label="VPN Running"
+                  value={gluetunRunning}
+                  icon={Activity}
+                  color="text-emerald-400"
+                  bg="bg-emerald-500/10"
+                  filter="running"
+                />
+                <StatCard
+                  label="Connected"
+                  value={vpnConnected}
+                  icon={Wifi}
+                  color="text-emerald-400"
+                  bg="bg-emerald-500/10"
+                  filter="vpn-connected"
+                />
+                <StatCard
+                  label="Disconnected"
+                  value={vpnDisconnected}
+                  icon={WifiOff}
+                  color="text-amber-400"
+                  bg="bg-amber-500/10"
+                  filter="vpn-disconnected"
+                />
+                <StatCard
+                  label="Unhealthy"
+                  value={gluetunUnhealthy}
+                  icon={HeartCrack}
+                  color="text-red-400"
+                  bg="bg-red-500/10"
+                  filter="unhealthy"
+                />
+                <StatCard
+                  label="Stopped"
+                  value={gluetunStopped}
+                  icon={AlertTriangle}
+                  color="text-amber-400"
+                  bg="bg-amber-500/10"
+                  filter="stopped"
+                />
+                {o11Containers.length > 0 && (
+                  <>
+                    <StatCard
+                      label="O11 Total"
+                      value={o11Containers.length}
+                      icon={Boxes}
+                      color="text-vpn-primary"
+                      bg="bg-vpn-primary/10"
+                    />
+                    <StatCard
+                      label="O11 Running"
+                      value={o11Running}
+                      icon={Activity}
+                      color="text-emerald-400"
+                      bg="bg-emerald-500/10"
+                    />
+                    <StatCard
+                      label="O11 Stopped"
+                      value={o11Stopped}
+                      icon={AlertTriangle}
+                      color="text-amber-400"
+                      bg="bg-amber-500/10"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
         {/* World Map */}
         {visibility.worldmap && vpnConnections.length > 0 && (

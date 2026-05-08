@@ -735,9 +735,7 @@ def redeploy_container(
         recreated_deps: list[dict] = []
         for snap in captured_deps:
             try:
-                new_dep_id = _recreate_dependent_on_network(
-                    snap, new_network_mode
-                )
+                new_dep_id = _recreate_dependent_on_network(snap, new_network_mode)
                 recreated_deps.append(
                     {
                         "name": snap["name"],
@@ -831,9 +829,7 @@ def redeploy_container(
                     pass
                 except Exception:
                     pass
-                new_dep_id = _recreate_dependent_on_network(
-                    snap, rollback_network_mode
-                )
+                new_dep_id = _recreate_dependent_on_network(snap, rollback_network_mode)
                 if not snap.get("was_running", True):
                     try:
                         client.containers.get(new_dep_id).stop(timeout=10)

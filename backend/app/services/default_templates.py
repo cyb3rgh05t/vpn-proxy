@@ -149,4 +149,49 @@ DEFAULT_APP_TEMPLATES = [
         "devices": [],
         "labels": [],
     },
+    {
+        "id": "tempest-epg",
+        "title": "Tempest EPG",
+        "subtitle": "EPG panel for IPTV (kvanc/tempest_epg) — runs through your VPN",
+        "image": "kvanc/tempest_epg:latest",
+        "suggested_name": "app-tempest",
+        "restart_policy": "unless-stopped",
+        "env_vars": [
+            {"key": "TZ", "value": "Europe/Berlin"},
+        ],
+        "ports": [
+            {"host": "8095", "container": "8095", "protocol": "tcp"},
+        ],
+        "volumes": [
+            {"source": "", "target": "/var/www/html/tempest_config", "mode": "rw"},
+            {"source": "", "target": "/etc/php82/conf.d/custom.ini", "mode": "rw"},
+        ],
+        "devices": [],
+        "labels": [
+            {"key": "traefik.enable", "value": "true"},
+            {"key": "traefik.docker.network", "value": "proxy"},
+            {"key": "traefik.http.routers.tempest-rtr.entrypoints", "value": "https"},
+            {
+                "key": "traefik.http.routers.tempest-rtr.rule",
+                "value": "Host(`tempest.example.com`)",
+            },
+            {"key": "traefik.http.routers.tempest-rtr.tls", "value": "true"},
+            {
+                "key": "traefik.http.routers.tempest-rtr.tls.certresolver",
+                "value": "dns-cloudflare",
+            },
+            {
+                "key": "traefik.http.routers.tempest-rtr.middlewares",
+                "value": "chain-authelia@file",
+            },
+            {
+                "key": "traefik.http.routers.tempest-rtr.service",
+                "value": "tempest-svc",
+            },
+            {
+                "key": "traefik.http.services.tempest-svc.loadbalancer.server.port",
+                "value": "8095",
+            },
+        ],
+    },
 ]

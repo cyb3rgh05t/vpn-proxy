@@ -355,15 +355,19 @@ def reconcile_gluetun_auth_configs():
 
 
 def seed_default_app_templates():
-    """Seed the app_templates table on first startup if empty."""
+    """Seed the app_templates table with any missing built-in templates.
+    Existing rows (incl. user-edited ones) are left untouched.
+    """
     try:
         from app.services.default_templates import DEFAULT_APP_TEMPLATES
 
         db = SessionLocal()
         try:
-            if db.query(AppTemplate).count() > 0:
-                return
+            existing_ids = {row.id for row in db.query(AppTemplate.id).all()}
+            added = 0
             for tpl in DEFAULT_APP_TEMPLATES:
+                if tpl["id"] in existing_ids:
+                    continue
                 db.add(
                     AppTemplate(
                         id=tpl["id"],
@@ -380,8 +384,10 @@ def seed_default_app_templates():
                         is_builtin=True,
                     )
                 )
-            db.commit()
-            logger.info("Seeded %d default app templates.", len(DEFAULT_APP_TEMPLATES))
+                added += 1
+            if added:
+                db.commit()
+                logger.info("Seeded %d new default app templates.", added)
         finally:
             db.close()
     except Exception as e:

@@ -458,6 +458,116 @@ def remove_container(container_id: str):
         raise
 
 
+def _capture_dependent_config(container) -> dict:
+    """Snapshot a Docker container's config so we can recreate it later
+    against a (possibly new) `network_mode: container:<gluetun>` target.
+    """
+    attrs = container.attrs or {}
+    cfg = attrs.get("Config", {}) or {}
+    host = attrs.get("HostConfig", {}) or {}
+    image_tags = container.image.tags if container.image else []
+    image = image_tags[0] if image_tags else cfg.get("Image", "")
+
+    env_dict: dict[str, str] = {}
+    for entry in cfg.get("Env", []) or []:
+        if isinstance(entry, str) and "=" in entry:
+            k, v = entry.split("=", 1)
+            env_dict[k] = v
+
+    return {
+        "name": (container.name or "").lstrip("/"),
+        "id": container.id,
+        "short_id": container.short_id,
+        "image": image,
+        "command": cfg.get("Cmd"),
+        "entrypoint": cfg.get("Entrypoint"),
+        "environment": env_dict,
+        "labels": dict(cfg.get("Labels") or {}),
+        "binds": list(host.get("Binds") or []),
+        "devices": list(host.get("Devices") or []),
+        "cap_add": list(host.get("CapAdd") or []),
+        "cap_drop": list(host.get("CapDrop") or []),
+        "security_opt": list(host.get("SecurityOpt") or []),
+        "restart_policy": dict(host.get("RestartPolicy") or {}),
+        "extra_hosts": list(host.get("ExtraHosts") or []),
+        "privileged": bool(host.get("Privileged") or False),
+        "tty": bool(cfg.get("Tty") or False),
+        "stdin_open": bool(cfg.get("OpenStdin") or False),
+        "user": cfg.get("User") or None,
+        "working_dir": cfg.get("WorkingDir") or None,
+    }
+
+
+def _recreate_dependent_on_network(captured: dict, network_mode: str) -> str:
+    """Recreate a container previously captured with `_capture_dependent_config`
+    against the given `network_mode` (typically `container:<new-gluetun-name>`).
+    Returns the new container ID. Caller is responsible for removing the old one.
+    """
+    client = _get_client()
+
+    devices_list: list[str] = []
+    for d in captured.get("devices") or []:
+        host_path = (d or {}).get("PathOnHost", "")
+        cont_path = (d or {}).get("PathInContainer", "")
+        perms = (d or {}).get("CgroupPermissions", "rwm")
+        if host_path and cont_path:
+            devices_list.append(f"{host_path}:{cont_path}:{perms}")
+
+    run_kwargs: dict[str, Any] = {
+        "image": captured["image"],
+        "name": captured["name"],
+        "network_mode": network_mode,
+        "labels": captured.get("labels") or {},
+        "detach": True,
+    }
+    if captured.get("environment"):
+        run_kwargs["environment"] = captured["environment"]
+    if captured.get("command") is not None:
+        run_kwargs["command"] = captured["command"]
+    if captured.get("entrypoint") is not None:
+        run_kwargs["entrypoint"] = captured["entrypoint"]
+    if captured.get("binds"):
+        # Docker SDK accepts list of bind strings via `volumes=[...]`
+        run_kwargs["volumes"] = list(captured["binds"])
+    if devices_list:
+        run_kwargs["devices"] = devices_list
+    if captured.get("cap_add"):
+        run_kwargs["cap_add"] = [c for c in captured["cap_add"] if c]
+    if captured.get("cap_drop"):
+        run_kwargs["cap_drop"] = [c for c in captured["cap_drop"] if c]
+    if captured.get("security_opt"):
+        run_kwargs["security_opt"] = [s for s in captured["security_opt"] if s]
+    if captured.get("extra_hosts"):
+        hosts_dict: dict[str, str] = {}
+        for entry in captured["extra_hosts"]:
+            if not isinstance(entry, str):
+                continue
+            parts = entry.rsplit(":", 1)
+            if len(parts) == 2:
+                hosts_dict[parts[0].strip()] = parts[1].strip()
+        if hosts_dict:
+            run_kwargs["extra_hosts"] = hosts_dict
+    rp = captured.get("restart_policy") or {}
+    if rp.get("Name"):
+        run_kwargs["restart_policy"] = {
+            "Name": rp.get("Name"),
+            "MaximumRetryCount": int(rp.get("MaximumRetryCount") or 0),
+        }
+    if captured.get("user"):
+        run_kwargs["user"] = captured["user"]
+    if captured.get("working_dir"):
+        run_kwargs["working_dir"] = captured["working_dir"]
+    if captured.get("tty"):
+        run_kwargs["tty"] = True
+    if captured.get("stdin_open"):
+        run_kwargs["stdin_open"] = True
+    if captured.get("privileged"):
+        run_kwargs["privileged"] = True
+
+    new = client.containers.run(**run_kwargs)
+    return new.id
+
+
 def redeploy_container(
     name: str,
     old_container_id: str,
@@ -509,9 +619,45 @@ def redeploy_container(
     except Exception:
         had_socks5_sidecar = False
 
-    # 1. Stop dependent containers
-    stopped_deps = stop_dependents(old_container_id)
-    logger.info("Stopped %d dependents before redeploy of %s", len(stopped_deps), name)
+    # 1. Capture dependent container configs and stop them.
+    #    Dependents use `network_mode: container:<old-gluetun>` and must be
+    #    recreated against the new gluetun, because Docker resolves the
+    #    container reference to a concrete ID at start time.
+    captured_deps: list[dict] = []
+    try:
+        for dep_info in get_dependent_containers(old_container_id):
+            try:
+                dep_c = client.containers.get(dep_info["name"])
+                snap = _capture_dependent_config(dep_c)
+                snap["was_running"] = dep_c.status == "running"
+                captured_deps.append(snap)
+            except Exception as e:
+                logger.warning(
+                    "Failed to capture dependent %s config: %s", dep_info["name"], e
+                )
+    except Exception as e:
+        logger.warning("Failed to enumerate dependents of %s: %s", name, e)
+
+    for snap in captured_deps:
+        try:
+            dep_c = client.containers.get(snap["name"])
+            try:
+                dep_c.stop(timeout=10)
+            except Exception:
+                pass
+            dep_c.remove(force=True)
+        except NotFound:
+            pass
+        except Exception as e:
+            logger.warning(
+                "Failed to remove dependent %s before redeploy: %s", snap["name"], e
+            )
+    if captured_deps:
+        logger.info(
+            "Captured & removed %d dependents before redeploy of %s",
+            len(captured_deps),
+            name,
+        )
 
     # 2. Remove old SOCKS5 sidecar if it exists (before removing gluetun)
     remove_socks5_sidecar(name)
@@ -581,17 +727,52 @@ def redeploy_container(
                 "Failed to remove backup container %s: %s", backup_container_name, e
             )
 
-        # 8. Start previously stopped dependents
-        if stopped_deps:
-            started = []
-            for dep_name in stopped_deps:
-                try:
-                    dep = client.containers.get(dep_name)
-                    dep.start()
-                    started.append(dep_name)
-                except Exception as e:
-                    logger.warning("Failed to start dependent %s: %s", dep_name, e)
-            logger.info("Restarted %d dependents after redeploy", len(started))
+        # 8. Recreate dependents against the NEW gluetun container.
+        #    `deploy_name` may differ from the original `name` if the user
+        #    renamed the gluetun. The new gluetun is named `gluetun-{deploy_name}`.
+        new_gluetun_name = f"gluetun-{deploy_name}"
+        new_network_mode = f"container:{new_gluetun_name}"
+        recreated_deps: list[dict] = []
+        for snap in captured_deps:
+            try:
+                new_dep_id = _recreate_dependent_on_network(
+                    snap, new_network_mode
+                )
+                recreated_deps.append(
+                    {
+                        "name": snap["name"],
+                        "old_id": snap.get("id"),
+                        "old_short_id": snap.get("short_id"),
+                        "new_id": new_dep_id,
+                    }
+                )
+                if not snap.get("was_running", True):
+                    # Container was stopped before redeploy; stop the freshly
+                    # recreated one to preserve previous state.
+                    try:
+                        client.containers.get(new_dep_id).stop(timeout=10)
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.error(
+                    "Failed to recreate dependent %s on new gluetun: %s",
+                    snap.get("name"),
+                    e,
+                )
+        if captured_deps:
+            logger.info(
+                "Recreated %d/%d dependents against new gluetun %s",
+                len(recreated_deps),
+                len(captured_deps),
+                new_gluetun_name,
+            )
+
+        # Stash mapping on a function attribute so the router can reconcile
+        # O11Container DB records (their `container_id` changed).
+        try:
+            redeploy_container.last_recreated_dependents = recreated_deps  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
         return new_id
     except Exception:
@@ -636,14 +817,33 @@ def redeploy_container(
             except Exception as e:
                 logger.warning("Failed to restore SOCKS5 sidecar for %s: %s", name, e)
 
-        # Restart previously stopped dependents even on failure rollback
-        for dep_name in stopped_deps:
+        # Recreate previously captured dependents pointing at the restored
+        # old gluetun container, so they come back online after rollback.
+        rollback_network_mode = f"container:{old_docker_name}"
+        for snap in captured_deps:
             try:
-                dep = client.containers.get(dep_name)
-                dep.start()
+                # If a partially-created replacement still exists from the
+                # success path, get rid of it first.
+                try:
+                    existing = client.containers.get(snap["name"])
+                    existing.remove(force=True)
+                except NotFound:
+                    pass
+                except Exception:
+                    pass
+                new_dep_id = _recreate_dependent_on_network(
+                    snap, rollback_network_mode
+                )
+                if not snap.get("was_running", True):
+                    try:
+                        client.containers.get(new_dep_id).stop(timeout=10)
+                    except Exception:
+                        pass
             except Exception as e:
                 logger.warning(
-                    "Failed to restart dependent %s after rollback: %s", dep_name, e
+                    "Failed to recreate dependent %s after rollback: %s",
+                    snap.get("name"),
+                    e,
                 )
 
         raise

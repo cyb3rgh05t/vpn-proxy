@@ -1296,6 +1296,31 @@ def redeploy_container(
             c.config = merged
         except Exception:
             pass
+
+        # Reconcile O11Container DB records: dependent containers were recreated
+        # against the new gluetun, so their Docker container_id changed.
+        try:
+            recreated = getattr(
+                docker_service.redeploy_container,
+                "last_recreated_dependents",
+                None,
+            ) or []
+            for dep in recreated:
+                dep_name = dep.get("name")
+                new_dep_id = dep.get("new_id")
+                if not dep_name or not new_dep_id:
+                    continue
+                rec = (
+                    db.query(O11Container)
+                    .filter(O11Container.name == dep_name)
+                    .first()
+                )
+                if rec:
+                    rec.container_id = new_dep_id
+                    rec.status = "running"
+        except Exception:
+            pass
+
         db.commit()
         return {"message": "Container redeployed successfully", "container_id": new_id}
     except Exception as e:

@@ -38,11 +38,14 @@ def _resolve_dependent_data_dir(
 
     kind="o11" -> <DATA_DIR>/o11/<name>   (OTT panels)
     kind="apps" -> <DATA_DIR>/apps/<name> (App-Catalog apps)
-    If host=True and HOST_DATA_DIR is set, use the host-side path instead.
+    If host=True, prefer the host-side path (HOST_DATA_DIR or auto-detected
+    from our own container mounts via docker_service).
     """
     sub = "apps" if kind == "apps" else "o11"
-    if host and settings.HOST_DATA_DIR:
-        return os.path.join(settings.HOST_DATA_DIR, sub, name)
+    if host:
+        host_root = docker_service._resolve_host_data_dir()
+        if host_root:
+            return os.path.join(host_root, sub, name)
     return os.path.join(os.path.abspath(settings.DATA_DIR), sub, name)
 
 

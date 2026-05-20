@@ -116,6 +116,141 @@ def pull_gluetun_image():
         return False
 
 
+def _translate_bind_source_to_host(source: str) -> str:
+    """Translate an in-container DATA_DIR path to its host-side equivalent.
+
+    When the backend runs inside a container (WORKDIR=/app, DATA_DIR=./data),
+    a bind source like ``/app/data/o11/foo`` would be silently auto-created
+    by the Docker daemon on the host as ``/app/data/o11/foo`` — leaving a
+    stray ``/app`` directory at the host's root. We resolve the host-side
+    path via ``_resolve_host_data_dir`` (which respects ``HOST_DATA_DIR`` if
+    set, else auto-detects from our own container's mounts) and rewrite
+    such in-container prefixes to the host-side path.
+    """
+    if not source:
+        return source
+    host_data = _resolve_host_data_dir()
+    if not host_data:
+        return source
+    container_data = os.path.abspath(settings.DATA_DIR).replace("\\", "/")
+    host_data = host_data.replace("\\", "/").rstrip("/")
+    src_norm = source.replace("\\", "/")
+    if src_norm == container_data:
+        return host_data
+    prefix = container_data.rstrip("/") + "/"
+    if src_norm.startswith(prefix):
+        return host_data + "/" + src_norm[len(prefix) :]
+    return source
+
+
+def _translate_bind_string(bind: str) -> str:
+    """Translate the source part of a ``src:dst[:mode]`` bind string."""
+    if not bind or ":" not in bind:
+        return bind
+    parts = bind.split(":")
+    if len(parts) >= 2:
+        translated = _translate_bind_source_to_host(parts[0])
+        if translated != parts[0]:
+            parts[0] = translated
+            return ":".join(parts)
+    return bind
+
+
+_host_data_dir_cache: dict[str, str] = {}
+
+
+def _detect_self_container_id() -> str:
+    """Best-effort detection of our own Docker container ID."""
+    # 1. /proc/self/cgroup typically has the container ID as the last path segment
+    try:
+        with open("/proc/self/cgroup", "r", encoding="utf-8") as f:
+            for line in f:
+                for part in line.strip().split("/"):
+                    cand = part.split(":")[-1]
+                    if cand.endswith(".scope"):
+                        cand = cand[: -len(".scope")]
+                    if cand.startswith("docker-"):
+                        cand = cand[len("docker-") :]
+                    if len(cand) >= 12 and all(
+                        c in "0123456789abcdef" for c in cand[:12]
+                    ):
+                        return cand
+    except OSError:
+        pass
+    # 2. /proc/self/mountinfo on newer kernels contains the container ID
+    try:
+        with open("/proc/self/mountinfo", "r", encoding="utf-8") as f:
+            for line in f:
+                if "/docker/containers/" in line:
+                    after = line.split("/docker/containers/", 1)[1]
+                    cand = after.split("/", 1)[0]
+                    if len(cand) >= 12 and all(
+                        c in "0123456789abcdef" for c in cand[:12]
+                    ):
+                        return cand
+    except OSError:
+        pass
+    # 3. Fallback to /etc/hostname (Docker default = short container ID)
+    try:
+        with open("/etc/hostname", "r", encoding="utf-8") as f:
+            cand = f.read().strip()
+        if len(cand) >= 12 and all(c in "0123456789abcdef" for c in cand[:12]):
+            return cand
+    except OSError:
+        pass
+    return ""
+
+
+def _resolve_host_data_dir() -> str:
+    """Return the host-side path corresponding to ``settings.DATA_DIR``.
+
+    Order of resolution:
+
+    1. Explicit ``HOST_DATA_DIR`` setting.
+    2. Auto-detect by inspecting our own container's bind mounts via Docker
+       (requires that the backend itself runs in a container with the Docker
+       socket mounted, which is our standard deployment).
+    3. Empty string — caller should fall back to in-container DATA_DIR but
+       must accept that this is fragile.
+
+    The result is cached for the lifetime of the process.
+    """
+    if settings.HOST_DATA_DIR:
+        return settings.HOST_DATA_DIR
+    if "value" in _host_data_dir_cache:
+        return _host_data_dir_cache["value"]
+
+    detected = ""
+    try:
+        container_id = _detect_self_container_id()
+        if container_id:
+            target = os.path.abspath(settings.DATA_DIR).replace("\\", "/").rstrip("/")
+            client = _get_client()
+            me = client.containers.get(container_id)
+            for m in me.attrs.get("Mounts", []) or []:
+                dest = (m.get("Destination") or "").replace("\\", "/").rstrip("/")
+                if dest == target:
+                    detected = (m.get("Source") or "").rstrip("/")
+                    break
+    except Exception as e:
+        logger.debug("Auto-detect of HOST_DATA_DIR failed: %s", e)
+
+    _host_data_dir_cache["value"] = detected
+    if detected:
+        logger.info(
+            "Auto-detected HOST_DATA_DIR=%s from own container mounts (DATA_DIR=%s)",
+            detected,
+            settings.DATA_DIR,
+        )
+    else:
+        logger.warning(
+            "HOST_DATA_DIR is not configured and could not be auto-detected; "
+            "Docker bind mounts may resolve to in-container paths (e.g. /app/data) "
+            "and create unwanted host directories. Set HOST_DATA_DIR explicitly."
+        )
+    return detected
+
+
 def create_socks5_sidecar(
     name: str, gluetun_container_name: str, port: int = 1080
 ) -> str | None:
@@ -320,9 +455,12 @@ def create_container(
             "Failed to write Gluetun auth config %s: %s", auth_config_path, e
         )
 
-    # Use HOST_DATA_DIR for Docker bind mounts when running inside a container
-    if settings.HOST_DATA_DIR:
-        gluetun_mount = os.path.join(settings.HOST_DATA_DIR, "gluetun", name)
+    # Use the host-side data path for Docker bind mounts when running inside
+    # a container. ``_resolve_host_data_dir`` respects ``HOST_DATA_DIR`` if
+    # set and otherwise auto-detects from our own container's mounts.
+    host_data_dir = _resolve_host_data_dir()
+    if host_data_dir:
+        gluetun_mount = os.path.join(host_data_dir, "gluetun", name)
     else:
         gluetun_mount = gluetun_data
 
@@ -330,7 +468,7 @@ def create_container(
     logger.info(
         "Container %s mount paths: HOST_DATA_DIR=%r, gluetun_data=%s, gluetun_mount=%s",
         name,
-        settings.HOST_DATA_DIR,
+        host_data_dir,
         gluetun_data,
         gluetun_mount,
     )
@@ -483,7 +621,7 @@ def _capture_dependent_config(container) -> dict:
         "entrypoint": cfg.get("Entrypoint"),
         "environment": env_dict,
         "labels": dict(cfg.get("Labels") or {}),
-        "binds": list(host.get("Binds") or []),
+        "binds": [_translate_bind_string(b) for b in (host.get("Binds") or [])],
         "devices": list(host.get("Devices") or []),
         "cap_add": list(host.get("CapAdd") or []),
         "cap_drop": list(host.get("CapDrop") or []),
@@ -2146,6 +2284,7 @@ def create_o11_container(
             target = v.get("target", "").strip()
             mode = v.get("mode", "rw").strip()
             if source and target:
+                source = _translate_bind_source_to_host(source)
                 volume_bindings[source] = {"bind": target, "mode": mode}
 
     # Build container labels
@@ -2306,9 +2445,10 @@ def redeploy_o11_container(
             target = v.get("target", "").strip()
             mode = v.get("mode", "rw").strip()
             if source and target:
+                source = _translate_bind_source_to_host(source)
                 new_volumes.append(f"{source}:{target}:{mode}")
     else:
-        new_volumes = old_volumes
+        new_volumes = [_translate_bind_string(b) for b in old_volumes]
 
     # Build new restart policy
     if restart_policy is not None:

@@ -4,6 +4,7 @@ import platform
 from fastapi import APIRouter, Depends
 from app.config import settings
 from app.models.user import User
+from app.services import docker_service
 from app.utils.security import get_current_user
 
 try:
@@ -50,7 +51,12 @@ def docker_status(current_user: User = Depends(get_current_user)):
         result["containers_running"] = info.get("ContainersRunning", 0)
         result["containers_total"] = info.get("Containers", 0)
         result["images"] = info.get("Images", 0)
-        result["host_data_dir"] = settings.HOST_DATA_DIR or "(not set)"
+        resolved_host_data = docker_service._resolve_host_data_dir()
+        result["host_data_dir"] = settings.HOST_DATA_DIR or (
+            f"{resolved_host_data} (auto-detected)"
+            if resolved_host_data
+            else "(not set)"
+        )
         result["data_dir"] = os.path.abspath(settings.DATA_DIR)
     except Exception as e:
         logger.error("Docker connection test failed: %s", e)
